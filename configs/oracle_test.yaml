@@ -1,0 +1,107 @@
+# 오라클 시험 — 이 프로젝트가 성립하는지를 묻는 설정.
+#
+# ── 왜 이 파일이 존재하는가 ──────────────────────────────────────────────
+# 우리 성공 기준은 "잡초 위에 정확히 선다"이다. 그러려면 **잡초가 실제로 어디 있는지**를
+# 알아야 채점을 한다. 그런데 CropCraft 는 잡초 좌표를 안 내보낸다:
+#
+#   FieldState = { beds, leaf_area }        ← weeds 필드가 없다
+#   Weed       = { density, distance_min, scattering_mode, ... }   ← 좌표가 없다
+#
+# 잡초는 Blender 지오메트리 노드가 뿌리는 인스턴스라서 좌표가 파이썬에 존재한 적이 없다.
+# 좌표가 없으면 채점을 못 하고, 채점을 못 하면 이 프로젝트는 성립하지 않는다.
+#
+# ── 트릭 ────────────────────────────────────────────────────────────────
+# 소스를 읽어보니 **작물과 잡초는 에셋의 속성이 아니라 설정에서 부여되는 것**이다.
+# 두 경로가 완전히 같은 함수를 호출한다:
+#
+#   core/beds.py:60,144   get_model_list_by_height(type, height, tol)   ← 작물 경로
+#   core/ground.py:58     get_model_list_by_height(type, height, tol)   ← 잡초 경로
+#
+# 식물 종류는 그냥 문자열이다. 즉 `polygonum`(마디풀)을 **beds: 블록에 선언하면**
+# CropCraft 는 그걸 작물처럼 취급해서 PlantState(x, y, z, ...) 를 만들어 준다.
+# 우리는 그걸 잡초로 채점하면 된다. **코드 수정 0줄.**
+#
+#   beds:  에 선언한 잡초  → 좌표 있음 → 채점 대상
+#   weeds: 에 선언한 잡초  → 좌표 없음 → 채점 안 하는 방해물(distractor)
+#
+# 방해물이 필요한 이유: 채점 대상만 있으면 인식기가 "잡초는 다 좌표가 있다"는 걸
+# 배울 수는 없지만(좌표를 안 보니까), 밭이 너무 깨끗해서 현실성이 떨어진다.
+# 실제 밭에는 우리가 세지 않는 잡초도 있다.
+
+output:
+  gazebo:
+    type: gazebo_model
+    name: oracle_test
+  # 이게 오라클이다. 여기서 좌표가 나와야 한다.
+  description:
+    type: field_description
+    filename: oracle_test.json
+
+field:
+  # 시드를 고정하면 같은 밭이 다시 나온다. 이게 train/eval 분리의 기반이 된다.
+  random_seed: 42
+
+  headland_width: 1.0
+  scattering_extra_width: 0.5
+  bed_width: 0.9        # 농진청 평이랑 (두둑 폭)
+  length: 3.0
+
+  beds:
+    # ── 작물 ────────────────────────────────────────────────────────────
+    # CropCraft 가 배포하는 작물은 bean 과 maize 뿐이다. 상추 메시는 없다.
+    # bean_big 이 21.7cm 라 상추(20~25cm)와 키가 맞는다. 대역(proxy)으로 쓴다.
+    # ⚠️ 이건 상추가 아니라 "상추 키의 콩"이다. README 에 그렇게 적을 것.
+    lettuce:
+      plant_type: bean
+      # shift_next_bed: false 가 핵심이다.
+      # beds.py:217 → `if bed.shift_next_bed: self.cur_bed_offset += cur_width`
+      # 기본값(true)이면 각 bed 가 새 y 구간으로 밀려나서, 잡초가 작물 사이가 아니라
+      # 따로 떨어진 띠에 심긴다. false 로 두면 세 bed 가 같은 y 구간에 겹쳐서
+      # 잡초가 작물 사이로 들어간다 — 그게 우리가 원하는 밭이다.
+      shift_next_bed: false
+      plant_height: 0.22          # → bean_big (21.7cm)
+      plant_distance: 0.20        # 농진청 상추 포기간격
+      row_distance: 0.20          # 농진청 상추 줄간격
+      rows_count: 4               # 90cm 두둑에 4줄
+      plants_count: 15
+
+    # ── 채점 대상 잡초 (여기가 트릭이다) ─────────────────────────────────
+    # beds: 에 선언했으므로 description.json 에 좌표가 나온다.
+    #
+    # polygonum(마디풀) = 주인공. 2.3~8.0cm 라 Tertill 의 2.54cm 임계값을 넘는
+    # 개체가 7개 중 6개 → 키 규칙이 "작물"이라 부르고 살려보낸다.
+    target_polygonum:
+      plant_type: polygonum
+      shift_next_bed: false       # 작물과 같은 y 구간에 겹치게
+      plant_height: 0.07
+      plant_distance: 0.55        # 작물과 공약수가 아니게 (겹쳐 보이지 않게)
+      rows_count: 2
+      row_distance: 0.35
+      plants_count: 5
+      offset: [0.13, 0.0, 0.0]    # 작물 격자와 어긋나게
+
+    # portulaca(쇠비름) = 대조군. 1.0~2.6cm 포복형이라 키 규칙이 **통한다**.
+    # 이걸 빼면 모든 잡초가 규칙을 이기고, 그러면 실험이 조작으로 보인다.
+    # 지는 칸이 있어야 표를 믿는다. AI Hub 527 에 실사진 28,008장이 있는 종이기도 하다.
+    target_portulaca:
+      plant_type: portulaca
+      plant_height: 0.02
+      plant_distance: 0.47
+      rows_count: 2
+      row_distance: 0.4
+      plants_count: 5
+      offset: [0.29, 0.0, 0.0]
+
+  # ── 채점 안 하는 방해물 ─────────────────────────────────────────────────
+  # 좌표가 안 나온다. 밭을 현실적으로 만드는 용도.
+  weeds:
+    clutter_taraxacum:
+      plant_type: taraxacum
+      density: 3.0
+      max_height: 0.06
+
+  noise:
+    position: 0.02
+    tilt: 0.08
+    missing: 0.1
+    scale: 0.12
