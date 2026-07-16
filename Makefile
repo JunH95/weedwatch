@@ -7,7 +7,13 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden blender-gpu cropcraft clean-sim clean
+.PHONY: help doctor test smoke garden view blender-gpu cropcraft clean-sim clean
+
+# 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
+# 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
+WORLD ?= worlds/garden_ridge.sdf
+view:
+	@scripts/view.sh $(WORLD)
 
 help:
 	@echo "make doctor      - 환경이 멀쩡한지 단언 (파이썬 3.10 / rclpy / EGL / NVIDIA / Blender GPU)"
@@ -15,6 +21,7 @@ help:
 	@echo "make test      - 순수 단위 테스트 (시뮬·GPU 불필요, 밀리초)"
 	@echo "make smoke     - 헤드리스 GPU 렌더링 전 과정 + 게이트 2개 단언"
 	@echo "make garden    - 주말농장 지형 생성 + 렌더 (기하학 눈으로 확인용)"
+	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make clean-sim - 좀비 ign 서버 정리"
 

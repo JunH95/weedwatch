@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/env.sh:*)",
+      "Bash(scripts/cropcraft.sh:*)",
+      "Bash(tools/run_headless.sh:*)",
+      "Bash(make:*)",
+      "Bash(git:*)",
+      "Bash(blender:*)",
+      "Bash(/usr/bin/python3:*)",
+      "Bash(ls:*)", "Bash(grep:*)", "Bash(find:*)",
+      "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)",
+      "Bash(rm -rf artifacts)", "Bash(rm -f worlds/_*)"
+    ]
+  }
+}
