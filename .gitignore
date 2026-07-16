@@ -25,3 +25,6 @@ models/
 data/aihub/
 
 .vscode/
+
+# 남의 저장소는 커밋하지 않는다. make cropcraft 가 고정된 SHA 로 가져온다.
+third_party/

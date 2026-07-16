@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden blender-gpu clean-sim clean
+.PHONY: help doctor test smoke garden blender-gpu cropcraft clean-sim clean
 
 help:
 	@echo "make doctor      - 환경이 멀쩡한지 단언 (파이썬 3.10 / rclpy / EGL / NVIDIA / Blender GPU)"
@@ -15,12 +15,30 @@ help:
 	@echo "make test      - 순수 단위 테스트 (시뮬·GPU 불필요, 밀리초)"
 	@echo "make smoke     - 헤드리스 GPU 렌더링 전 과정 + 게이트 2개 단언"
 	@echo "make garden    - 주말농장 지형 생성 + 렌더 (기하학 눈으로 확인용)"
+	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make clean-sim - 좀비 ign 서버 정리"
 
 # 산수로 답할 수 있는 건 시뮬로 확인하지 않는다. 느리고 불안정하고 GPU가 필요하니까.
 # "로봇이 두둑을 탈 수 있나"는 산수다. 밀리초 안에 끝난다.
 test:
 	@$(ENV) python3 -m pytest tests/ -q
+
+# CropCraft(정원 생성기)를 고정된 커밋으로 가져온다.
+# SHA 를 박아두는 이유: 데이터셋은 (설정 + 시드 + CropCraft SHA + Blender 버전)의 함수다.
+# 넷 중 하나라도 흐르면 어제 만든 정원을 오늘 다시 못 만든다.
+CROPCRAFT_SHA := 7128cd2acade50cc4a5a1761210b55989ab62527
+
+cropcraft:
+	@if [ ! -d third_party/cropcraft ]; then \
+	  mkdir -p third_party && git clone -q https://github.com/Romea/cropcraft.git third_party/cropcraft; \
+	fi
+	@cd third_party/cropcraft && git fetch -q --depth 1 origin $(CROPCRAFT_SHA) 2>/dev/null; \
+	  git checkout -q $(CROPCRAFT_SHA)
+	@echo "CropCraft $(CROPCRAFT_SHA) 준비됨"
+	@# Blender 번들 파이썬(3.11)에 의존성을 넣는다. snap 이 읽기 전용이라 pip 이
+	@# ~/.local/lib/python3.11 로 물러난다 — 그래서 cropcraft.sh 가 user site 를 켜둔다.
+	@/snap/blender/current/5.0/python/bin/python3.11 -m pip install --user -q \
+	  pyyaml msgpack pillow appdirs && echo "Blender 파이썬 의존성 설치됨"
 
 # Blender Cycles GPU 켜기. 한 번만 하면 ~/.config/blender 에 저장돼서 계속 유지된다.
 # 안 하면 Cycles가 아무 말 없이 CPU로 렌더링한다 — 이게 이 프로젝트에서 가장 조용한 함정이다.
