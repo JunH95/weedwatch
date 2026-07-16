@@ -1,0 +1,119 @@
+<?xml version="1.0" ?>
+<!--
+  Stage 0 스모크 월드.
+
+  이 파일의 목적은 딱 하나를 확인하는 것이다:
+  "사람이 화면을 안 보고 있어도, 이 노트북에서 시뮬을 돌려서
+   진짜 GPU가 그린 카메라 사진을 받아올 수 있는가?"
+
+  이게 안 되면 이 프로젝트의 대전제("Claude가 만들고 Claude가 스스로 검증한다")가
+  통째로 무너진다. 그러니 6주차가 아니라 1일차에 확인한다.
+
+  실행:  make smoke
+
+  ── 실수하기 쉬운 곳 (전부 직접 데어봄) ──────────────────────────────
+  -r      필수. 시뮬은 기본이 "일시정지" 상태다. 이걸 빼면 시계가 안 흐르고
+          카메라가 한 장도 안 찍는데, 증상이 그래픽 고장과 똑같아 보인다.
+  -s      서버만 실행. 렌더링은 서버 쪽에서 하므로 이것만으로 사진이 나온다.
+  ogre2   화면 없는 렌더링(EGL)은 ogre2에서만 된다. ogre로 흘러가면 조용히 죽는다.
+  구독자  카메라는 "누가 보고 있을 때만" 렌더링한다. 아무도 토픽을 구독 안 하면
+          사진이 0장 나온다 — 에러 한 줄 없이. tools/run_headless.sh 가 처리한다.
+-->
+<sdf version="1.9">
+  <world name="smoke">
+
+    <!-- 물리 계산 간격 1ms. 1000스텝 = 시뮬 1초. -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="ignition-gazebo-physics-system"
+            name="ignition::gazebo::systems::Physics"/>
+    <!-- 이게 카메라를 실제로 그리는 부분. 서버 안에서 별도 스레드로 돈다. -->
+    <plugin filename="ignition-gazebo-sensors-system"
+            name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system"
+            name="ignition::gazebo::systems::SceneBroadcaster"/>
+
+    <!-- 햇빛. 그림자를 켜두는 게 중요하다 — 그림자가 나오면 조명 계산이
+         제대로 돌고 있다는 뜻이고, 나중에 잡초를 알아보는 데 직결된다. -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.5 0.3 -0.9</direction>
+    </light>
+
+    <!-- 흙색 바닥. 일부러 회색을 피했다. 온통 회색인 화면은 "렌더링 실패"와
+         구분이 안 되는데, 우리는 화면이 얼마나 다채로운지로 성공을 판정한다. -->
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>
+          <material>
+            <ambient>0.35 0.25 0.16 1</ambient>
+            <diffuse>0.55 0.40 0.26 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 초록 상자 (나중에 이 자리에 진짜 식물이 온다).
+         이걸로 실패 3종류를 구분할 수 있다:
+           흙색 위에 초록 → 성공
+           새까만 화면    → 그래픽이 소프트웨어 렌더러로 흘러감
+           파일이 없음    → 카메라가 아예 안 찍음 (구독자 없거나 -r 빠뜨림) -->
+    <model name="target">
+      <static>true</static>
+      <pose>1.2 0 0.15 0 0 0.4</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.3 0.3 0.3</size></box></geometry>
+          <material>
+            <ambient>0.10 0.35 0.10 1</ambient>
+            <diffuse>0.20 0.75 0.18 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 카메라. 높이 60cm에서 비스듬히 아래를 본다 —
+         나중에 만들 포탈형 로봇의 카메라 위치와 대충 비슷하게 잡아뒀다. -->
+    <model name="camera_rig">
+      <static>true</static>
+      <pose>0 0 0.6 0 0.5 0</pose>
+      <link name="link">
+        <sensor name="cam" type="camera">
+          <topic>smoke/image</topic>
+          <update_rate>10</update_rate>
+          <always_on>1</always_on>
+          <camera>
+            <horizontal_fov>1.047</horizontal_fov>   <!-- 60도 -->
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip><near>0.05</near><far>50</far></clip>
+            <!-- 서버가 직접 PNG로 저장한다. ROS도, 브리지도, 별도 노드도 필요 없다 —
+                 GPU 렌더링이 되는지 증명하는 데 필요한 최소한의 장치. -->
+            <save enabled="true">
+              <path>artifacts/smoke</path>
+            </save>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+  </world>
+</sdf>

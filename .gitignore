@@ -1,0 +1,27 @@
+# colcon
+build/
+install/
+log/
+
+# smoke/test artifacts
+artifacts/
+*.png
+*.mp4
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# datasets & models are build artifacts — regenerate from (config, seed, SHA)
+datasets/
+models/
+*.pt
+*.blend
+*.blend1
+
+# AI Hub data is redistribution-prohibited. Never commit it.
+data/aihub/
+
+.vscode/
