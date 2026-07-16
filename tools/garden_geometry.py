@@ -59,12 +59,49 @@ class Garden:
 
 @dataclass(frozen=True)
 class Portal:
-    """포탈형 로봇의 기하학. docs/DECISIONS.md 006 참고."""
+    """포탈형 로봇의 기하학. docs/DECISIONS.md 006, 010, 012 참고.
 
+    이 dataclass 가 로봇 치수의 단일 출처다. URDF 도, Blender 몸체 생성기
+    (tools/robot_body.py)도, 테스트도 전부 여기서 읽는다. 숫자가 두 곳에 적히면
+    반드시 어긋난다. (docs/DECISIONS.md 012 — Blender bpy 를 이 숫자로 파라메트릭 생성)
+
+    실루엣은 AVO/Aigen 을 인용한다 (docs/DECISIONS.md 010):
+    "바퀴 달린 테이블 + 그 아래 매달린 도구." 태양광 데크가 상판이고, 다리·바퀴·
+    캐리지·도구가 전부 그 아래 매달린다. 상판 위로 튀어나오는 건 아무것도 없다.
+    """
+
+    # ── 구동/기하 (걸터타기 검증에 쓰이는 것들) ──────────────────────────
     wheel_dia: float = 0.22
     wheel_width: float = 0.08
-    clearance: float = 0.60  # 고랑 바닥 ~ 빔 아랫면
+    clearance: float = 0.60  # 고랑 바닥 ~ 빔(=데크) 아랫면
     beam_height: float = 0.08
+
+    # ── 태양광 데크 = 상판 (AVO 실루엣의 핵심) ───────────────────────────
+    # 트랙(120cm)보다 좌우로 10cm씩 내밀어 128 → 140cm. 그 오버행이 "카트"가 아니라
+    # "기계"로 보이게 한다 (AVO 는 바퀴 밖으로 22~37cm 내민다). 패널 면적도 +9%.
+    deck_length: float = 0.75  # 주행 방향 (앞뒤)
+    deck_overhang: float = 0.10  # 트랙 대비 한쪽 오버행 → 전폭 = track + 2*overhang
+    deck_thickness: float = 0.03  # ETFE 라미네이트 (유리 아님 — 무게 때문, 010)
+
+    # ── 다리 (데크 네 귀퉁이 → 고랑의 바퀴) ──────────────────────────────
+    leg_width: float = 0.05  # 다리 단면 (사각기둥)
+
+    # ── Y 캐리지 (빔을 따라 좌우로 = 두둑 폭을 훑음) ─────────────────────
+    carriage_travel: float = 0.45  # 중심에서 한쪽으로 ±0.45 (두둑 90cm 커버)
+    carriage_size: float = 0.10  # 캐리지 본체 한 변
+
+    # ── Z 축 (막대가 아래로 = 점 타격 + 카메라 하강) ────────────────────
+    # docs/DECISIONS.md 009: 점 타격, 로봇팔 아님. 직선 레일 하나.
+    z_travel: float = 0.35  # 데크 아래에서 두둑 위까지 내려가는 행정
+    tool_rod_dia: float = 0.012  # 1.2cm 막대 (BoniRob 수치 인용)
+
+    # ── 카메라 (캐리지에 강체 고정, 아래를 봄) ──────────────────────────
+    # 캐리지에 붙어서 툴 팁이 항상 같은 픽셀에 온다 → 헤드리스 픽셀 단언이 됨.
+    camera_height_above_bed: float = 0.35  # 두둑 윗면에서 카메라까지 (px/cm 계산의 그 35cm)
+
+    # ── 배터리 베이 (앞쪽, 무게중심 낮게 — Aigen 인용) ──────────────────
+    # 128cm 폭에 고랑 30cm 위 60cm 높이라 넘어지기 쉽다. 무게를 낮고 앞에 둔다.
+    battery_size: float = 0.12
 
     def track(self, g: Garden) -> float:
         """좌우 바퀴 중심 거리.
@@ -94,6 +131,24 @@ class Portal:
     def required_clearance(self, g: Garden, margin: float = 0.10) -> float:
         """두둑 + 작물 + 여유."""
         return g.bed_height + g.crop_height + margin
+
+    # ── 몸체 생성기(robot_body.py)와 URDF 가 읽는 파생 치수 ──────────────
+
+    def deck_width(self, g: Garden) -> float:
+        """데크(상판) 전폭 = 트랙 + 양쪽 오버행."""
+        return self.track(g) + 2 * self.deck_overhang
+
+    def deck_top_z(self) -> float:
+        """데크 윗면 높이 (고랑 바닥 기준). 로봇에서 제일 높은 지점."""
+        return self.clearance + self.beam_height + self.deck_thickness
+
+    def leg_height(self) -> float:
+        """다리 길이 = 데크 아랫면 ~ 바퀴 축."""
+        return self.clearance + self.beam_height - self.wheel_dia / 2
+
+    def is_tippy(self, g: Garden) -> bool:
+        """넘어지기 쉬운 형상인가 (높이 > 전폭). 배터리를 낮게 둬야 하는 근거."""
+        return self.deck_top_z() > self.deck_width(g)
 
 
 def parking_y(g: Garden, bed_index: int = 0) -> float:
