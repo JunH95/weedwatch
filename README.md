@@ -106,7 +106,7 @@ $ make smoke
 | 시뮬 | Ignition **Fortress** 6.17.0 + ROS 2 **Humble** (Ubuntu 22.04) |
 | 정원 생성 | [CropCraft](https://github.com/Romea/cropcraft) (INRAE) + Blender 5.0.1 |
 | 인식 | 의미분할 (합성 데이터로 학습) |
-| 로봇 | 포탈형 — 고랑에 바퀴, 두둑을 타고 넘음. Y/Z 직교 관절로 잡초에 접근 |
+| 로봇 | 포탈형 — 두둑 하나를 걸터타고 양쪽 고랑을 달림. Y/Z 직교 관절로 잡초에 접근 |
 | 제거 | **스탬핑** — Bosch BoniRob 방식(1cm 막대로 흙 속 3cm 압입) |
 
 **제거를 자르기가 아니라 스탬핑으로 하는 이유**: 스탬핑은 강체 물리라 정직하게 시뮬된다.
