@@ -7,10 +7,11 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden clean-sim clean
+.PHONY: help doctor test smoke garden blender-gpu clean-sim clean
 
 help:
-	@echo "make doctor    - 환경이 멀쩡한지 단언 (파이썬 3.10 / rclpy / EGL / NVIDIA)"
+	@echo "make doctor      - 환경이 멀쩡한지 단언 (파이썬 3.10 / rclpy / EGL / NVIDIA / Blender GPU)"
+	@echo "make blender-gpu - Blender Cycles가 GPU를 쓰도록 켠다 (한 번만)"
 	@echo "make test      - 순수 단위 테스트 (시뮬·GPU 불필요, 밀리초)"
 	@echo "make smoke     - 헤드리스 GPU 렌더링 전 과정 + 게이트 2개 단언"
 	@echo "make garden    - 주말농장 지형 생성 + 렌더 (기하학 눈으로 확인용)"
@@ -20,6 +21,11 @@ help:
 # "로봇이 두둑을 탈 수 있나"는 산수다. 밀리초 안에 끝난다.
 test:
 	@$(ENV) python3 -m pytest tests/ -q
+
+# Blender Cycles GPU 켜기. 한 번만 하면 ~/.config/blender 에 저장돼서 계속 유지된다.
+# 안 하면 Cycles가 아무 말 없이 CPU로 렌더링한다 — 이게 이 프로젝트에서 가장 조용한 함정이다.
+blender-gpu:
+	@blender --background --python tools/blender_gpu.py -- setup 2>/dev/null | grep -vE '^(Blender|Read|found)' 
 
 # 지형 생성 + 렌더. 기하학이 말이 되는지 사람(과 에이전트)이 눈으로 보는 용도.
 # 진짜 검증은 make test 가 한다 — 눈으로 보는 건 확장이 안 된다.
@@ -46,6 +52,14 @@ doctor:
 	@$(ENV) sh -c 'test -f "$$__EGL_VENDOR_LIBRARY_FILENAMES" && echo "  $$__EGL_VENDOR_LIBRARY_FILENAMES"'
 	@echo "== X 없이 GPU가 보이는가 =="
 	@$(ENV) sh -c 'test -c /dev/nvidia0 && echo "  /dev/nvidia0 있음 (권한 0666, X 세션 불필요)"'
+	@echo "== Blender =="
+	@blender --version 2>/dev/null | head -1 | sed 's/^/  /'
+	@echo "== Blender Cycles GPU (안 켜져 있으면 경고 없이 10배 느려진다) =="
+	@# grep 에 파이프하면 종료 코드가 가려져서 GPU가 꺼져 있어도 doctor 가 통과한다.
+	@# 실패할 수 없는 검사는 검사가 아니므로, 출력은 파일로 받고 종료 코드는 살린다.
+	@blender --background --python tools/blender_gpu.py -- check >/tmp/ww_gpu.log 2>&1; \
+	  rc=$$?; grep -E '백엔드|활성 장치|사용 중|통과|실패|고치려면' /tmp/ww_gpu.log | sed 's/^/  /'; \
+	  exit $$rc
 	@echo "doctor: OK"
 
 # 이 프로젝트 전체가 성립하는지를 묻는 시험.

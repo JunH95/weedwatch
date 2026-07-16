@@ -126,6 +126,36 @@ ogre2 + EGL 컨텍스트 만드는 데 1~2초 걸린다. 물리는 그보다 빨
 #                            └ 서버만 (렌더링은 서버에 있으므로 -s로 충분)
 ```
 
+---
+
+## Blender 함정
+
+### Cycles는 기본이 **CPU**다. 경고 없이.
+새로 깔면 `compute_device_type = 'NONE'`이고, 스크립트에서 `scene.cycles.device = 'GPU'`라고
+써놔도 **조용히 무시되고 CPU로 돈다.** 에러도 경고도 로그도 없다. 그냥 10배 느릴 뿐이다.
+환경변수로 우회할 방법이 없다 — 설정 파일을 한 번 만들어두는 게 유일한 방법이다.
+
+```bash
+make blender-gpu    # 한 번만. OPTIX로 켜고 userpref.blend 에 저장
+```
+렌더링하는 코드는 `tools/blender_gpu.py check`로 먼저 확인할 것. 조용히 CPU로 도는 걸 막는다.
+
+### 측정된 렌더 시간 (이 컴퓨터, 2026-07-16)
+1920×1080 / 32샘플 / 식물 800개 / OPTIX 기준 **장당 11.2초** (장면 빌드 8초는 여러 장에 분산됨).
+→ 논문 헤드라인 재현(1,050장) ≈ **3.5시간**. 하룻밤이면 된다.
+GPU vs CPU는 이 크기에서 1.7배지만, 작은 장면이라 시작 오버헤드가 지배한 수치다.
+
+### 버전은 5.0.1 고정. 마음대로 올리지 말 것.
+`snap install blender --channel=5.0/stable --classic` → 5.0.1 (번들 파이썬 3.11.13).
+- apt는 3.0.1 → CropCraft 최소 요구(4.0) 미달
+- **4.2 / 4.5 LTS는 실제로 깨진다** — CropCraft가 쓰는 `BLENDER_EEVEE`가 4.2에서
+  `BLENDER_EEVEE_NEXT`로 개명됐다가 5.0에서 되돌아왔다
+- 채널을 고정해야 snap 자동 업데이트가 5.2/5.3으로 밀어버리지 않는다
+
+---
+
+## Gazebo 자산 함정
+
 ### 메시 포맷은 **OBJ**다
 Fortress 로더는 DAE/OBJ/STL만 지원하고(glTF **없음**), PBR 재질을 실을 수 있는 건 OBJ+MTL뿐인데,
 Blender 5.0이 DAE export를 없앴다. 이 삼각형의 유일한 해가 OBJ다.
