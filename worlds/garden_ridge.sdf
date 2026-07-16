@@ -1,0 +1,1521 @@
+<?xml version="1.0" ?>
+<!--
+  주말농장 지형 — tools/make_garden_world.py 가 생성함. 직접 고치지 말 것.
+
+  두둑 2개 · 폭 90cm · 높이 25cm · 길이 4.0m
+  고랑 폭 30cm · 두둑 간격(pitch) 120cm
+  → 포탈 로봇 트랙 120cm (바퀴가 고랑 한가운데)
+  → 필요 클리어런스 60cm = 두둑 25 + 상추 25 + 여유 10
+
+  근거: 농촌진흥청 농사로 — 두둑 높이 20~30cm, 고랑 폭 30cm 내외, 평이랑 90~120cm
+-->
+<sdf version="1.9">
+  <world name="garden">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="ignition-gazebo-physics-system"
+            name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-sensors-system"
+            name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system"
+            name="ignition::gazebo::systems::SceneBroadcaster"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.5 -0.85</direction>
+    </light>
+
+    <!-- 고랑 바닥 = 기준면 z=0. 로봇 바퀴가 굴러가는 곳. -->
+    <model name="furrow_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>30 30</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>30 30</size></plane></geometry>
+          <material>
+            <ambient>0.28 0.20 0.13 1</ambient>
+            <diffuse>0.45 0.33 0.21 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 두둑 1 · 중심 y=-0.60m · 윗면 z=0.25m -->
+    <model name="bed_1">
+      <static>true</static>
+      <pose>0 -0.600 0.125 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+          <material>
+            <ambient>0.32 0.23 0.15 1</ambient>
+            <diffuse>0.52 0.38 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="crop_1_0_0">
+      <static>true</static>
+      <pose>-1.800 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_1">
+      <static>true</static>
+      <pose>-1.600 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_2">
+      <static>true</static>
+      <pose>-1.400 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_3">
+      <static>true</static>
+      <pose>-1.200 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_4">
+      <static>true</static>
+      <pose>-1.000 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_5">
+      <static>true</static>
+      <pose>-0.800 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_6">
+      <static>true</static>
+      <pose>-0.600 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_7">
+      <static>true</static>
+      <pose>-0.400 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_8">
+      <static>true</static>
+      <pose>-0.200 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_9">
+      <static>true</static>
+      <pose>0.000 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_10">
+      <static>true</static>
+      <pose>0.200 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_11">
+      <static>true</static>
+      <pose>0.400 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_12">
+      <static>true</static>
+      <pose>0.600 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_13">
+      <static>true</static>
+      <pose>0.800 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_14">
+      <static>true</static>
+      <pose>1.000 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_15">
+      <static>true</static>
+      <pose>1.200 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_16">
+      <static>true</static>
+      <pose>1.400 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_17">
+      <static>true</static>
+      <pose>1.600 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_0_18">
+      <static>true</static>
+      <pose>1.800 -0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_0">
+      <static>true</static>
+      <pose>-1.800 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_1">
+      <static>true</static>
+      <pose>-1.600 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_2">
+      <static>true</static>
+      <pose>-1.400 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_3">
+      <static>true</static>
+      <pose>-1.200 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_4">
+      <static>true</static>
+      <pose>-1.000 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_5">
+      <static>true</static>
+      <pose>-0.800 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_6">
+      <static>true</static>
+      <pose>-0.600 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_7">
+      <static>true</static>
+      <pose>-0.400 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_8">
+      <static>true</static>
+      <pose>-0.200 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_9">
+      <static>true</static>
+      <pose>0.000 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_10">
+      <static>true</static>
+      <pose>0.200 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_11">
+      <static>true</static>
+      <pose>0.400 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_12">
+      <static>true</static>
+      <pose>0.600 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_13">
+      <static>true</static>
+      <pose>0.800 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_14">
+      <static>true</static>
+      <pose>1.000 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_15">
+      <static>true</static>
+      <pose>1.200 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_16">
+      <static>true</static>
+      <pose>1.400 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_17">
+      <static>true</static>
+      <pose>1.600 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_1_18">
+      <static>true</static>
+      <pose>1.800 -0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_0">
+      <static>true</static>
+      <pose>-1.800 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_1">
+      <static>true</static>
+      <pose>-1.600 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_2">
+      <static>true</static>
+      <pose>-1.400 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_3">
+      <static>true</static>
+      <pose>-1.200 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_4">
+      <static>true</static>
+      <pose>-1.000 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_5">
+      <static>true</static>
+      <pose>-0.800 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_6">
+      <static>true</static>
+      <pose>-0.600 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_7">
+      <static>true</static>
+      <pose>-0.400 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_8">
+      <static>true</static>
+      <pose>-0.200 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_9">
+      <static>true</static>
+      <pose>0.000 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_10">
+      <static>true</static>
+      <pose>0.200 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_11">
+      <static>true</static>
+      <pose>0.400 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_12">
+      <static>true</static>
+      <pose>0.600 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_13">
+      <static>true</static>
+      <pose>0.800 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_14">
+      <static>true</static>
+      <pose>1.000 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_15">
+      <static>true</static>
+      <pose>1.200 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_16">
+      <static>true</static>
+      <pose>1.400 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_17">
+      <static>true</static>
+      <pose>1.600 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_2_18">
+      <static>true</static>
+      <pose>1.800 -0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_0">
+      <static>true</static>
+      <pose>-1.800 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_1">
+      <static>true</static>
+      <pose>-1.600 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_2">
+      <static>true</static>
+      <pose>-1.400 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_3">
+      <static>true</static>
+      <pose>-1.200 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_4">
+      <static>true</static>
+      <pose>-1.000 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_5">
+      <static>true</static>
+      <pose>-0.800 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_6">
+      <static>true</static>
+      <pose>-0.600 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_7">
+      <static>true</static>
+      <pose>-0.400 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_8">
+      <static>true</static>
+      <pose>-0.200 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_9">
+      <static>true</static>
+      <pose>0.000 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_10">
+      <static>true</static>
+      <pose>0.200 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_11">
+      <static>true</static>
+      <pose>0.400 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_12">
+      <static>true</static>
+      <pose>0.600 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_13">
+      <static>true</static>
+      <pose>0.800 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_14">
+      <static>true</static>
+      <pose>1.000 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_15">
+      <static>true</static>
+      <pose>1.200 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_16">
+      <static>true</static>
+      <pose>1.400 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_17">
+      <static>true</static>
+      <pose>1.600 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_1_3_18">
+      <static>true</static>
+      <pose>1.800 -0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <!-- 두둑 2 · 중심 y=+0.60m · 윗면 z=0.25m -->
+    <model name="bed_2">
+      <static>true</static>
+      <pose>0 0.600 0.125 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+          <material>
+            <ambient>0.32 0.23 0.15 1</ambient>
+            <diffuse>0.52 0.38 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="crop_2_0_0">
+      <static>true</static>
+      <pose>-1.800 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_1">
+      <static>true</static>
+      <pose>-1.600 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_2">
+      <static>true</static>
+      <pose>-1.400 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_3">
+      <static>true</static>
+      <pose>-1.200 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_4">
+      <static>true</static>
+      <pose>-1.000 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_5">
+      <static>true</static>
+      <pose>-0.800 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_6">
+      <static>true</static>
+      <pose>-0.600 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_7">
+      <static>true</static>
+      <pose>-0.400 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_8">
+      <static>true</static>
+      <pose>-0.200 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_9">
+      <static>true</static>
+      <pose>0.000 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_10">
+      <static>true</static>
+      <pose>0.200 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_11">
+      <static>true</static>
+      <pose>0.400 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_12">
+      <static>true</static>
+      <pose>0.600 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_13">
+      <static>true</static>
+      <pose>0.800 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_14">
+      <static>true</static>
+      <pose>1.000 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_15">
+      <static>true</static>
+      <pose>1.200 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_16">
+      <static>true</static>
+      <pose>1.400 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_17">
+      <static>true</static>
+      <pose>1.600 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_0_18">
+      <static>true</static>
+      <pose>1.800 0.300 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_0">
+      <static>true</static>
+      <pose>-1.800 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_1">
+      <static>true</static>
+      <pose>-1.600 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_2">
+      <static>true</static>
+      <pose>-1.400 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_3">
+      <static>true</static>
+      <pose>-1.200 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_4">
+      <static>true</static>
+      <pose>-1.000 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_5">
+      <static>true</static>
+      <pose>-0.800 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_6">
+      <static>true</static>
+      <pose>-0.600 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_7">
+      <static>true</static>
+      <pose>-0.400 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_8">
+      <static>true</static>
+      <pose>-0.200 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_9">
+      <static>true</static>
+      <pose>0.000 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_10">
+      <static>true</static>
+      <pose>0.200 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_11">
+      <static>true</static>
+      <pose>0.400 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_12">
+      <static>true</static>
+      <pose>0.600 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_13">
+      <static>true</static>
+      <pose>0.800 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_14">
+      <static>true</static>
+      <pose>1.000 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_15">
+      <static>true</static>
+      <pose>1.200 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_16">
+      <static>true</static>
+      <pose>1.400 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_17">
+      <static>true</static>
+      <pose>1.600 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_1_18">
+      <static>true</static>
+      <pose>1.800 0.500 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_0">
+      <static>true</static>
+      <pose>-1.800 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_1">
+      <static>true</static>
+      <pose>-1.600 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_2">
+      <static>true</static>
+      <pose>-1.400 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_3">
+      <static>true</static>
+      <pose>-1.200 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_4">
+      <static>true</static>
+      <pose>-1.000 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_5">
+      <static>true</static>
+      <pose>-0.800 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_6">
+      <static>true</static>
+      <pose>-0.600 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_7">
+      <static>true</static>
+      <pose>-0.400 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_8">
+      <static>true</static>
+      <pose>-0.200 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_9">
+      <static>true</static>
+      <pose>0.000 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_10">
+      <static>true</static>
+      <pose>0.200 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_11">
+      <static>true</static>
+      <pose>0.400 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_12">
+      <static>true</static>
+      <pose>0.600 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_13">
+      <static>true</static>
+      <pose>0.800 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_14">
+      <static>true</static>
+      <pose>1.000 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_15">
+      <static>true</static>
+      <pose>1.200 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_16">
+      <static>true</static>
+      <pose>1.400 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_17">
+      <static>true</static>
+      <pose>1.600 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_2_18">
+      <static>true</static>
+      <pose>1.800 0.700 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_0">
+      <static>true</static>
+      <pose>-1.800 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_1">
+      <static>true</static>
+      <pose>-1.600 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_2">
+      <static>true</static>
+      <pose>-1.400 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_3">
+      <static>true</static>
+      <pose>-1.200 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_4">
+      <static>true</static>
+      <pose>-1.000 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_5">
+      <static>true</static>
+      <pose>-0.800 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_6">
+      <static>true</static>
+      <pose>-0.600 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_7">
+      <static>true</static>
+      <pose>-0.400 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_8">
+      <static>true</static>
+      <pose>-0.200 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_9">
+      <static>true</static>
+      <pose>0.000 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_10">
+      <static>true</static>
+      <pose>0.200 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_11">
+      <static>true</static>
+      <pose>0.400 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_12">
+      <static>true</static>
+      <pose>0.600 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_13">
+      <static>true</static>
+      <pose>0.800 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_14">
+      <static>true</static>
+      <pose>1.000 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_15">
+      <static>true</static>
+      <pose>1.200 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_16">
+      <static>true</static>
+      <pose>1.400 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_17">
+      <static>true</static>
+      <pose>1.600 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+    <model name="crop_2_3_18">
+      <static>true</static>
+      <pose>1.800 0.900 0.350 0 0 0</pose>
+      <link name="link"><visual name="visual">
+        <geometry><sphere><radius>0.09</radius></sphere></geometry>
+        <material><ambient>0.10 0.30 0.08 1</ambient>
+                  <diffuse>0.25 0.68 0.20 1</diffuse></material>
+      </visual></link>
+    </model>
+
+    <!-- 포탈 로봇 마네킹. 진짜 로봇은 Stage 2(URDF)에서 만든다.
+         지금 확인하려는 건 딱 하나: 바퀴가 고랑에 들어가고 몸체가 두둑 위를 지나가는가. -->
+    <model name="portal_mockup">
+      <static>true</static>
+      <pose>0 -0.600 0 0 0 0</pose>
+      <link name="link">
+        <!-- 가로 빔 -->
+        <visual name="beam">
+          <pose>0 0 0.640 0 0 0</pose>
+          <geometry><box><size>0.14 1.28 0.08</size></box></geometry>
+          <material><ambient>0.05 0.25 0.30 1</ambient>
+                    <diffuse>0.09 0.45 0.53 1</diffuse></material>
+        </visual>
+        <!-- left 다리 -->
+        <visual name="leg_left">
+          <pose>0 -0.600 0.355 0 0 0</pose>
+          <geometry><box><size>0.10 0.06 0.490</size></box></geometry>
+          <material><ambient>0.05 0.25 0.30 1</ambient>
+                    <diffuse>0.09 0.45 0.53 1</diffuse></material>
+        </visual>
+        <visual name="wheel_left">
+          <pose>0 -0.600 0.110 1.5708 0 0</pose>
+          <geometry><cylinder><radius>0.110</radius><length>0.08</length></cylinder></geometry>
+          <material><ambient>0.06 0.06 0.07 1</ambient>
+                    <diffuse>0.13 0.13 0.15 1</diffuse></material>
+        </visual>
+        <!-- right 다리 -->
+        <visual name="leg_right">
+          <pose>0 0.600 0.355 0 0 0</pose>
+          <geometry><box><size>0.10 0.06 0.490</size></box></geometry>
+          <material><ambient>0.05 0.25 0.30 1</ambient>
+                    <diffuse>0.09 0.45 0.53 1</diffuse></material>
+        </visual>
+        <visual name="wheel_right">
+          <pose>0 0.600 0.110 1.5708 0 0</pose>
+          <geometry><cylinder><radius>0.110</radius><length>0.08</length></cylinder></geometry>
+          <material><ambient>0.06 0.06 0.07 1</ambient>
+                    <diffuse>0.13 0.13 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 검증용 관찰 카메라. 로봇에 달린 카메라가 아니라, 사람(과 에이전트)이
+         '이 기하학이 말이 되나'를 눈으로 보려고 두는 것이다. -->
+    <model name="inspector">
+      <static>true</static>
+      <pose>-3.2 -2.6 1.9 0 0.42 0.68</pose>
+      <link name="link">
+        <sensor name="cam" type="camera">
+          <topic>garden/inspect</topic>
+          <update_rate>10</update_rate>
+          <always_on>1</always_on>
+          <camera>
+            <horizontal_fov>1.047</horizontal_fov>
+            <image><width>960</width><height>720</height><format>R8G8B8</format></image>
+            <clip><near>0.05</near><far>60</far></clip>
+            <save enabled="true"><path>artifacts/garden</path></save>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+  </world>
+</sdf>

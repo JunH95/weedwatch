@@ -7,12 +7,28 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor smoke clean-sim clean
+.PHONY: help doctor test smoke garden clean-sim clean
 
 help:
 	@echo "make doctor    - 환경이 멀쩡한지 단언 (파이썬 3.10 / rclpy / EGL / NVIDIA)"
+	@echo "make test      - 순수 단위 테스트 (시뮬·GPU 불필요, 밀리초)"
 	@echo "make smoke     - 헤드리스 GPU 렌더링 전 과정 + 게이트 2개 단언"
+	@echo "make garden    - 주말농장 지형 생성 + 렌더 (기하학 눈으로 확인용)"
 	@echo "make clean-sim - 좀비 ign 서버 정리"
+
+# 산수로 답할 수 있는 건 시뮬로 확인하지 않는다. 느리고 불안정하고 GPU가 필요하니까.
+# "로봇이 두둑을 탈 수 있나"는 산수다. 밀리초 안에 끝난다.
+test:
+	@$(ENV) python3 -m pytest tests/ -q
+
+# 지형 생성 + 렌더. 기하학이 말이 되는지 사람(과 에이전트)이 눈으로 보는 용도.
+# 진짜 검증은 make test 가 한다 — 눈으로 보는 건 확장이 안 된다.
+garden: clean-sim
+	@$(ENV) python3 tools/make_garden_world.py > worlds/garden_ridge.sdf
+	@$(ENV) ign sdf -k worlds/garden_ridge.sdf
+	@rm -rf artifacts/garden && mkdir -p artifacts/garden
+	@tools/run_headless.sh worlds/garden_ridge.sdf /garden/inspect $(SMOKE_ITERS)
+	@$(ENV) python3 tools/assert_render.py artifacts/garden
 
 # 환경 건강검진. 뭔가 이상하면 여기서 먼저 걸린다.
 doctor:
