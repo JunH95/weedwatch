@@ -485,25 +485,94 @@ def render_views(outdir: Path):
         print(f"RENDERED {name}")
 
 
+# URDF 링크별로 부품을 묶는 규칙. 각 링크는 별도 OBJ 가 되고 URDF 가 조인트로 잇는다.
+# 이름 접두사로 판별. 여기 안 걸리는 건 전부 base(고정 몸통).
+LINK_OF = [
+    ("wheel_-1_-1", "wheel_rl"),  # 뒤좌
+    ("wheel_-1_1", "wheel_rr"),   # 뒤우
+    ("wheel_1_-1", "wheel_fl"),   # 앞좌
+    ("wheel_1_1", "wheel_fr"),    # 앞우
+    ("carriage", "carriage"),     # Y 프리즘
+    ("cam_mount", "carriage"),    # 카메라 마운트는 캐리지에 붙음
+    ("camera", "carriage"),
+    ("led", "carriage"),
+    ("tool_rod", "tool"),         # Z 프리즘 (막대)
+]
+
+
+def link_of(name: str) -> str:
+    """부품 이름 → URDF 링크 이름. 안 걸리면 base."""
+    for prefix, link in LINK_OF:
+        if name.startswith(prefix):
+            return link
+    return "base"
+
+
 def export_obj(outdir: Path):
-    """Gazebo 용 OBJ+MTL export (Fortress 가 PBR 을 받는 유일한 포맷)."""
+    """Gazebo 용 OBJ+MTL export — URDF 링크별로 분리.
+
+    관절별 메시 분리 (사용자 결정): 바퀴가 실제로 굴러가고 캐리지가 움직이려면
+    각 링크가 별도 메시여야 한다. 그리고 각 메시는 그 링크의 조인트 원점 기준으로
+    내보낸다 — 예: 바퀴 메시는 바퀴 축이 (0,0,0)에 와야 회전이 맞다. URDF 가 다시
+    제 위치에 배치한다. 원점(조인트 위치)은 링크별로 여기서 계산해 links.json 에 남긴다.
+    """
+    import json
+
+    from mathutils import Vector
+
     outdir.mkdir(parents=True, exist_ok=True)
-    # 로봇 파트만 선택 (바닥·조명·카메라 제외)
-    bpy.ops.object.select_all(action="DESELECT")
+
+    # 부품을 링크별로 분류
+    groups: dict[str, list] = {}
     for o in bpy.data.objects:
-        if o.type == "MESH" and o.name != "Plane":
+        if o.type != "MESH" or o.name == "Plane":
+            continue
+        groups.setdefault(link_of(o.name), []).append(o)
+
+    # 각 링크의 조인트 원점 = 그 링크 부품들의 월드 bbox 중심.
+    # (바퀴는 축, 캐리지는 중심 등. URDF joint origin 이 여기에 온다.)
+    origins = {}
+    for link, objs in groups.items():
+        pts = [o.matrix_world @ Vector(c) for ob in objs for c in ob.bound_box]
+        origins[link] = [
+            sum(p.x for p in pts) / len(pts),
+            sum(p.y for p in pts) / len(pts),
+            sum(p.z for p in pts) / len(pts),
+        ]
+    # base 원점은 (0,0,0) 고정 — 로봇 기준 프레임.
+    origins["base"] = [0.0, 0.0, 0.0]
+
+    # 링크별로 export. 메시를 그 링크 원점만큼 빼서 원점 기준으로 만든다.
+    for link, objs in groups.items():
+        ox, oy, oz = origins[link]
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in objs:
+            o.location.x -= ox
+            o.location.y -= oy
+            o.location.z -= oz
             o.select_set(True)
-    path = outdir / "weedwatch_robot.obj"
-    bpy.ops.wm.obj_export(
-        filepath=str(path),
-        export_selected_objects=True,
-        export_materials=True,
-        export_pbr_extensions=True,
-        path_mode="COPY",
-        up_axis="Z",
-        forward_axis="Y",
-    )
-    print(f"EXPORTED {path}")
+        # location 변경을 지오메트리에 반영 (transform_apply 로 origin 을 옮겼던 것 보정)
+        bpy.ops.object.transform_apply(location=True)
+        path = outdir / f"{link}.obj"
+        bpy.ops.wm.obj_export(
+            filepath=str(path),
+            export_selected_objects=True,
+            export_materials=True,
+            export_pbr_extensions=True,
+            path_mode="COPY",
+            up_axis="Z",
+            forward_axis="Y",
+        )
+        print(f"EXPORTED {link}: {len(objs)} parts")
+        # 다시 원위치 (다음 링크 계산이 안 틀리게)
+        for o in objs:
+            o.location.x += ox
+            o.location.y += oy
+            o.location.z += oz
+        bpy.ops.object.transform_apply(location=True)
+
+    (outdir / "links.json").write_text(json.dumps(origins, indent=1))
+    print(f"EXPORTED links.json ({len(origins)} links)")
 
 
 def dump_bboxes() -> dict:
