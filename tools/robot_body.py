@@ -40,6 +40,7 @@ P = Portal()
 # 나머지는 차분하게: 짙은 남색 패널 + 알루미늄 프레임 + 검정 타이어.
 PALETTE = {
     "cell": (0.04, 0.06, 0.16),      # 태양광 셀 — 짙은 남색 (약간 광택)
+    "body": (0.82, 0.83, 0.85),      # 몸통 케이스 — 밝은 흰회색 (AVO 본체)
     "frame": (0.62, 0.64, 0.67),     # 알루미늄 프레임
     "glass": (0.7, 0.8, 0.95),       # 유리 커버 (반투명)
     "wheel": (0.06, 0.06, 0.07),     # 고무 타이어
@@ -164,7 +165,6 @@ def build():
     deck_w = P.deck_width(G)
     deck_z = P.deck_top_z() - P.deck_thickness / 2  # 데크 중심 높이
     half_track = P.track(G) / 2
-    half_len = P.deck_length / 2
 
     parts = []
 
@@ -173,56 +173,77 @@ def build():
     parts += solar_deck("deck", (P.deck_length, deck_w, P.deck_thickness),
                         (0, 0, deck_z), mats["frame"], mats["cell"], mats["glass"])
 
-    # ── 2. 빔 (데크 바로 아래, 캐리지가 이걸 따라 좌우로 움직임) ───────
-    beam_z = P.clearance + P.beam_height / 2
-    parts.append(box("beam", (0.10, P.track(G), P.beam_height),
-                     (0, 0, beam_z), mats["frame"]))
+    # ── 2. 몸통 케이스 (데크 바로 아래, 꽉 찬 본체) — AVO 의 핵심 ──────
+    # 데크 다음으로 큰 덩어리. 배터리·컴퓨터가 여기 들어가고 다리·캐리지가 여기 붙는다.
+    # 데크 아래가 뻥 뚫린 "테이블"이 아니라 몸통이 있는 "기계"가 되는 지점.
+    body_w = P.deck_width(G) - 2 * P.body_inset
+    body_l = P.deck_length - 2 * P.body_inset
+    body_top = P.deck_top_z() - P.deck_thickness  # 데크 아랫면
+    body_z = body_top - P.body_height / 2
+    parts.append(box("body", (body_l, body_w, P.body_height),
+                     (0, 0, body_z), mats["body"], bevel=0.015))
+    body_bottom = body_top - P.body_height
 
-    # ── 3. 다리 4개 (데크 귀퉁이 → 고랑의 바퀴) ────────────────────────
-    leg_z = P.wheel_dia / 2 + P.leg_height() / 2
+    # ── 3. 다리 4개 (몸통 케이스 아래 → 고랑의 바퀴) ──────────────────
+    # 다리는 몸통 아랫면에서 시작해 바퀴 축까지. 몸통에 붙어 있다.
+    leg_len = body_bottom - P.wheel_dia / 2
+    leg_z = P.wheel_dia / 2 + leg_len / 2
     for sx in (-1, 1):
         for sy in (-1, 1):
-            lx = sx * (half_len - P.leg_width)
+            lx = sx * (body_l / 2 - P.leg_width / 2)
             ly = sy * half_track
-            parts.append(box(f"leg_{sx}_{sy}", (P.leg_width, P.leg_width, P.leg_height()),
+            parts.append(box(f"leg_{sx}_{sy}", (P.leg_width, P.leg_width, leg_len),
                              (lx, ly, leg_z), mats["frame"]))
             # 바퀴 (고랑 안, y축 방향으로 누움) — 타이어 + 허브
             parts.append(cyl(f"wheel_{sx}_{sy}", P.wheel_dia / 2, P.wheel_width,
                              (lx, ly, P.wheel_dia / 2), mats["wheel"], axis="y"))
-            # 허브 (바퀴 안쪽 금속 원판, 살짝 튀어나옴). 원형이어야 함(육각 아님).
             hub_y = ly - sy * (P.wheel_width / 2 + 0.005)
             parts.append(cyl(f"hub_{sx}_{sy}", P.wheel_dia / 4, 0.02,
                              (lx, hub_y, P.wheel_dia / 2), mats["hub"], axis="y", verts=24))
 
-    # ── 4. Y 캐리지 (빔에 매달려 좌우로) — 주황, 움직이는 부품 ─────────
-    carriage_z = P.clearance - P.carriage_size / 2
-    carriage_y = 0.0  # 빔 중앙 (기본 위치). 실제 주행 시 Y축으로 ±carriage_travel 움직임.
-    parts.append(box("carriage", (P.carriage_size, P.carriage_size, P.carriage_size),
-                     (0, carriage_y, carriage_z), mats["carriage"]))
+    # ── 4. 빔 (몸통 아랫면에 붙어 좌우로 뻗음, 캐리지 레일) ────────────
+    # 몸통 폭보다 넓게 뻗어 두둑 전체를 캐리지가 훑을 수 있게.
+    beam_z = body_bottom - P.beam_height / 2
+    parts.append(box("beam", (0.10, P.track(G) * 0.85, P.beam_height),
+                     (0, 0, beam_z), mats["frame"], bevel=0.01))
+    beam_bottom = beam_z - P.beam_height / 2
 
-    # ── 5. Z 막대 (캐리지에서 아래로 = 점 타격 도구) — 주황 ──────────
-    # 카메라와 겹치지 않게 뒤쪽(x<0)에 둔다. "앞에서 보고 뒤에서 실행" 배치.
-    tool_x = -0.10
-    rod_top = carriage_z - P.carriage_size / 2
-    rod_len = P.z_travel * 0.6  # 데모에선 중간쯤 내려온 상태
-    parts.append(cyl("tool_rod", P.tool_rod_dia / 2, rod_len,
-                     (tool_x, carriage_y, rod_top - rod_len / 2), mats["tool"], axis="z"))
+    # ── 5. Y 캐리지 (빔에 매달려 좌우로) — 주황, 움직이는 부품 ─────────
+    # 빔 아랫면에 딱 붙는다. 실제 주행 시 Y축으로 ±carriage_travel 움직임.
+    carriage_y = 0.0
+    carriage_top = beam_bottom
+    carriage_z = carriage_top - P.carriage_size / 2
+    parts.append(box("carriage", (P.carriage_size * 1.4, P.carriage_size, P.carriage_size),
+                     (0, carriage_y, carriage_z), mats["carriage"], bevel=0.008))
+    carriage_bottom = carriage_z - P.carriage_size / 2
 
-    # ── 6. 하방 카메라 (캐리지에 강체 고정, 아래를 봄) — 검정 ─────────
-    # 도구보다 앞(x>0)에. 로봇은 카메라로 앞을 보고 도구로 뒤를 친다.
-    cam_x = 0.10
-    cam_z = carriage_z - P.carriage_size / 2 - 0.03
+    # ── 6. 카메라 마운트 + 카메라 (캐리지 아래 앞쪽) ───────────────────
+    # 캐리지에서 아래로 내려오는 마운트에 카메라가 붙는다. 허공에 안 뜬다.
+    cam_x = 0.09
+    mount_len = 0.05
+    parts.append(box("cam_mount", (0.03, 0.03, mount_len),
+                     (cam_x, carriage_y, carriage_bottom - mount_len / 2), mats["frame"]))
+    cam_z = carriage_bottom - mount_len - 0.02
     parts.append(box("camera", (0.05, 0.05, 0.04),
                      (cam_x, carriage_y, cam_z), mats["camera"], bevel=0.008))
+    # LED 링 (카메라 둘레) — 조명 터널 (010)
+    parts.append(cyl("led", 0.04, 0.008, (cam_x, carriage_y, cam_z - 0.026),
+                     mats["led"], axis="z"))
 
-    # ── 7. LED 링 (카메라 둘레, 발광) — 조명 터널 (010) ───────────────
-    led = cyl("led", 0.04, 0.008, (cam_x, carriage_y, cam_z - 0.028), mats["led"], axis="z")
-    parts.append(led)
+    # ── 7. Z 막대 (캐리지 아래 뒤쪽 = 점 타격 도구) — 주황 ────────────
+    # 캐리지 아랫면에서 시작해 아래로. "앞에서 보고(카메라) 뒤에서 친다(도구)".
+    tool_x = -0.09
+    rod_len = P.z_travel * 0.55
+    parts.append(cyl("tool_rod", P.tool_rod_dia / 2, rod_len,
+                     (tool_x, carriage_y, carriage_bottom - rod_len / 2),
+                     mats["tool"], axis="z"))
 
-    # ── 8. 배터리 베이 (앞쪽 다리 사이, 낮게 — 무게중심) ───────────────
-    batt_z = P.wheel_dia / 2 + P.battery_size / 2
-    parts.append(box("battery", (P.battery_size, P.track(G) * 0.5, P.battery_size),
-                     (half_len - P.leg_width - 0.08, 0, batt_z), mats["battery"]))
+    # ── 8. 배터리 (몸통 케이스 안 — 이제 뜰 데가 없다) ────────────────
+    # 몸통 내부에 들어간다. 앞쪽·낮게 (무게중심). 케이스에 반쯤 박힌 걸로 표현.
+    batt_l = P.battery_size * 1.3
+    parts.append(box("battery", (batt_l, P.track(G) * 0.45, P.battery_size),
+                     (body_l / 2 - batt_l / 2 - 0.03, 0, body_bottom + P.battery_size / 2 + 0.005),
+                     mats["battery"], bevel=0.006))
 
     # 전부 하나로 합쳐 이동/렌더 편하게
     for p in parts:
@@ -237,6 +258,8 @@ def _mat_opts(key):
         return dict(metal=0.4, rough=0.2)    # 태양광 셀 — 광택
     if key == "glass":
         return dict(metal=0.0, rough=0.05, transmit=0.85)  # 유리 커버 — 반투명
+    if key == "body":
+        return dict(metal=0.2, rough=0.35)   # 몸통 케이스 — 도장된 흰 케이스
     if key in ("frame", "hub"):
         return dict(metal=0.8, rough=0.4)    # 알루미늄
     if key == "wheel":
