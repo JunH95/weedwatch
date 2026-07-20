@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle view blender-gpu cropcraft clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera view blender-gpu cropcraft clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -24,6 +24,7 @@ help:
 	@echo "make drive     - diff-drive 로 cmd_vel 주행 단언 (물리만, GPU 불필요)"
 	@echo "make joints    - Y/Z 관절이 명령 위치에 mm 정밀 도달하는지 단언 (물리만)"
 	@echo "make straddle  - 두둑 걸터타고 주행 — 포탈 설계가 물리로 성립하는지 단언 (물리만)"
+	@echo "make camera    - 로봇 하방 카메라가 두둑을 보고 프레임 발행 — 2게이트 (GPU 필요)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make clean-sim - 좀비 ign 서버 정리"
@@ -81,6 +82,14 @@ joints: clean-sim
 # 물리로 성립하는지 — DECISIONS 006 의 핵심 주장이자 Stage 1 "두둑을 탈 수 있는가" 위험의 완결.
 straddle: clean-sim
 	@$(ENV) python3 tools/assert_straddle.py
+
+# 로봇 하방 카메라 검증 (Tier 3 — GPU 렌더링 필요). 카리지에 강체 고정된 카메라가
+# 두둑을 내려다보고 프레임을 발행하는가. smoke 와 같은 2게이트(검지 않음 AND NVIDIA).
+# Stage 2 의 마지막 DONE 항목이자 인식(Stage 3)의 관문.
+camera: clean-sim
+	@rm -rf artifacts/camera && mkdir -p artifacts/camera
+	@tools/run_headless.sh worlds/robot_camera.sdf /robot/camera $(SMOKE_ITERS)
+	@$(ENV) python3 tools/assert_render.py artifacts/camera
 
 # 환경 건강검진. 뭔가 이상하면 여기서 먼저 걸린다.
 doctor:

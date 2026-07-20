@@ -210,8 +210,41 @@ def build_urdf() -> str:
     out.append(wheel_friction_gazebo())
     out.append(diff_drive_gazebo(o))
     out.append(joint_controllers_gazebo())
+    out.append(camera_sensor_gazebo())
     out.append("</robot>")
     return "\n".join(out)
+
+
+def camera_sensor_gazebo() -> str:
+    """캐리지에 강체 고정된 하방 카메라 (DECISIONS 006).
+
+    카메라가 캐리지에 붙어 같이 움직이므로 툴 팁이 항상 같은 픽셀에 온다 → 헤드리스
+    픽셀 단언의 기반. 캐리지가 Y 로 훑으며 좁은 시야로 두둑을 커버하는 근접 스캔형이다.
+
+    ⚠️ 높이: 밭 위 ~18cm(근접). px/cm 은 높지만 시야가 좁다. 더 높여 넓게 보려면 카메라를
+    카리지·툴에 안 가리게 앞으로 빼는 설계가 필요 — 디자인 패스로 남김. 지금은 "잡초를
+    일찍(작을 때) 잡는다"는 타깃 체제(작은 식물)엔 근접 스캔이 맞다.
+
+    pose 는 캐리지 링크 원점 기준. rpy=(0,π/2,0) → 광축 +X 를 -Z(정하방)로.
+    ⚠️ z 는 LED 디스크(월드 z≈0.40) **아래**(월드 z≈0.395)에 둔다. 안 그러면 하방 카메라가
+    자기 LED 를 들여다본다(균일 화면). 카메라+LED 를 세로로 쌓은 게 원인 — LED 를 렌즈
+    둘레 링으로 바꾸는 조립 재설계는 디자인 패스로 남김. 지금은 센서만 LED 밑으로 내린다.
+    """
+    return """  <gazebo reference="carriage">
+    <sensor name="down_cam" type="camera">
+      <pose>0.0225 0 -0.0698 0 1.5708 0</pose>
+      <topic>robot/camera</topic>
+      <update_rate>15</update_rate>
+      <always_on>1</always_on>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+        <clip><near>0.02</near><far>10</far></clip>
+        <save enabled="true"><path>artifacts/camera</path></save>
+      </camera>
+    </sensor>
+  </gazebo>
+"""
 
 
 def joint_controllers_gazebo() -> str:

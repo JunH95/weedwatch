@@ -1,0 +1,76 @@
+<?xml version="1.0" ?>
+<!--
+  하방 카메라 검증 월드 (Tier 3 — GPU 렌더링 필요, EGL).
+
+  로봇의 카리지에 강체 고정된 하방 카메라(down_cam)가 두둑을 실제로 보고 프레임을
+  발행하는가. Stage 2 의 마지막 DONE 항목("하방 카메라가 지면 프레임 발행").
+  smoke 와 같은 2-게이트로 검증한다: 픽셀이 검지 않은가 AND NVIDIA 가 그렸는가.
+
+  로봇을 두둑(y=+0.6) 걸터타게 세우면 카메라가 (x≈0.09, y=0.6) 두둑 윗면을 내려다본다.
+  그 아래 녹색 잡초 마커를 둬서 "검은 화면 / 균일 화면 / 진짜 장면"을 구분한다.
+
+  실행:  make camera
+-->
+<sdf version="1.9">
+  <world name="robot_camera">
+    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <!-- 카메라를 실제로 그리는 부분 (별도 렌더 스레드, ogre2 = EGL 전용). -->
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows><pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.4 -0.85</direction>
+    </light>
+
+    <model name="furrow_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="c">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material><ambient>0.30 0.22 0.14 1</ambient><diffuse>0.50 0.37 0.24 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 두둑 (y=+0.6). 흙색이되 바닥과 살짝 다르게. -->
+    <model name="bed">
+      <static>true</static>
+      <pose>0 0.600 0.125 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
+        <visual name="v">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+          <material><ambient>0.26 0.18 0.11 1</ambient><diffuse>0.44 0.31 0.19 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 카메라 바로 아래(x≈0.09, y=0.6) 두둑 위 녹색 잡초 마커. 검은/균일 화면과 구분용. -->
+    <model name="weed_marker">
+      <static>true</static>
+      <pose>0.09 0.60 0.29 0 0 0.3</pose>
+      <link name="link">
+        <visual name="v">
+          <geometry><box><size>0.06 0.06 0.08</size></box></geometry>
+          <material><ambient>0.10 0.35 0.10 1</ambient><diffuse>0.20 0.75 0.18 1</diffuse><specular>0.2 0.2 0.2 1</specular></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 로봇을 두둑 걸터타게. 카메라(down_cam)가 위 잡초 마커를 내려다본다. -->
+    <include>
+      <uri>model://weedwatch_robot</uri>
+      <name>weedwatch</name>
+      <pose>0 0.600 0.01 0 0 0</pose>
+    </include>
+  </world>
+</sdf>
