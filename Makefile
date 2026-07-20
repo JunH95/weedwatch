@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera view blender-gpu cropcraft clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -27,6 +27,7 @@ help:
 	@echo "make camera    - 로봇 하방 카메라가 두둑을 보고 프레임 발행 — 2게이트 (GPU 필요)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
+	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
 	@echo "make clean-sim - 좀비 ign 서버 정리"
 
 # 산수로 답할 수 있는 건 시뮬로 확인하지 않는다. 느리고 불안정하고 GPU가 필요하니까.
@@ -38,6 +39,12 @@ test:
 # SHA 를 박아두는 이유: 데이터셋은 (설정 + 시드 + CropCraft SHA + Blender 버전)의 함수다.
 # 넷 중 하나라도 흐르면 어제 만든 정원을 오늘 다시 못 만든다.
 CROPCRAFT_SHA := 7128cd2acade50cc4a5a1761210b55989ab62527
+
+# AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (sim-to-real 평가용, Stage 3).
+# 사람 몫: aihub.or.kr API 키 발급 + 527 승인 (내국인). 재배포 금지 → data/aihub/ 는 gitignore.
+#   사용: make aihub AIHUB_KEY=<발급키>
+aihub:
+	@scripts/fetch_aihub.sh $(AIHUB_KEY)
 
 cropcraft:
 	@if [ ! -d third_party/cropcraft ]; then \
