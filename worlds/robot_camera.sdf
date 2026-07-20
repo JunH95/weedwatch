@@ -54,10 +54,10 @@
       </link>
     </model>
 
-    <!-- 카메라 바로 아래(x≈0.09, y=0.6) 두둑 위 녹색 잡초 마커. 검은/균일 화면과 구분용. -->
+    <!-- 카메라 바로 아래(x≈0.22 전방 팔, y=0.6) 두둑 위 녹색 잡초 마커. 검은/균일 화면 구분용. -->
     <model name="weed_marker">
       <static>true</static>
-      <pose>0.09 0.60 0.29 0 0 0.3</pose>
+      <pose>0.22 0.60 0.29 0 0 0.3</pose>
       <link name="link">
         <visual name="v">
           <geometry><box><size>0.06 0.06 0.08</size></box></geometry>

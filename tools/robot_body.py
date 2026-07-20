@@ -112,6 +112,17 @@ def cyl(name, radius, length, loc, mat, axis="z", verts=48):
     return o
 
 
+def ring(name, major_r, minor_r, loc, mat, verts=32):
+    """토러스(도넛) — LED 링. 평평한 z 링, 가운데 구멍으로 카메라가 내려다본다."""
+    bpy.ops.mesh.primitive_torus_add(major_radius=major_r, minor_radius=minor_r, location=loc,
+                                     major_segments=verts, minor_segments=8)
+    o = bpy.context.object
+    o.name = name
+    o.data.materials.append(mat)
+    _shade_smooth(o)
+    return o
+
+
 def make_ag_wheel(name, radius, width, loc, mat_tire, mat_hub, outboard,
                   n_lugs=18, n_bolts=6, chevron=True):
     """농업용 러그 타이어. 책상 캐스터가 아니라 흙 파는 바퀴.
@@ -344,33 +355,44 @@ def build():
                      (0, carriage_y, carriage_z), mats["carriage"], bevel=0.008))
     carriage_bottom = carriage_z - P.carriage_size / 2
 
-    # ── 6. 카메라 마운트 + 카메라 (캐리지 아래 앞쪽) ───────────────────
-    # 캐리지에서 아래로 내려오는 마운트에 카메라가 붙는다. 허공에 안 뜬다.
-    cam_x = 0.09
-    mount_len = 0.05
-    parts.append(box("cam_mount", (0.03, 0.03, mount_len),
-                     (cam_x, carriage_y, carriage_bottom - mount_len / 2), mats["frame"]))
-    cam_z = carriage_bottom - mount_len - 0.02
-    parts.append(box("camera", (0.05, 0.05, 0.04),
-                     (cam_x, carriage_y, cam_z), mats["camera"], bevel=0.008))
-    # LED 링 (카메라 둘레) — 조명 터널 (010)
-    parts.append(cyl("led", 0.04, 0.008, (cam_x, carriage_y, cam_z - 0.026),
-                     mats["led"], axis="z"))
+    # ── 6. 전방 카메라 팔 + 하방 카메라 + LED 링 (RealSense D405, DESIGN.md) ──
+    # 카메라를 카리지 앞으로 뺀 팔에 올려 두둑 위 ~0.33m 에서 내려다본다. 카리지·툴에 안
+    # 가리고(그래서 앞으로 뺌), LED 는 렌즈 둘레 '링'(디스크 아님 — 예전엔 렌즈를 막았다).
+    cam_x = 0.22
+    cam_z = beam_bottom - 0.02          # ≈0.58 = 빔 바로 아래, 두둑(0.25) 위 ~0.33m
+    arm_x0 = 0.10                        # 카리지 앞면쯤에서 시작
+    parts.append(box("cam_arm", (cam_x - arm_x0, 0.03, 0.03),
+                     ((arm_x0 + cam_x) / 2, carriage_y, cam_z + 0.012), mats["frame"]))
+    parts.append(box("camera", (0.05, 0.05, 0.035), (cam_x, carriage_y, cam_z),
+                     mats["camera"], bevel=0.006))
+    parts.append(ring("led", 0.045, 0.007, (cam_x, carriage_y, cam_z - 0.022), mats["led"]))
 
-    # ── 7. Z 막대 (캐리지 아래 뒤쪽 = 점 타격 도구) — 주황 ────────────
-    # 캐리지 아랫면에서 시작해 아래로. "앞에서 보고(카메라) 뒤에서 친다(도구)".
+    # ── 7. Z 액추에이터 (리드스크류 + 스텝모터) + 점 타격 막대 ─────────────
+    # "앞에서 보고(카메라) 뒤에서 친다(도구)". Z 는 리드스크류로 내려찍는다(DESIGN.md).
     tool_x = -0.09
     rod_len = P.tool_rod_len  # 단일 출처 — make_urdf 충돌·관성도 같은 값을 읽는다
+    parts.append(box("z_motor", (0.05, 0.05, 0.06), (tool_x, carriage_y, carriage_top + 0.03),
+                     mats["frame"]))                     # NEMA23 스텝 (카리지 위)
+    parts.append(cyl("z_screw", 0.006, 0.15, (tool_x + 0.02, carriage_y, carriage_bottom - 0.06),
+                     mats["hub"], axis="z"))              # Tr8×8 리드스크류 (두둑 위)
     parts.append(cyl("tool_rod", P.tool_rod_dia / 2, rod_len,
                      (tool_x, carriage_y, carriage_bottom - rod_len / 2),
                      mats["tool"], axis="z"))
 
-    # ── 8. 배터리 (몸통 케이스 안 — 이제 뜰 데가 없다) ────────────────
-    # 몸통 내부에 들어간다. 앞쪽·낮게 (무게중심). 케이스에 반쯤 박힌 걸로 표현.
-    batt_l = P.battery_size * 1.3
-    parts.append(box("battery", (batt_l, P.track(G) * 0.45, P.battery_size),
-                     (body_l / 2 - batt_l / 2 - 0.03, 0, body_bottom + P.battery_size / 2 + 0.005),
-                     mats["battery"], bevel=0.006))
+    # ── 8. 배터리 + 전장함 (사이드 포드 안, 앞쪽·낮게 — 무게중심) ──────────
+    # 예전엔 가운데 터널에 떠 있었다(물리 영향 0이나 이상함). 실제 배치: 배터리는 한 포드,
+    # 전장(Jetson·드라이버 IP66 함)은 반대 포드 → 좌우 균형 + 무게중심 낮게 (DESIGN.md).
+    batt_l, batt_w, batt_h = P.battery_size * 1.6, P.battery_size, P.battery_size * 1.2
+    batt_x = body_l / 2 - batt_l / 2 - 0.05
+    batt_z = pod_bottom + batt_h / 2 + 0.02
+    parts.append(box("battery", (batt_l, batt_w, batt_h),
+                     (batt_x, -half_track, batt_z), mats["battery"], bevel=0.006))
+    parts.append(box("ecase", (batt_l, batt_w, batt_h),
+                     (batt_x, +half_track, batt_z), mats["frame"], bevel=0.006))
+
+    # ── 9. Y 스텝모터 (빔 끝 — 캐리지 벨트 구동, DESIGN.md) ────────────────
+    parts.append(box("y_motor", (0.06, 0.06, 0.06),
+                     (0, P.track(G) * 0.42, beam_z), mats["frame"]))
 
     # 전부 하나로 합쳐 이동/렌더 편하게
     for p in parts:
@@ -497,9 +519,11 @@ LINK_OF = [
     ("wheel_1_-1", "wheel_fl"),   # 앞좌
     ("wheel_1_1", "wheel_fr"),    # 앞우
     ("carriage", "carriage"),     # Y 프리즘
-    ("cam_mount", "carriage"),    # 카메라 마운트는 캐리지에 붙음
+    ("cam_arm", "carriage"),      # 전방 카메라 팔 (캐리지와 같이 Y 이동)
     ("camera", "carriage"),
     ("led", "carriage"),
+    ("z_motor", "carriage"),      # Z 스텝모터 (캐리지에 고정)
+    ("z_screw", "carriage"),      # Z 리드스크류 (캐리지에 고정)
     ("tool_rod", "tool"),         # Z 프리즘 (막대)
 ]
 
@@ -545,6 +569,14 @@ def export_obj(outdir: Path):
         ]
     # base 원점은 (0,0,0) 고정 — 로봇 기준 프레임.
     origins["base"] = [0.0, 0.0, 0.0]
+
+    # 카메라 시각 박스의 월드 위치 → make_urdf 가 down_cam 센서를 여기 정확히 배치한다
+    # (센서와 시각 카메라가 어긋나지 않게). export 루프가 위치를 바꾸기 전에 잡는다.
+    cam_obj = next((o for o in bpy.data.objects if o.name == "camera"), None)
+    if cam_obj is not None:
+        cpts = [cam_obj.matrix_world @ Vector(c) for c in cam_obj.bound_box]
+        origins["camera_world"] = [sum(p.x for p in cpts) / 8, sum(p.y for p in cpts) / 8,
+                                   sum(p.z for p in cpts) / 8]
 
     # 링크별로 export. 메시를 그 링크 원점만큼 빼서 원점 기준으로 만든다.
     for link, objs in groups.items():

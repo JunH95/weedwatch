@@ -65,14 +65,15 @@ def link_with_mesh(name: str, mesh: str, collision: str, inertial: str) -> str:
 
 
 def _mass(name: str) -> float:
+    # 실부품 질량 (DESIGN.md). 총 ~34.5kg — sim 초기 임의값 27kg 을 실물로 승격.
     if name == "base_link":
-        return 20.0
+        return 22.0   # 프레임·데크 12.4 + 배터리 4.8 + 전장 4.8 (포드 안 낮게, base_inertial)
     if name.startswith("wheel"):
-        return 1.5
+        return 2.5    # ZLTECH 8″ 허브 BLDC 서보 (모터 내장)
     if name == "carriage":
-        return 1.0
+        return 2.0    # Y 게이트리 + NEMA23 + 카메라 팔·D405
     if name == "tool":
-        return 0.2
+        return 0.5    # Z 스텝 + 리드스크류 너트 + STS304 막대
     return 0.5
 
 
@@ -115,11 +116,19 @@ def base_inertial() -> str:
     ]
     vols = [sx * sy * sz for (sx, sy, sz), _ in boxes]
     total_v = sum(vols)
-    mass = _mass("base_link")
+    m_lowmass = 9.6                        # 배터리 4.8 + 전장함 4.8 (포드 안 낮게)
+    m_struct = _mass("base_link") - m_lowmass   # 12.4 = 프레임·데크·포드 구조
     parts = [
-        Part(mass * v / total_v, c, box_inertia(mass * v / total_v, *size))
+        Part(m_struct * v / total_v, c, box_inertia(m_struct * v / total_v, *size))
         for (size, c), v in zip(boxes, vols)
     ]
+    # 배터리·전장함을 포드 안 낮게(좌우 대칭 → COM 중앙·낮게). robot_body 배치와 일치.
+    batt_h = P.battery_size * 1.2
+    batt_z = (pod_cz - pod_h / 2) + batt_h / 2 + 0.02
+    batt_x = (P.deck_length - 2 * P.body_inset) / 2 - (P.battery_size * 1.6) / 2 - 0.05
+    for sy in (-1, +1):
+        parts.append(Part(4.8, (batt_x, sy * half_track, batt_z),
+                          box_inertia(4.8, P.battery_size * 1.6, P.battery_size, batt_h)))
     m, com, tensor = combine(parts)
     return inertial_xml(m, com, tensor)
 
@@ -210,7 +219,7 @@ def build_urdf() -> str:
     out.append(wheel_friction_gazebo())
     out.append(diff_drive_gazebo(o))
     out.append(joint_controllers_gazebo())
-    out.append(camera_sensor_gazebo())
+    out.append(camera_sensor_gazebo(o))
     out.append(imu_sensor_gazebo())
     out.append("</robot>")
     return "\n".join(out)
@@ -245,30 +254,29 @@ def imu_sensor_gazebo() -> str:
 """
 
 
-def camera_sensor_gazebo() -> str:
-    """캐리지에 강체 고정된 하방 카메라 (DECISIONS 006).
+def camera_sensor_gazebo(o: dict) -> str:
+    """캐리지에 강체 고정된 하방 RGB + 깊이 카메라 (Intel RealSense D405, DESIGN.md).
 
     카메라가 캐리지에 붙어 같이 움직이므로 툴 팁이 항상 같은 픽셀에 온다 → 헤드리스
-    픽셀 단언의 기반. 캐리지가 Y 로 훑으며 좁은 시야로 두둑을 커버하는 근접 스캔형이다.
+    픽셀 단언의 기반(DECISIONS 006). 전방 팔에 올려 두둑 위 ~0.33m 에서 내려다본다:
+    카리지·툴에 안 가리고, LED 는 렌즈 둘레 링(자기 LED 를 안 봄).
 
-    ⚠️ 높이: 밭 위 ~18cm(근접). px/cm 은 높지만 시야가 좁다. 더 높여 넓게 보려면 카메라를
-    카리지·툴에 안 가리게 앞으로 빼는 설계가 필요 — 디자인 패스로 남김. 지금은 "잡초를
-    일찍(작을 때) 잡는다"는 타깃 체제(작은 식물)엔 근접 스캔이 맞다.
-
-    pose 는 캐리지 링크 원점 기준. rpy=(0,π/2,0) → 광축 +X 를 -Z(정하방)로.
-    ⚠️ z 는 LED 디스크(월드 z≈0.40) **아래**(월드 z≈0.395)에 둔다. 안 그러면 하방 카메라가
-    자기 LED 를 들여다본다(균일 화면). 카메라+LED 를 세로로 쌓은 게 원인 — LED 를 렌즈
-    둘레 링으로 바꾸는 조립 재설계는 디자인 패스로 남김. 지금은 센서만 LED 밑으로 내린다.
+    센서 위치는 robot_body 가 export 한 카메라 시각 박스의 월드좌표(camera_world)에서
+    카리지 원점을 빼서 정확히 맞춘다 — 센서와 시각 카메라가 어긋나지 않는다.
+    rpy=(0,π/2,0) → 광축 +X 를 -Z(정하방)로. 인트린식은 D405(1280×720, HFOV 87°).
     """
-    return """  <gazebo reference="carriage">
+    cam, car = o.get("camera_world", o["carriage"]), o["carriage"]
+    off = f"{cam[0]-car[0]:.4f} {cam[1]-car[1]:.4f} {cam[2]-car[2]:.4f}"
+    HFOV, W, H = 1.5184, 1280, 720   # D405: 87° / 1280×720
+    return f"""  <gazebo reference="carriage">
     <sensor name="down_cam" type="camera">
-      <pose>0.0225 0 -0.0698 0 1.5708 0</pose>
+      <pose>{off} 0 1.5708 0</pose>
       <topic>robot/camera</topic>
       <update_rate>15</update_rate>
       <always_on>1</always_on>
       <camera>
-        <horizontal_fov>1.047</horizontal_fov>
-        <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+        <horizontal_fov>{HFOV}</horizontal_fov>
+        <image><width>{W}</width><height>{H}</height><format>R8G8B8</format></image>
         <clip><near>0.02</near><far>10</far></clip>
         <save enabled="true"><path>artifacts/camera</path></save>
         <!-- 센서 노이즈. 0 이면 실제보다 낙관적이라(심-리얼 원장) 가우시안 픽셀 노이즈를 넣는다.
@@ -276,19 +284,17 @@ def camera_sensor_gazebo() -> str:
         <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
       </camera>
     </sensor>
-    <!-- 깊이 카메라 (RGB 와 같은 자리·같은 방향). top-down RGB 로는 높이를 못 재지만
-         깊이로 잰다 → "작물이 클리어런스 넘었나" 를 오라클 없이 비전으로 (Aigen gen2 방식).
-         ⚠️ 시뮬 깊이는 노이즈 0(낙관적). 실제는 스테레오 노이즈 있음 — 각주로 명시할 것. -->
+    <!-- 깊이 카메라 (RGB 와 같은 자리·방향). 높이를 비전으로 → "작물이 클리어런스 넘었나"
+         를 오라클 없이(Aigen gen2 방식). ⚠️ 시뮬 깊이 노이즈는 근사(실 D405 는 거리의존·IR). -->
     <sensor name="down_depth" type="depth_camera">
-      <pose>0.0225 0 -0.0698 0 1.5708 0</pose>
+      <pose>{off} 0 1.5708 0</pose>
       <topic>robot/depth</topic>
       <update_rate>15</update_rate>
       <always_on>1</always_on>
       <camera>
-        <horizontal_fov>1.047</horizontal_fov>
-        <image><width>640</width><height>480</height></image>
+        <horizontal_fov>{HFOV}</horizontal_fov>
+        <image><width>{W}</width><height>{H}</height></image>
         <clip><near>0.02</near><far>10</far></clip>
-        <!-- 깊이 노이즈(가우시안, m). 실 D405 는 거리의존·IR간섭이라 이건 근사(원장에 명시). -->
         <noise><type>gaussian</type><mean>0.0</mean><stddev>0.003</stddev></noise>
       </camera>
     </sensor>
@@ -311,7 +317,8 @@ def joint_controllers_gazebo() -> str:
     """
     specs = [
         ("carriage_joint", "carriage_cmd", 700.0, 6.0, 60.0),
-        ("tool_joint", "tool_cmd", 1000.0, 25.0, 35.0),
+        # 도구 0.5kg(허브 스텝+막대) 중력 4.9N 이겨내려 P 상향 — 정상상태 오차 < 3mm
+        ("tool_joint", "tool_cmd", 2000.0, 40.0, 55.0),
     ]
     blocks = []
     for joint, topic, p, i, d in specs:
