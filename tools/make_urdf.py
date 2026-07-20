@@ -222,11 +222,24 @@ def imu_sensor_gazebo() -> str:
     Stage 4(주행/EKF)에서 쓴다. 월드에 ignition-gazebo-imu-system 플러그인이 있어야
     실제로 발행된다 — 주행 월드에 붙일 때 같이 넣는다.
     """
-    return """  <gazebo reference="base_link">
+    # MEMS(BNO085 급) 노이즈 — 각속도·가속도 가우시안 + 바이어스. 노이즈 0 이면 실제보다
+    # 낙관적이라 EKF·heading 이 실물보다 쉬워진다. (지자기 교란은 시뮬 밖 — 원장 §7)
+    # IMU 의 <noise> 는 type 을 속성으로 받는다 (카메라 노이즈는 <type> 자식 — 스키마가 다름).
+    n_gyro = '<noise type="gaussian"><mean>0</mean><stddev>0.0002</stddev><bias_mean>7.5e-6</bias_mean><bias_stddev>8e-7</bias_stddev></noise>'
+    n_acc = '<noise type="gaussian"><mean>0</mean><stddev>0.017</stddev><bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise>'
+    return f"""  <gazebo reference="base_link">
     <sensor name="imu" type="imu">
       <topic>robot/imu</topic>
       <update_rate>100</update_rate>
       <always_on>1</always_on>
+      <imu>
+        <angular_velocity>
+          <x>{n_gyro}</x><y>{n_gyro}</y><z>{n_gyro}</z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>{n_acc}</x><y>{n_acc}</y><z>{n_acc}</z>
+        </linear_acceleration>
+      </imu>
     </sensor>
   </gazebo>
 """
@@ -258,6 +271,9 @@ def camera_sensor_gazebo() -> str:
         <image><width>640</width><height>480</height><format>R8G8B8</format></image>
         <clip><near>0.02</near><far>10</far></clip>
         <save enabled="true"><path>artifacts/camera</path></save>
+        <!-- 센서 노이즈. 0 이면 실제보다 낙관적이라(심-리얼 원장) 가우시안 픽셀 노이즈를 넣는다.
+             실 옥외 조명·젖은 잎 반사는 여기 넘어 학습때 도메인 랜덤화로 보완. -->
+        <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
       </camera>
     </sensor>
     <!-- 깊이 카메라 (RGB 와 같은 자리·같은 방향). top-down RGB 로는 높이를 못 재지만
@@ -272,6 +288,8 @@ def camera_sensor_gazebo() -> str:
         <horizontal_fov>1.047</horizontal_fov>
         <image><width>640</width><height>480</height></image>
         <clip><near>0.02</near><far>10</far></clip>
+        <!-- 깊이 노이즈(가우시안, m). 실 D405 는 거리의존·IR간섭이라 이건 근사(원장에 명시). -->
+        <noise><type>gaussian</type><mean>0.0</mean><stddev>0.003</stddev></noise>
       </camera>
     </sensor>
   </gazebo>
