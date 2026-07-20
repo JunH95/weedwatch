@@ -103,6 +103,14 @@ class Portal:
     # docs/DECISIONS.md 009: 점 타격, 로봇팔 아님. 직선 레일 하나.
     z_travel: float = 0.35  # 데크 아래에서 두둑 위까지 내려가는 행정
     tool_rod_dia: float = 0.012  # 1.2cm 막대 (BoniRob 수치 인용)
+    tool_rod_fraction: float = 0.55  # 막대 물리 길이 = z_travel 의 이 비율
+
+    @property
+    def tool_rod_len(self) -> float:
+        """점 타격 막대의 물리 길이. 시각 메시(robot_body)·충돌·관성(make_urdf)이
+        모두 이 값을 읽어야 한다. z_travel(행정, 0.35)을 막대 길이로 쓰면 충돌·관성이
+        시각 막대보다 길어져 접힘 자세에서 두둑을 파고든다 (적대적 검증에서 잡힘)."""
+        return self.z_travel * self.tool_rod_fraction
 
     # ── 카메라 (캐리지에 강체 고정, 아래를 봄) ──────────────────────────
     # 캐리지에 붙어서 툴 팁이 항상 같은 픽셀에 온다 → 헤드리스 픽셀 단언이 됨.

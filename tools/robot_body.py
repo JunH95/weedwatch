@@ -324,9 +324,13 @@ def build():
                                    (wx, wy, P.wheel_dia / 2), mats["wheel"], mats["hub"],
                                    outboard=sy)
 
-    # ── 4. 빔 (몸통 아랫면에 붙어 좌우로 뻗음, 캐리지 레일) ────────────
-    # 몸통 폭보다 넓게 뻗어 두둑 전체를 캐리지가 훑을 수 있게.
-    beam_z = body_bottom - P.beam_height / 2
+    # ── 4. 빔 (터널 천장 = clearance 높이에, 캐리지 레일) ──────────────
+    # ⚠️ 빔은 clearance(고랑 바닥~빔 아랫면=0.60) 높이의 **터널 천장**에 있어야 한다.
+    # 예전엔 pod 아랫면(0.26) 밑 0.22 에 뒀는데, 그러면 캐리지·카메라·도구가 전부
+    # 바퀴(z=0) 근처/아래로 매달려 로봇이 캐리지로 서고 바퀴가 떠서 주행이 안 됐다
+    # (diff-drive 디버깅에서 발견). deck_top_z() 공식도 빔 아랫면=clearance 를 전제한다.
+    # 이제 빔은 데크 바로 아래(0.60~0.68), 캐리지는 그 아래 터널 안에서 Y 로 훑는다.
+    beam_z = P.clearance + P.beam_height / 2
     parts.append(box("beam", (0.10, P.track(G) * 0.85, P.beam_height),
                      (0, 0, beam_z), mats["frame"], bevel=0.01))
     beam_bottom = beam_z - P.beam_height / 2
@@ -356,7 +360,7 @@ def build():
     # ── 7. Z 막대 (캐리지 아래 뒤쪽 = 점 타격 도구) — 주황 ────────────
     # 캐리지 아랫면에서 시작해 아래로. "앞에서 보고(카메라) 뒤에서 친다(도구)".
     tool_x = -0.09
-    rod_len = P.z_travel * 0.55
+    rod_len = P.tool_rod_len  # 단일 출처 — make_urdf 충돌·관성도 같은 값을 읽는다
     parts.append(cyl("tool_rod", P.tool_rod_dia / 2, rod_len,
                      (tool_x, carriage_y, carriage_bottom - rod_len / 2),
                      mats["tool"], axis="z"))

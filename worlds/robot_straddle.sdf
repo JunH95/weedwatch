@@ -1,0 +1,64 @@
+<?xml version="1.0" ?>
+<!--
+  두둑 걸터타고 주행 검증 월드 (Tier 2 — 렌더링 없음, GPU 불필요).
+
+  포탈 설계의 핵심 주장(DECISIONS 006)을 물리로 검증한다:
+    "바퀴 두 개가 서로 다른 두 고랑에 있고, 몸통이 그 사이 두둑(90cm)을 건너지른다."
+  로봇을 두둑 중심(y=+0.6)에 세우면 바퀴는 양쪽 고랑(y≈-0.01, +1.21)에, 몸통은 두둑 위
+  터널에 온다. 이 상태로 두둑 길이 방향(+x)으로 주행 → 바퀴가 고랑 바닥에 머물고 몸통이
+  두둑에 안 걸리고 안 넘어지는가.
+
+  두둑 기하는 garden_geometry / garden_ridge 와 동일(4.0×0.9×0.25, y=+0.6). 작물은 뺐다 —
+  작물 캐노피 침범(카메라 높이 미결)은 별개 문제라, 여기선 "포탈이 두둑을 타는가"만 격리.
+
+  실행:  tools/assert_straddle.py   (make straddle)
+-->
+<sdf version="1.9">
+  <world name="robot_straddle">
+    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows><pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.4 -0.85</direction>
+    </light>
+
+    <!-- 고랑 바닥 (무한 평면, 마찰 명시). 바퀴가 여기서 굴러간다. -->
+    <model name="furrow_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="c">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material><ambient>0.3 0.22 0.14 1</ambient><diffuse>0.5 0.37 0.24 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 두둑 하나 (y=+0.6, 윗면 z=0.25). 로봇이 이걸 걸터탄다. 충돌 있음. -->
+    <model name="bed">
+      <static>true</static>
+      <pose>0 0.600 0.125 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
+        <visual name="v">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+          <material><ambient>0.25 0.17 0.10 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 로봇을 두둑 중심(y=+0.6)에 세운다 → 바퀴는 양쪽 고랑, 몸통은 두둑 위 터널. -->
+    <include>
+      <uri>model://weedwatch_robot</uri>
+      <name>weedwatch</name>
+      <pose>0 0.600 0.01 0 0 0</pose>
+    </include>
+  </world>
+</sdf>

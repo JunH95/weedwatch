@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from garden_geometry import Garden, Portal  # noqa: E402
+from inertia import Part, box_inertia, combine, cylinder_inertia  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / "models" / "weedwatch_robot"
@@ -50,18 +51,15 @@ def xyz(v) -> str:
     return f"{v[0]:.5f} {v[1]:.5f} {v[2]:.5f}"
 
 
-def link_with_mesh(name: str, mesh: str, collision: str) -> str:
-    """시각은 OBJ 메시, 충돌은 프리미티브 XML 문자열."""
+def link_with_mesh(name: str, mesh: str, collision: str, inertial: str) -> str:
+    """시각은 OBJ 메시, 충돌은 프리미티브 XML, 관성은 산수로 계산한 XML."""
     return f"""  <link name="{name}">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry><mesh filename="model://weedwatch_robot/{mesh}"/></geometry>
     </visual>
 {collision}
-    <inertial>
-      <mass value="{_mass(name)}"/>
-      <inertia ixx="0.01" iyy="0.01" izz="0.01" ixy="0" ixz="0" iyz="0"/>
-    </inertial>
+{inertial}
   </link>
 """
 
@@ -78,6 +76,54 @@ def _mass(name: str) -> float:
     return 0.5
 
 
+def inertial_xml(mass: float, com, tensor) -> str:
+    """URDF <inertial>. origin=COM(링크 원점 기준), inertia 는 COM 프레임 기준.
+
+    관성이 0.01 자리채움이면 diff-drive 가 불안정하다 (yaw 관성이 실제의 750배 작음).
+    tools/inertia.py 가 프리미티브 치수에서 물리적으로 계산한 값을 넣는다.
+    """
+    ixx, iyy, izz, ixy, ixz, iyz = tensor
+    cx, cy, cz = com
+    # ⚠️ 유효숫자를 보존해야 한다. tool(가는 막대)의 izz 는 3.6e-6 이라 %.5f 로 찍으면
+    # "0.00000" 이 되고, izz=0 인 무효 관성은 DART 의 관절체 알고리즘을 통째로 망가뜨려
+    # 바퀴가 지면에서 뜨고 접지력이 사라진다 (실제로 이 버그로 몇 시간 헤맴). %g 로 찍는다.
+    if not (ixx > 0 and iyy > 0 and izz > 0):
+        raise ValueError(f"관성 대각성분이 0 이하: ixx={ixx} iyy={iyy} izz={izz} (질량 {mass})")
+    return f"""    <inertial>
+      <origin xyz="{cx:.6f} {cy:.6f} {cz:.6f}" rpy="0 0 0"/>
+      <mass value="{mass:.4f}"/>
+      <inertia ixx="{ixx:.8g}" iyy="{iyy:.8g}" izz="{izz:.8g}" ixy="{ixy:.8g}" ixz="{ixz:.8g}" iyz="{iyz:.8g}"/>
+    </inertial>"""
+
+
+def base_inertial() -> str:
+    """base_link 관성 = 충돌 프리미티브(사이드 포드 2 + 데크)의 합성.
+
+    질량(20kg)은 부피 비례로 세 상자에 나눠 담고 평행축 정리로 합친다. COM 이 위쪽
+    (z≈0.5, 데크·포드가 위에 있음)으로 나오는 게 정직하다 — 예전 origin=(0,0,0)은
+    질량이 지면에 있다는 뜻이라 물리적으로 틀렸다. build_urdf 의 충돌 상자와 동일 치수.
+    """
+    pod_h = P.pod_drop
+    pod_cz = (P.deck_top_z() - P.deck_thickness) - pod_h / 2
+    deck_cz = P.deck_top_z() - P.deck_thickness / 2
+    deck_w = P.deck_width(G)
+    half_track = P.track(G) / 2
+    boxes = [  # (size, center) — build_urdf 의 base 충돌 상자와 정확히 일치해야 한다
+        ((P.deck_length, P.pod_width, pod_h), (0.0, +half_track, pod_cz)),
+        ((P.deck_length, P.pod_width, pod_h), (0.0, -half_track, pod_cz)),
+        ((P.deck_length, deck_w, P.deck_thickness), (0.0, 0.0, deck_cz)),
+    ]
+    vols = [sx * sy * sz for (sx, sy, sz), _ in boxes]
+    total_v = sum(vols)
+    mass = _mass("base_link")
+    parts = [
+        Part(mass * v / total_v, c, box_inertia(mass * v / total_v, *size))
+        for (size, c), v in zip(boxes, vols)
+    ]
+    m, com, tensor = combine(parts)
+    return inertial_xml(m, com, tensor)
+
+
 def collision_box(size, origin=(0, 0, 0)) -> str:
     sx, sy, sz = size
     return f"""    <collision>
@@ -86,10 +132,11 @@ def collision_box(size, origin=(0, 0, 0)) -> str:
     </collision>"""
 
 
-def collision_cyl(radius, length) -> str:
-    # 바퀴: 축이 y 라 rpy 로 눕힘
+def collision_cyl(radius, length, axis="y") -> str:
+    """실린더 충돌. axis='y'(바퀴, rpy 로 눕힘) 또는 'z'(도구 막대, 기본 세움)."""
+    rpy = "1.5708 0 0" if axis == "y" else "0 0 0"
     return f"""    <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <origin xyz="0 0 0" rpy="{rpy}"/>
       <geometry><cylinder radius="{radius:.4f}" length="{length:.4f}"/></geometry>
     </collision>"""
 
@@ -109,12 +156,15 @@ def build_urdf() -> str:
         collision_box((P.deck_length, deck_w, P.deck_thickness),
                       (0, 0, P.deck_top_z() - P.deck_thickness / 2)),  # 데크 상판
     ])
-    out.append(link_with_mesh("base_link", "base.obj", base_col))
+    out.append(link_with_mesh("base_link", "base.obj", base_col, base_inertial()))
 
     # ── 바퀴 4개: continuous, 축 y ──
     wheel_col = collision_cyl(P.wheel_dia / 2, P.wheel_width)
+    wm = _mass("wheel_fl")
+    wheel_in = inertial_xml(wm, (0, 0, 0),
+                            cylinder_inertia(wm, P.wheel_dia / 2, P.wheel_width, axis="y"))
     for link in ("wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr"):
-        out.append(link_with_mesh(link, f"{link}.obj", wheel_col))
+        out.append(link_with_mesh(link, f"{link}.obj", wheel_col, wheel_in))
         out.append(f"""  <joint name="{link}_joint" type="continuous">
     <parent link="base_link"/>
     <child link="{link}"/>
@@ -126,7 +176,9 @@ def build_urdf() -> str:
     # ── 캐리지: prismatic Y (두둑 폭 훑기) ──
     cs = P.carriage_size
     car_col = collision_box((cs * 1.4, cs, cs))
-    out.append(link_with_mesh("carriage", "carriage.obj", car_col))
+    cm = _mass("carriage")
+    car_in = inertial_xml(cm, (0, 0, 0), box_inertia(cm, cs * 1.4, cs, cs))
+    out.append(link_with_mesh("carriage", "carriage.obj", car_col, car_in))
     out.append(f"""  <joint name="carriage_joint" type="prismatic">
     <parent link="base_link"/>
     <child link="carriage"/>
@@ -137,8 +189,13 @@ def build_urdf() -> str:
 """)
 
     # ── tool: prismatic Z (점 타격 막대, 캐리지 자식) ──
-    tool_col = collision_cyl(P.tool_rod_dia / 2, P.z_travel)
-    out.append(link_with_mesh("tool", "tool.obj", tool_col))
+    # 세로 막대라 충돌도 z 축. 길이는 z_travel(행정)이 아니라 막대 물리 길이(tool_rod_len).
+    # 행정을 쓰면 충돌·관성이 시각 막대보다 길어져 접힘 자세에서 두둑을 파고든다.
+    tool_col = collision_cyl(P.tool_rod_dia / 2, P.tool_rod_len, axis="z")
+    tm = _mass("tool")
+    tool_in = inertial_xml(tm, (0, 0, 0),
+                           cylinder_inertia(tm, P.tool_rod_dia / 2, P.tool_rod_len, axis="z"))
+    out.append(link_with_mesh("tool", "tool.obj", tool_col, tool_in))
     # tool 원점은 캐리지 원점 기준 상대좌표로
     tool_rel = [o["tool"][i] - o["carriage"][i] for i in range(3)]
     out.append(f"""  <joint name="tool_joint" type="prismatic">
@@ -150,8 +207,108 @@ def build_urdf() -> str:
   </joint>
 """)
 
+    out.append(wheel_friction_gazebo())
+    out.append(diff_drive_gazebo(o))
+    out.append(joint_controllers_gazebo())
     out.append("</robot>")
     return "\n".join(out)
+
+
+def joint_controllers_gazebo() -> str:
+    """캐리지(Y)·도구(Z) 프리즘 관절의 위치 컨트롤러 (Fortress JointPositionController).
+
+    각 관절이 명령한 위치로 PID 힘 제어된다. 명령 토픽:
+      /carriage_cmd  (ignition.msgs.Double, m)  — 두둑 폭을 좌우로 (±0.45)
+      /tool_cmd      (ignition.msgs.Double, m)  — 점 타격 막대 상하 (-0.35~0, 0=접힘)
+
+    ── 게인은 왜 이 값인가 ──────────────────────────────────────────────────
+    위치 제어는 스프링-댐퍼처럼 동작한다: ω=√(p/m), 임계감쇠 d=2√(pm).
+    캐리지(~1.2kg, 수평이라 중력 무관): p=150 → ω≈11, d≈27.
+    도구(0.2kg, 수직이라 중력 1.96N 이 정상상태 오차를 만든다): p 만으론 오차 mg/p 가
+    남으므로 i 게인으로 없앤다. 값은 assert_joints.py 로 실측 튜닝했다 (오버슈트·정착).
+    """
+    specs = [
+        ("carriage_joint", "carriage_cmd", 700.0, 6.0, 60.0),
+        ("tool_joint", "tool_cmd", 1000.0, 25.0, 35.0),
+    ]
+    blocks = []
+    for joint, topic, p, i, d in specs:
+        blocks.append(f"""  <gazebo>
+    <plugin filename="ignition-gazebo-joint-position-controller-system" name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>{joint}</joint_name>
+      <topic>{topic}</topic>
+      <p_gain>{p}</p_gain>
+      <i_gain>{i}</i_gain>
+      <d_gain>{d}</d_gain>
+    </plugin>
+  </gazebo>""")
+    return "\n".join(blocks)
+
+
+def wheel_friction_gazebo() -> str:
+    """바퀴-지면 접촉의 마찰과 강성 (URDF <gazebo reference> → SDF surface).
+
+    이게 없으면 바퀴가 명령대로 회전만 하고 **접지력이 없어 헛돈다** (실측: odom 은
+    1.69m 전진을 보고하는데 몸통은 0.001m). 원인 두 가지를 같이 잡는다:
+      mu1/mu2 = 마찰 (헛돎 방지)
+      kp/kd   = 접촉 강성 (약하면 바퀴가 지면에 살짝 떠 접지력이 0 이 된다)
+    sdformat 의 URDF 파서가 이 태그들을 surface/friction/ode 로 번역한다.
+    """
+    blocks = []
+    for link in ("wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr"):
+        blocks.append(f"""  <gazebo reference="{link}">
+    <mu1>1.2</mu1>
+    <mu2>1.2</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+    <maxVel>1.0</maxVel>
+  </gazebo>""")
+    return "\n".join(blocks)
+
+
+def diff_drive_gazebo(o: dict) -> str:
+    """Fortress 내장 DiffDrive 시스템 플러그인 (URDF <gazebo> 확장).
+
+    ── 좌/우는 이름이 아니라 실제 Y 부호로 배정한다 (중요) ──────────────────
+    러그 바퀴 메시의 bbox 중심이 track/2(0.60)이 아니라 ±0.6124 로 나오고, 게다가
+    robot_body 의 'fl'(front-left) 이름이 실제로는 y<0 (ROS REP-103 에서 +Y=왼쪽이므로
+    오른쪽)에 있다. 이름으로 배정하면 회전이 반대로 돈다. links.json 의 실제 y 로 가른다.
+
+    wheel_separation 도 track()=1.20 이 아니라 실제 바퀴 간격(≈1.2249)을 써야
+    오도메트리와 회전 반경이 맞는다.
+    """
+    wheels = ("wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr")
+    left = sorted(w for w in wheels if o[w][1] > 0)   # +Y = 왼쪽 (REP-103)
+    right = sorted(w for w in wheels if o[w][1] < 0)   # -Y = 오른쪽
+    assert len(left) == 2 and len(right) == 2, f"좌우 바퀴 배정 실패: {left=} {right=}"
+    ys = [o[w][1] for w in wheels]
+    wheel_sep = max(ys) - min(ys)
+    wheel_radius = P.wheel_dia / 2
+
+    left_tags = "\n".join(f"      <left_joint>{w}_joint</left_joint>" for w in left)
+    right_tags = "\n".join(f"      <right_joint>{w}_joint</right_joint>" for w in right)
+
+    # max_*_acceleration: 부드럽게 출발/정지시켜 무게중심 높은 몸통이 피치로 넘어가지
+    # 않게 한다 (휠베이스 0.45 < 2·COM높이라 급가속엔 앞으로 고꾸라질 수 있다).
+    return f"""  <gazebo>
+    <plugin filename="ignition-gazebo-diff-drive-system" name="ignition::gazebo::systems::DiffDrive">
+{left_tags}
+{right_tags}
+      <wheel_separation>{wheel_sep:.5f}</wheel_separation>
+      <wheel_radius>{wheel_radius:.5f}</wheel_radius>
+      <max_linear_acceleration>0.5</max_linear_acceleration>
+      <max_angular_acceleration>1.0</max_angular_acceleration>
+      <topic>cmd_vel</topic>
+      <odom_topic>odometry</odom_topic>
+      <tf_topic>tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
+    <plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher"/>
+  </gazebo>
+"""
 
 
 if __name__ == "__main__":

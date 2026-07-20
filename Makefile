@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden view blender-gpu cropcraft clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle view blender-gpu cropcraft clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -21,6 +21,9 @@ help:
 	@echo "make test      - 순수 단위 테스트 (시뮬·GPU 불필요, 밀리초)"
 	@echo "make smoke     - 헤드리스 GPU 렌더링 전 과정 + 게이트 2개 단언"
 	@echo "make garden    - 주말농장 지형 생성 + 렌더 (기하학 눈으로 확인용)"
+	@echo "make drive     - diff-drive 로 cmd_vel 주행 단언 (물리만, GPU 불필요)"
+	@echo "make joints    - Y/Z 관절이 명령 위치에 mm 정밀 도달하는지 단언 (물리만)"
+	@echo "make straddle  - 두둑 걸터타고 주행 — 포탈 설계가 물리로 성립하는지 단언 (물리만)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make clean-sim - 좀비 ign 서버 정리"
@@ -60,6 +63,24 @@ garden: clean-sim
 	@rm -rf artifacts/garden && mkdir -p artifacts/garden
 	@tools/run_headless.sh worlds/garden_ridge.sdf /garden/inspect $(SMOKE_ITERS)
 	@$(ENV) python3 tools/assert_render.py artifacts/garden
+
+# diff-drive 주행 단언 (Tier 2 — 물리만, 렌더/GPU 불필요).
+# cmd_vel 로 로봇이 실제로 움직이는가. 게이트 2개: 플러그인이 명령 속도를 보고하나 AND
+# 지상진실(pose/info)로 몸통이 물리적으로 그만큼 움직였나. odom 만 보면 바퀴가 헛돌아도
+# 거짓 통과한다 — 실제로 그 함정(빔이 낮아 바퀴가 떠서 헛돎)을 밟았고 지상진실이 잡았다.
+drive: clean-sim
+	@$(ENV) python3 tools/assert_drive.py
+
+# Y/Z 관절 위치 제어 단언 (Tier 2 — 물리만). 성공 기준("잡초 위 ±2cm")을 물리적으로
+# 가능하게 하는 게 이 프리즘 관절들이다 (DECISIONS 006): 차체는 대충, 관절이 mm 를 준다.
+# "잡초가 죽었나" 는 시뮬 못 함 — 여기서 재는 건 "막대가 그 위치·깊이에 정확히 갔나".
+joints: clean-sim
+	@$(ENV) python3 tools/assert_joints.py
+
+# 두둑 걸터타고 주행 (Tier 2 — 물리만). 포탈 설계(바퀴는 고랑, 몸통은 두둑 위 터널)가
+# 물리로 성립하는지 — DECISIONS 006 의 핵심 주장이자 Stage 1 "두둑을 탈 수 있는가" 위험의 완결.
+straddle: clean-sim
+	@$(ENV) python3 tools/assert_straddle.py
 
 # 환경 건강검진. 뭔가 이상하면 여기서 먼저 걸린다.
 doctor:
