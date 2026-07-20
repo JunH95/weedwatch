@@ -211,8 +211,25 @@ def build_urdf() -> str:
     out.append(diff_drive_gazebo(o))
     out.append(joint_controllers_gazebo())
     out.append(camera_sensor_gazebo())
+    out.append(imu_sensor_gazebo())
     out.append("</robot>")
     return "\n".join(out)
+
+
+def imu_sensor_gazebo() -> str:
+    """base_link 에 IMU (기울기·각속도·가속도). 넘어짐 감지 + 위치추정 보정용.
+
+    Stage 4(주행/EKF)에서 쓴다. 월드에 ignition-gazebo-imu-system 플러그인이 있어야
+    실제로 발행된다 — 주행 월드에 붙일 때 같이 넣는다.
+    """
+    return """  <gazebo reference="base_link">
+    <sensor name="imu" type="imu">
+      <topic>robot/imu</topic>
+      <update_rate>100</update_rate>
+      <always_on>1</always_on>
+    </sensor>
+  </gazebo>
+"""
 
 
 def camera_sensor_gazebo() -> str:
@@ -241,6 +258,20 @@ def camera_sensor_gazebo() -> str:
         <image><width>640</width><height>480</height><format>R8G8B8</format></image>
         <clip><near>0.02</near><far>10</far></clip>
         <save enabled="true"><path>artifacts/camera</path></save>
+      </camera>
+    </sensor>
+    <!-- 깊이 카메라 (RGB 와 같은 자리·같은 방향). top-down RGB 로는 높이를 못 재지만
+         깊이로 잰다 → "작물이 클리어런스 넘었나" 를 오라클 없이 비전으로 (Aigen gen2 방식).
+         ⚠️ 시뮬 깊이는 노이즈 0(낙관적). 실제는 스테레오 노이즈 있음 — 각주로 명시할 것. -->
+    <sensor name="down_depth" type="depth_camera">
+      <pose>0.0225 0 -0.0698 0 1.5708 0</pose>
+      <topic>robot/depth</topic>
+      <update_rate>15</update_rate>
+      <always_on>1</always_on>
+      <camera>
+        <horizontal_fov>1.047</horizontal_fov>
+        <image><width>640</width><height>480</height></image>
+        <clip><near>0.02</near><far>10</far></clip>
       </camera>
     </sensor>
   </gazebo>
