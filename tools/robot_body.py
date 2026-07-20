@@ -42,6 +42,7 @@ P = Portal()
 PALETTE = {
     "cell": (0.04, 0.06, 0.16),      # 태양광 셀 — 짙은 남색 (약간 광택)
     "body": (0.82, 0.83, 0.85),      # 몸통 케이스 — 밝은 흰회색 (AVO 본체)
+    "accent": (0.22, 0.52, 0.20),    # 초록 악센트 (ecoRobotix/AVO 흰+초록 투톤)
     "frame": (0.62, 0.64, 0.67),     # 알루미늄 프레임
     "glass": (0.7, 0.8, 0.95),       # 유리 커버 (반투명)
     "wheel": (0.06, 0.06, 0.07),     # 고무 타이어
@@ -230,6 +231,45 @@ def wedge_body(name, size, loc, mat, front_slope=0.35, seam=True):
     return parts
 
 
+def fairing(name, size, loc, mat, top_taper=0.14, bot_taper=0.30, outer_slant=0.30, outer_sign=1):
+    """각진 사이드 바디(모노코크 페어링) — "책상 다리" 대신 갠트리 섀시.
+
+    측면(x-z)을 8각형처럼 깎는다: 윗변 앞뒤로 좁히고(top_taper), 아랫변 앞뒤 더 좁혀
+    (bot_taper) 쐐기 실루엣. 바깥(outer) 아랫면을 안으로 당겨(outer_slant) 바퀴 위로
+    비스듬히 덮는 펜더면. Naio Dino/farm-ng 처럼 각진 기계로 읽히게.
+    """
+    import bmesh
+
+    lx, ly, lz = size
+    x, y, z = loc
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
+    o = bpy.context.object
+    o.name = name
+    o.scale = (lx, ly, lz)
+    bpy.ops.object.transform_apply(scale=True)
+
+    me = o.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    for v in bm.verts:
+        top = v.co.z > z
+        # 앞뒤(x) 모서리 깎기 → 8각 실루엣
+        dx = -(1 if v.co.x > x else -1) * lx * (top_taper if top else bot_taper) / 2
+        v.co.x += dx
+        # 바깥 아랫면을 안으로 → 바퀴 덮는 비스듬한 펜더면
+        if (not top) and (v.co.y - y) * outer_sign > 0:
+            v.co.y -= outer_sign * ly * outer_slant
+    bm.to_mesh(me)
+    bm.free()
+
+    bv = o.modifiers.new("bevel", "BEVEL")
+    bv.width = 0.02
+    bv.segments = 3
+    o.data.materials.append(mat)
+    _shade_smooth(o)
+    return o
+
+
 def solar_deck(name, size, loc, frame_mat, cell_mat, glass_mat, bevel=0.01):
     """태양광 데크 = 프레임 테두리 + 셀 격자. 밋밋한 판 대신 '진짜 패널'.
 
@@ -312,11 +352,26 @@ def build():
     parts += wedge_body("body_skin", (body_l, P.deck_width(G) - 2 * P.body_inset, skin_h),
                         (0, 0, pod_top - skin_h / 2), mats["body"])
 
-    # 양쪽 사이드 포드 (바퀴 위로 크게 내려온 덩어리) — 쐐기형
+    # 양쪽 사이드 페어링 (각진 모노코크 — 바퀴를 몸통 아래로 tuck, "책상 다리" 제거).
+    # 바퀴 바로 위(0.24)부터 데크 아래(pod_top)까지 크게 덮고, 바깥으로 데크 끝까지 내밀어
+    # 바퀴를 overhang. 안쪽 면은 캐리지 행정(±0.45+0.05) 밖(y≥0.52)에 둔다.
+    fair_bot = P.wheel_dia + 0.02        # ≈0.24, 바퀴 top(0.22) 바로 위
+    fair_top = pod_top                    # 0.68
+    fair_z = (fair_bot + fair_top) / 2
+    fair_h = fair_top - fair_bot
+    fair_w = 0.18
+    fair_y = 0.61                         # 안쪽 0.52(캐리지 clear) / 바깥 0.70(데크 끝·바퀴 overhang)
     for sy in (-1, 1):
-        pod_y = sy * half_track
-        parts += wedge_body(f"pod_{sy}", (body_l, P.pod_width, P.pod_drop),
-                            (0, pod_y, pod_z), mats["body"], front_slope=0.28)
+        parts.append(fairing(f"pod_{sy}", (body_l, fair_w, fair_h),
+                             (0, sy * fair_y, fair_z), mats["body"], outer_sign=sy))
+        # 초록 하부 밴드 (흰-상/초록-하 투톤, 페어링 면을 따라감)
+        band_h = fair_h * 0.4
+        parts.append(fairing(f"skirt_{sy}", (body_l * 0.99, fair_w + 0.004, band_h),
+                             (0, sy * fair_y, fair_bot + band_h / 2), mats["accent"], outer_sign=sy))
+
+    # 데크 앞 초록 트림 (제품 느낌 + 방향성)
+    parts.append(box("deck_trim", (0.03, deck_w * 0.98, P.deck_thickness * 1.5),
+                     (P.deck_length / 2 - 0.01, 0, deck_z), mats["accent"], bevel=0.006))
 
     body_bottom = pod_bottom  # 캐리지 빔이 여기(상판 스킨 아래)에 붙는다
 
@@ -407,8 +462,8 @@ def _mat_opts(key):
         return dict(metal=0.4, rough=0.2)    # 태양광 셀 — 광택
     if key == "glass":
         return dict(metal=0.0, rough=0.05, transmit=0.85)  # 유리 커버 — 반투명
-    if key == "body":
-        return dict(metal=0.1, rough=0.4, coat=1.0)  # 몸통 — 도장 + 클리어코트
+    if key in ("body", "accent"):
+        return dict(metal=0.1, rough=0.4, coat=1.0)  # 도장 + 클리어코트
     if key in ("frame", "hub"):
         return dict(metal=0.8, rough=0.4)    # 알루미늄
     if key == "wheel":
