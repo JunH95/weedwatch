@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp overlay view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -33,6 +33,7 @@ help:
 	@echo "make stamp-targets - Stage4 인식→미터좌표: 잡초 검출률·타격 위치오차 단언 (held-out)"
 	@echo "make stamp     - Stage4 스탬핑: 두둑 위 잡초에 도구 끝 얹기 |도구-잡초|<2cm 단언 (물리)"
 	@echo "make overlay   - 인식 결과를 눈으로: 원본|예측+타격점 오버레이 PNG (사람 검증용)"
+	@echo "make ww-cmd    - Stage4-3 주행 중 제어용 상주 명령 프로세스 빌드 (ign topic -p 는 1초라 못 씀)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
@@ -99,6 +100,22 @@ stamp-targets:
 # 실측(지상진실 base + achieved joint_state)으로 |도구-잡초|<2cm 를 단언. 물리, GPU 불필요.
 stamp:
 	@$(ENV) python3 tools/assert_stamp.py
+
+# Stage 4-3 선결조건: 주행 중 폐루프 제어용 상주 명령/상태 프로세스.
+#
+# 왜 필요한가 (실측): `ign topic -p` 는 발행당 1.055초가 걸린다(5회 중앙값). 프로세스 기동 +
+# 디스커버리를 매번 반복하기 때문이다. 0.25 m/s 면 명령 하나에 26cm — 허용오차 2cm 의 13배다.
+# 즉 CLI 로는 주행 중 제어가 불가능하다. 4-2 가 이걸 안 밟은 건 로봇이 서 있었기 때문이다.
+# ww_cmd 는 디스커버리를 한 번만 하고 상주한다: 명령 쓰기 3.6us (약 29만 배).
+#
+# colcon 이 아니라 g++ 한 줄로 짓는다 — src/ 는 ROS 패키지 전용이고(넣으면 colcon 이 깨진다)
+# 이건 ROS 노드가 아니라 ign-transport 직결 도구다.
+build/ww_cmd: tools/ww_cmd/ww_cmd.cc
+	@mkdir -p build
+	@$(ENV) sh -c 'g++ -O2 -o $@ $< $$(pkg-config --cflags --libs ignition-transport11 ignition-msgs8)'
+	@echo "build/ww_cmd 빌드됨"
+
+ww-cmd: build/ww_cmd
 
 # 사람 검증용: held-out 정원에 모델을 돌려 [원본 | 예측+타격점] 오버레이 PNG 생성.
 # 단언이 아니라 눈으로 보는 용도 → artifacts/perception_overlay.png 를 열어 본다.
