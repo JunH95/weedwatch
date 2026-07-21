@@ -53,19 +53,27 @@ field:
       rows_count: 2
       plants_count: 8
 
+  # 잡초 밀도 = 문헌 근거로 확정 (docs/DECISIONS.md 015, docs/REFERENCES.md). 임의 아님.
+  #   목표 잡초 픽셀 ~4–8% (현재 이 값으로 4.55%). 실제 밭 잡초는 바이오매스 중앙값 4%
+  #   (PMC11272534)이고 실제 top-down weed-seg 데이터셋은 오히려 더 적다(Bonn 0.7%,
+  #   Corn-Weed 4.0% ≈ 우리). 4.55%는 정상~높은 수준 — 부족이 아니다.
+  # ⚠️ density 를 더 올리지 마라: CropCraft 는 겹침 없이 심어 ~4.5%에서 포화하고, 현실적
+  #   밀도로 맞춰도 잡초 클래스는 ~0.35 mIoU 에 갇힌다(Klein arXiv:2403.18351). 진짜 레버는
+  #   공간(군집/줄근처)·copy-paste 증강·가중손실 — Stage 3-2 로 이월(DECISIONS 015).
+  # max_height 는 어린 잡초로 유지 — sim-to-real 제약은 '작다'지 '드물다'가 아니다.
   weeds:
-    portulaca:
+    portulaca:                  # 쇠비름 — 낮게 깔리는 지피. 한국 밭 여름 우점(KISTI 8.1%)
       plant_type: portulaca
       max_height: 0.10
-      density: 3.0
-    polygonum:
+      density: 36.0
+    polygonum:                  # 마디풀 — 작고 무리지음
       plant_type: polygonum
       max_height: 0.15
-      density: 2.5
-    taraxacum:
+      density: 30.0
+    taraxacum:                  # 민들레 — 로제트가 커서 개수 절제(야생 밀도 단자릿수~20/m²)
       plant_type: taraxacum
       max_height: 0.08
-      density: 2.0
+      density: 12.0
 
   noise:
     position: 0.02
