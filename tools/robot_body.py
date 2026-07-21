@@ -391,7 +391,7 @@ def build():
                                    outboard=sy)
 
     # ── 4. 빔 (터널 천장 = clearance 높이에, 캐리지 레일) ──────────────
-    # ⚠️ 빔은 clearance(고랑 바닥~빔 아랫면=0.60) 높이의 **터널 천장**에 있어야 한다.
+    # 주의: 빔은 clearance(고랑 바닥~빔 아랫면=0.60) 높이의 **터널 천장**에 있어야 한다.
     # 예전엔 pod 아랫면(0.26) 밑 0.22 에 뒀는데, 그러면 캐리지·카메라·도구가 전부
     # 바퀴(z=0) 근처/아래로 매달려 로봇이 캐리지로 서고 바퀴가 떠서 주행이 안 됐다
     # (diff-drive 디버깅에서 발견). deck_top_z() 공식도 빔 아랫면=clearance 를 전제한다.
@@ -669,7 +669,7 @@ def export_obj(outdir: Path):
 def dump_bboxes() -> dict:
     """각 부품의 실제 월드 bounding box를 뽑는다.
 
-    ⚠️ o.location 을 쓰면 안 된다 — box()가 transform_apply(scale) 를 하므로
+    주의: o.location 을 쓰면 안 된다 — box()가 transform_apply(scale) 를 하므로
     location 은 항상 (0,0,0)에 남고 지오메트리만 옮겨진다. bounding box 를 봐야 한다.
 
     이게 "눈이 원근에 속는" 문제의 해법이다: 렌더만 보면 배터리가 로봇 밖에

@@ -85,7 +85,7 @@ def inertial_xml(mass: float, com, tensor) -> str:
     """
     ixx, iyy, izz, ixy, ixz, iyz = tensor
     cx, cy, cz = com
-    # ⚠️ 유효숫자를 보존해야 한다. tool(가는 막대)의 izz 는 3.6e-6 이라 %.5f 로 찍으면
+    # 주의: 유효숫자를 보존해야 한다. tool(가는 막대)의 izz 는 3.6e-6 이라 %.5f 로 찍으면
     # "0.00000" 이 되고, izz=0 인 무효 관성은 DART 의 관절체 알고리즘을 통째로 망가뜨려
     # 바퀴가 지면에서 뜨고 접지력이 사라진다 (실제로 이 버그로 몇 시간 헤맴). %g 로 찍는다.
     if not (ixx > 0 and iyy > 0 and izz > 0):
@@ -285,7 +285,7 @@ def camera_sensor_gazebo(o: dict) -> str:
       </camera>
     </sensor>
     <!-- 깊이 카메라 (RGB 와 같은 자리·방향). 높이를 비전으로 → "작물이 클리어런스 넘었나"
-         를 오라클 없이(Aigen gen2 방식). ⚠️ 시뮬 깊이 노이즈는 근사(실 D405 는 거리의존·IR). -->
+         를 오라클 없이(Aigen gen2 방식). 주의: 시뮬 깊이 노이즈는 근사(실 D405 는 거리의존·IR). -->
     <sensor name="down_depth" type="depth_camera">
       <pose>{off} 0 1.5708 0</pose>
       <topic>robot/depth</topic>

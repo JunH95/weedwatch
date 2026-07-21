@@ -320,7 +320,7 @@ def assert_forward():
         errs.append(f"odom↔지상진실 불일치 15%↑: {odom_dx:.3f} vs {dx:.3f}")
     if errs:
         raise Fail("전진 실패:\n    - " + "\n    - ".join(errs))
-    print("  ✅ 전진 통과\n")
+    print("  OK 전진 통과\n")
 
 
 def assert_turn():
@@ -355,7 +355,7 @@ def assert_turn():
         errs.append(f"제자리 회전이 아니라 너무 이동: {math.hypot(dx,dy):.2f}m")
     if errs:
         raise Fail("회전 실패:\n    - " + "\n    - ".join(errs))
-    print("  ✅ 회전 통과 (방향 맞음 = 좌/우 배정 정상)\n")
+    print("  OK 회전 통과 (방향 맞음 = 좌/우 배정 정상)\n")
 
 
 def main():
@@ -364,11 +364,11 @@ def main():
         assert_forward()
         assert_turn()
     except Fail as e:
-        print(f"\n❌ {e}", file=sys.stderr)
+        print(f"\nFAIL {e}", file=sys.stderr)
         subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
         sys.exit(1)
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
-    print("=== ✅ 주행 단언 통과 — cmd_vel 로 로봇이 움직인다 ===")
+    print("=== OK 주행 단언 통과 — cmd_vel 로 로봇이 움직인다 ===")
 
 
 if __name__ == "__main__":

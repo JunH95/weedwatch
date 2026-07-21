@@ -77,9 +77,9 @@ def main():
 
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     if errs:
-        print("\n❌ 걸터타기 실패:\n    - " + "\n    - ".join(errs), file=sys.stderr)
+        print("\nFAIL 걸터타기 실패:\n    - " + "\n    - ".join(errs), file=sys.stderr)
         sys.exit(1)
-    print("\n=== ✅ 두둑 걸터타고 주행 통과 — 바퀴는 고랑, 몸통은 두둑 위. 포탈 성립. ===")
+    print("\n=== OK 두둑 걸터타고 주행 통과 — 바퀴는 고랑, 몸통은 두둑 위. 포탈 성립. ===")
 
 
 if __name__ == "__main__":

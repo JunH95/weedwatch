@@ -160,7 +160,7 @@ def main() -> None:
     print()
 
     if not g.weeds:
-        print("⚠️  채점 대상 잡초가 0개입니다.")
+        print("주의:  채점 대상 잡초가 0개입니다.")
         print(f"    설정의 beds: 블록에 '{TARGET_PREFIX}...' 이름으로 잡초를 선언해야 합니다.")
         print("    weeds: 블록에 선언하면 좌표가 안 나옵니다 (지오메트리 노드가 뿌려서).")
         sys.exit(1)

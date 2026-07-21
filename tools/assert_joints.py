@@ -152,13 +152,13 @@ def main():
     errs = []
     for desc, joint, target, tol, p1, p2 in results:
         if p1 is None or p2 is None:
-            print(f"  ❌ {desc}: 관절 상태를 못 읽음")
+            print(f"  FAIL {desc}: 관절 상태를 못 읽음")
             errs.append(f"{desc}: joint_state 읽기 실패")
             continue
         err = abs(p1 - target)
         moving = abs(p2 - p1)
         ok = err <= tol and moving <= STABLE
-        mark = "✅" if ok else "❌"
+        mark = "OK" if ok else "FAIL"
         print(f"  {mark} {desc:28s} 목표={target:+.3f}  도달={p1:+.4f}  "
               f"오차={err*1000:5.2f}mm  잔진동={moving*1000:4.2f}mm")
         if err > tol:
@@ -168,9 +168,9 @@ def main():
 
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     if errs:
-        print("\n❌ 관절 단언 실패:\n    - " + "\n    - ".join(errs), file=sys.stderr)
+        print("\nFAIL 관절 단언 실패:\n    - " + "\n    - ".join(errs), file=sys.stderr)
         sys.exit(1)
-    print("\n=== ✅ 관절 단언 통과 — 캐리지·도구가 명령 위치에 mm 정밀 도달 ===")
+    print("\n=== OK 관절 단언 통과 — 캐리지·도구가 명령 위치에 mm 정밀 도달 ===")
 
 
 if __name__ == "__main__":
