@@ -1,0 +1,68 @@
+diff --git a/core/base.py b/core/base.py
+index add2eb5..a60a489 100644
+--- a/core/base.py
++++ b/core/base.py
+@@ -167,11 +167,11 @@ def setup_camera_animation(render: cfg_module.Render, bed_end: mathutils.Vector)
+ 
+ 
+ def _quantize_masks(masks_dir: str, label_colors: cfg_module.LabelColors):
+-    class_colors = np.array([
+-        label_colors.background,
+-        label_colors.crop,
+-        label_colors.weed,
+-    ], dtype=np.int32)
++    # 팔레트 = 배경 + 잡초 + 작물색들. crops 가 있으면 종류별 색 전부(4+클래스),
++    # 없으면 공통 crop 색(3클래스 하위호환). weedwatch DECISIONS 016.
++    colors = [label_colors.background, label_colors.weed]
++    colors += list(label_colors.crops.values()) if label_colors.crops else [label_colors.crop]
++    class_colors = np.array(colors, dtype=np.int32)
+     for path in _glob.glob(os.path.join(masks_dir, '*.png')):
+         img = Image.open(path).convert('RGB')
+         arr = np.array(img, dtype=np.int32)
+diff --git a/core/beds.py b/core/beds.py
+index 00bf3c8..8d66f0a 100644
+--- a/core/beds.py
++++ b/core/beds.py
+@@ -126,9 +126,15 @@ class Beds:
+         bpy.data.collections['env'].objects.link(curve_obj)
+ 
+     def apply_label_materials(self, label_colors: config.LabelColors):
+-        color = tuple(c / 255.0 for c in label_colors.crop) + (1.0,)
++        # 컬렉션은 bed.name 으로 만들어짐(load_plants). bed.name -> plant_type -> 종류별 색.
++        # label_colors.crops 에 종류가 있으면 그 색, 없으면 공통 crop 색(3클래스 하위호환).
++        default = tuple(c / 255.0 for c in label_colors.crop) + (1.0,)
++        name_to_type = {bed.name: bed.plant_type for bed in self.field.beds}
+         plants_collection = bpy.data.collections['plants']
+         for collection in plants_collection.children.values():
++            ptype = name_to_type.get(collection.name)
++            rgb = label_colors.crops.get(ptype) if ptype else None
++            color = (tuple(c / 255.0 for c in rgb) + (1.0,)) if rgb else default
+             _apply_emission_material(list(collection.objects), color)
+ 
+     def _create_bed(self, bed: config.Bed):
+diff --git a/core/config.py b/core/config.py
+index 7093343..9ef07a2 100644
+--- a/core/config.py
++++ b/core/config.py
+@@ -124,6 +124,9 @@ class Field:
+ @dataclass
+ class LabelColors:
+     crop: typing.List[int] = field(default_factory=lambda: [0, 255, 0])
++    # crops: plant_type(bean/maize/...) -> [r,g,b]. 비면 모든 작물을 crop 색으로(3클래스 하위호환).
++    # 차 있으면 작물을 종류별 다른 색으로 라벨(4+클래스). weedwatch DECISIONS 016.
++    crops: typing.Dict[str, typing.List[int]] = field(default_factory=dict)
+     weed: typing.List[int] = field(default_factory=lambda: [255, 0, 0])
+     background: typing.List[int] = field(default_factory=lambda: [0, 0, 0])
+ 
+diff --git a/core/parser.py b/core/parser.py
+index 23c3f1e..26e6880 100644
+--- a/core/parser.py
++++ b/core/parser.py
+@@ -245,6 +245,7 @@ def make_outputs(cfg: dict):
+ def make_label_colors(data: dict):
+     lc = config.LabelColors()
+     lc.crop = data.get('crop', lc.crop)
++    lc.crops = data.get('crops', lc.crops)
+     lc.weed = data.get('weed', lc.weed)
+     lc.background = data.get('background', lc.background)
+     return lc

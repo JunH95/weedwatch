@@ -37,8 +37,8 @@ test:
 	@$(ENV) python3 -m pytest tests/ -q
 
 # CropCraft(정원 생성기)를 고정된 커밋으로 가져온다.
-# SHA 를 박아두는 이유: 데이터셋은 (설정 + 시드 + CropCraft SHA + Blender 버전)의 함수다.
-# 넷 중 하나라도 흐르면 어제 만든 정원을 오늘 다시 못 만든다.
+# SHA 를 박아두는 이유: 데이터셋은 (설정 + 시드 + CropCraft SHA + 4클래스 패치 + Blender 버전)의
+# 함수다. 다섯 중 하나라도 흐르면 어제 만든 정원을 오늘 다시 못 만든다.
 CROPCRAFT_SHA := 7128cd2acade50cc4a5a1761210b55989ab62527
 
 # AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (sim-to-real 평가용, Stage 3).
@@ -59,8 +59,12 @@ cropcraft:
 	  mkdir -p third_party && git clone -q https://github.com/Romea/cropcraft.git third_party/cropcraft; \
 	fi
 	@cd third_party/cropcraft && git fetch -q --depth 1 origin $(CROPCRAFT_SHA) 2>/dev/null; \
-	  git checkout -q $(CROPCRAFT_SHA)
-	@echo "CropCraft $(CROPCRAFT_SHA) 준비됨"
+	  git checkout -q -f $(CROPCRAFT_SHA)
+	@# 고정 SHA 위에 weedwatch 4클래스 라벨 패치 적용 (DECISIONS 016). third_party/ 는
+	@# gitignore 라 CropCraft 수정을 직접 커밋 못 함 → 패치로 추적한다. checkout -f 로 매번
+	@# 깨끗한 SHA 로 되돌린 뒤 적용하므로 idempotent. 재현성 = CropCraft SHA + 이 패치.
+	@cd third_party/cropcraft && git apply --whitespace=nowarn "$(CURDIR)/patches/cropcraft-4class-labels.patch"
+	@echo "CropCraft $(CROPCRAFT_SHA) + 4클래스 라벨 패치 준비됨"
 	@# Blender 번들 파이썬(3.11)에 의존성을 넣는다. snap 이 읽기 전용이라 pip 이
 	@# ~/.local/lib/python3.11 로 물러난다 — 그래서 cropcraft.sh 가 user site 를 켜둔다.
 	@/snap/blender/current/5.0/python/bin/python3.11 -m pip install --user -q \
