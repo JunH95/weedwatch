@@ -15,7 +15,7 @@ render:
   directory: render
   env_path: /home/sunny/projects/weedwatch/third_party/cropcraft/assets/environments/alps_field_1k.hdr
   env_rotation_deg: 0.0
-  frames: 6              # 첫 테스트 (검증되면 늘림)
+  frames: 8              # 시드당 프레임(카메라가 두둑 따라 이동). bake 는 시드×이 값 = 총 장수
   samples: 20
   cycles_device: GPU
   resolution_x: 640

@@ -11,7 +11,9 @@ CropCraft 내장 렌더가 configs/train_garden.yaml 로부터 만든 images/ + 
   3. 데이터셋 전체에 콩·옥수수·잡초 픽셀이 모두 존재 (한 클래스라도 0이면 그 클래스 학습 불가)
 
 색은 configs/train_garden.yaml 의 label_colors 와 일치해야 한다 (DECISIONS 016, 4클래스).
-실행:  ./scripts/env.sh python3 tools/assert_dataset.py   (make dataset 가 호출)
+실행:  ./scripts/env.sh python3 tools/assert_dataset.py [디렉터리]
+       인자 없으면 models/render (make dataset 스모크). bake 전체 세트는 디렉터리를 준다:
+       ./scripts/env.sh python3 tools/assert_dataset.py models/dataset/train
 """
 from __future__ import annotations
 
@@ -31,9 +33,10 @@ REQUIRE_PRESENT = {"콩": 1, "옥수수": 2, "잡초": 3}
 
 
 def main():
-    imgs = sorted(glob.glob(str(RENDER / "images" / "*.jpg")))
-    masks = sorted(glob.glob(str(RENDER / "masks" / "*.png")))
-    print(f"=== 데이터셋 검증: {RENDER} ===")
+    root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else RENDER
+    imgs = sorted(glob.glob(str(root / "images" / "*.jpg")))
+    masks = sorted(glob.glob(str(root / "masks" / "*.png")))
+    print(f"=== 데이터셋 검증: {root} ===")
     print(f"  이미지 {len(imgs)}장 / 마스크 {len(masks)}장")
 
     errs = []

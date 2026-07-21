@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -25,7 +25,8 @@ help:
 	@echo "make joints    - Y/Z 관절이 명령 위치에 mm 정밀 도달하는지 단언 (물리만)"
 	@echo "make straddle  - 두둑 걸터타고 주행 — 포탈 설계가 물리로 성립하는지 단언 (물리만)"
 	@echo "make camera    - 로봇 하방 카메라가 두둑을 보고 프레임 발행 — 2게이트 (GPU 필요)"
-	@echo "make dataset   - Stage3 학습데이터: CropCraft 로 RGB+세그멘테이션 마스크 생성+검증 (GPU)"
+	@echo "make dataset   - Stage3 학습데이터 스모크: CropCraft 로 1시드 RGB+마스크 생성+검증 (GPU)"
+	@echo "make bake      - Stage3 데이터셋 bake: 전 시드로 train/eval 세트 구축 (증분, GPU, 오래 걸림)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
@@ -53,6 +54,15 @@ aihub:
 dataset:
 	@scripts/cropcraft.sh configs/train_garden.yaml
 	@$(ENV) python3 tools/assert_dataset.py
+
+# Stage 3-2 데이터셋 bake: 여러 시드로 CropCraft 를 돌려 학습/평가 세트를 models/dataset/ 에
+# 쌓는다(증분·idempotent — 있는 시드는 건너뜀). eval 시드는 보호(configs/eval_seeds.txt).
+# GPU 렌더라 오래 걸린다(수백 장 = 수십 분~시간). 백그라운드로 돌릴 것.
+bake:
+	@$(ENV) python3 tools/bake_dataset.py train configs/train_seeds.txt
+	@$(ENV) python3 tools/bake_dataset.py eval  configs/eval_seeds.txt
+	@$(ENV) python3 tools/assert_dataset.py models/dataset/train
+	@$(ENV) python3 tools/assert_dataset.py models/dataset/eval
 
 cropcraft:
 	@if [ ! -d third_party/cropcraft ]; then \
