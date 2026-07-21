@@ -25,10 +25,12 @@ render:
     fov_deg: 80.0
     pitch_deg: 0.0      # 정하방
     y_jitter: 0.06
-  label_colors:
-    crop:       [0, 255, 0]
-    weed:       [255, 0, 0]
-    background: [0, 0, 0]
+  label_colors:              # 4클래스 (콩/옥수수 분리) — DECISIONS 016. crops 키가 이걸 켠다.
+    crops:                   # 작물 종류별 색 (CropCraft 는 이미 bed 별 컬렉션이라 색만 다르게)
+      bean:  [0, 255, 0]     # 콩 = 초록
+      maize: [0, 0, 255]     # 옥수수 = 파랑 (검정/초록/빨강과 RGB 축상 최대 분리 → 양자화 안전)
+    weed:       [255, 0, 0]  # 잡초 = 빨강
+    background: [0, 0, 0]    # 흙 = 검정
 
 field:
   random_seed: 1        # train
