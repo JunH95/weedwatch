@@ -8,7 +8,7 @@
 로 seed<N>_frame_<NNNN> 이름으로 이동한다. 이미 구운 시드는 건너뛴다(idempotent):
 그래서 시드를 추가하고 다시 돌리면 새 시드만 렌더된다(증분 bake, 이전 렌더 재사용).
 
-⚠️ "bake" 는 데이터셋 렌더(구축)지 학습이 아니다. 학습은 별도(Stage 3-2c, torch).
+참고: "bake" 는 데이터셋 렌더(구축)지 학습이 아니다. 학습은 별도(Stage 3-2c, torch).
 
 사용:
   ./scripts/env.sh python3 tools/bake_dataset.py train configs/train_seeds.txt

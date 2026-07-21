@@ -1,7 +1,7 @@
 # Stage 3 학습 데이터 생성용 CropCraft 설정.
 # CropCraft 내장 렌더가 RGB(images/) + 세그멘테이션 마스크(masks/) 쌍을 자동 생성한다.
 #   crops(beds:) → 초록, weeds(weeds:) → 빨강, 흙/배경 → 검정 (3클래스).
-# ⚠️ oracle_test.yaml 과 다르다: 저긴 채점 잡초를 beds: 에 넣어 GT 좌표를 뽑지만(오라클),
+# 주의: oracle_test.yaml 과 다르다: 저긴 채점 잡초를 beds: 에 넣어 GT 좌표를 뽑지만(오라클),
 #    학습은 마스크가 라벨이라 잡초를 weeds: 에 둬야 빨강으로 칠해진다.
 # 자연광 HDRI (DECISIONS 014 — LED 터널 폐기). 어린 식물(weed-early 체제).
 # 학습/평가 시드 분리: 이건 train (configs/train_seeds.txt 와 맞출 것).
@@ -59,7 +59,7 @@ field:
   #   목표 잡초 픽셀 ~4–8% (현재 이 값으로 4.55%). 실제 밭 잡초는 바이오매스 중앙값 4%
   #   (PMC11272534)이고 실제 top-down weed-seg 데이터셋은 오히려 더 적다(Bonn 0.7%,
   #   Corn-Weed 4.0% ≈ 우리). 4.55%는 정상~높은 수준 — 부족이 아니다.
-  # ⚠️ density 를 더 올리지 마라: CropCraft 는 겹침 없이 심어 ~4.5%에서 포화하고, 현실적
+  # 주의: density 를 더 올리지 마라. CropCraft 는 겹침 없이 심어 ~4.5%에서 포화하고, 현실적
   #   밀도로 맞춰도 잡초 클래스는 ~0.35 mIoU 에 갇힌다(Klein arXiv:2403.18351). 진짜 레버는
   #   공간(군집/줄근처)·copy-paste 증강·가중손실 — Stage 3-2 로 이월(DECISIONS 015).
   # max_height 는 어린 잡초로 유지 — sim-to-real 제약은 '작다'지 '드물다'가 아니다.

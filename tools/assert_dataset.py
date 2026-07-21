@@ -41,7 +41,7 @@ def main():
 
     errs = []
     if not (len(imgs) == len(masks) > 0):
-        print(f"❌ 이미지·마스크 장수 불일치 또는 0 ({len(imgs)} vs {len(masks)})", file=sys.stderr)
+        print(f"이미지·마스크 장수 불일치 또는 0 ({len(imgs)} vs {len(masks)})", file=sys.stderr)
         sys.exit(1)
 
     palette = np.array(list(CLASSES.values()))          # (3,3)
@@ -69,9 +69,9 @@ def main():
             errs.append(f"{name} 픽셀이 0 — 마스크가 {name}을(를) 라벨 못함")
 
     if errs:
-        print("\n❌ 데이터셋 실패:\n    - " + "\n    - ".join(errs), file=sys.stderr)
+        print("데이터셋 실패: " + "; ".join(errs), file=sys.stderr)
         sys.exit(1)
-    print("\n=== ✅ 데이터셋 통과 — RGB+마스크 쌍이 흙/콩/옥수수/잡초를 픽셀단위로 가른다 ===")
+    print("데이터셋 통과: RGB+마스크 쌍이 흙/콩/옥수수/잡초를 픽셀단위로 가른다")
 
 
 if __name__ == "__main__":

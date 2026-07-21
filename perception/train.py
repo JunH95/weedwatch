@@ -75,7 +75,7 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
-        print("⚠️ CUDA 없음 — CPU 로 학습(매우 느림). GPU 확인 필요.", file=sys.stderr)
+        print("경고: CUDA 없음 — CPU 로 학습(매우 느림). GPU 확인 필요.", file=sys.stderr)
 
     pairs = list_pairs(Path(args.data))
     if not pairs:

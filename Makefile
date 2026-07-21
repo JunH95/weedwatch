@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -30,6 +30,7 @@ help:
 	@echo "make perception-venv - ML용 격리 venv(conda) + torch(CUDA) + 세그 라이브러리 설치"
 	@echo "make train     - Stage3 4클래스 세그 모델 학습 → models/best.pt (GPU, bake 먼저)"
 	@echo "make eval-model- Stage3 평가 게이트: held-out eval 에서 잡초·옥수수 IoU/recall 단언"
+	@echo "make stamp-targets - Stage4 인식→미터좌표: 잡초 검출률·타격 위치오차 단언 (held-out)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
@@ -86,6 +87,11 @@ train:
 # Stage 3-2d 평가 게이트: held-out eval 에서 잡초·옥수수 IoU/recall 단언(전체정확도 금지).
 eval-model:
 	perception/env.sh python perception/eval_model.py --gate
+
+# Stage 4-1 인식->미터좌표: best.pt 로 잡초 검출 -> 인스턴스 중심 -> 픽셀->미터 변환.
+# held-out eval 에서 검출률과 타격 위치오차(예측 중심 vs GT 중심)를 단언.
+stamp-targets:
+	perception/env.sh python perception/stamp_targets.py --gate
 
 cropcraft:
 	@if [ ! -d third_party/cropcraft ]; then \
