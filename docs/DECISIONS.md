@@ -600,3 +600,29 @@ inverse-**sqrt** 빈도 또는 class-balanced 유효표본수(β=0.999–0.9999)
 
 **참고**: 옥수수는 위에서 보면 잎이 가늘어 1.96%로 **희소** — 잡초와 함께 불균형 대상(015의 가중손실이
 콩뿐 아니라 옥수수도 커버해야 함). third_party/cropcraft 수정은 하위호환이라 업스트림 갭 최소.
+
+## 017. Stage 3-2 세그멘테이션 학습 결과 — 근거 레시피 검증 (2026-07-21)
+
+**날짜**: 2026-07-21 · **상태**: 완료 · `models/best.pt`(gitignore, 재생성 계약)
+
+**결과 (held-out eval 시드 1001-1010, 학습이 한 번도 안 본 정원 80장):**
+- **잡초 IoU 0.904 / recall 0.965** · **옥수수 IoU 0.926 / recall 0.985**
+- 콩 IoU 0.969 · 흙 IoU 0.983 · mIoU 0.946. held-out ≈ val(0.908) → 과적합 없음.
+- 콩+잡초 문헌(PMC11136954 잡초 IoU 0.869)도 상회.
+
+**검증된 것 (DECISIONS 015 근거 레시피가 실제로 작동):**
+- 손실 0.6·가중CE(inverse-sqrt) + 0.4·Dice → 희소 클래스(옥수수 2.5%·잡초 11%)를 무시 안 함
+  (전부 IoU 0.9+). 가중 없었으면 "전부 흙(70%)"으로 수렴했을 것.
+- 게이트를 per-class 잡초·옥수수 IoU/recall 로 → 전체 정확도(~0.98)에 안 속음.
+- 시드 분리(train 1-40 / eval 1000번대) → held-out 이 진짜 held-out (분포는 같음).
+
+**재현 계약:** best.pt 는 gitignore 산출물이나 (models/dataset + perception/train.py + seed 0)로
+결정적 재생성. `make train`(cuDNN deterministic·시드 고정) → `make eval-model`(게이트). 데이터셋
+재현 = CropCraft SHA + 4클래스 패치 + train_garden.yaml + 시드파일 (015/016).
+
+**게이트 임계 (🔒 보호):** 잡초 IoU≥0.85·recall≥0.90, 옥수수 IoU≥0.85·recall≥0.90. 관측치보다
+~0.05-0.08 아래(변동 허용, 회귀 포착). 모델 바꾸는 커밋에서 같이 낮추지 마라(검증 계약).
+
+**⚠️ 스코프:** 이 숫자는 **합성 test = 합성 train 과 같은 분포**라 쉽다. 진짜 sim-to-real 성능
+(실사진)은 Stage 3-3(AI Hub 쇠비름)에서 측정 — CropCraft 자체가 순수합성 ~10% mIoU 갭 보고
+(arXiv:2511.02417), 실사진 소량 추가로만 닫힘. 흰배경 개체표본이라 쇠비름 단일전이 스코프(014-2).

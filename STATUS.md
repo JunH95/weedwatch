@@ -3,7 +3,7 @@
 > 이 파일은 **코드와 같은 커밋에서** 갱신한다. 그게 이 파일의 유일한 가치다.
 > 로봇이 움직이게 만든 커밋이 이 파일도 같이 고쳐야 한다.
 
-**마지막 갱신**: 2026-07-21 · **현재 단계**: Stage 3 인식 시작 (라벨 데이터 파이프라인 ✅)
+**마지막 갱신**: 2026-07-21 · **현재 단계**: Stage 3-2 학습 완료 (held-out 잡초 IoU 0.90 ✅) → 3-3 sim-to-real 다음
 
 ---
 
@@ -205,12 +205,15 @@ README 에 그렇게 적을 것. 한국 작물 메시 추가는 나중.
 - [x] **4클래스 라벨 (흙/콩/옥수수/잡초)** — DECISIONS 016. CropCraft 가 작물을 이미 bed별 컬렉션으로
   심어서 라벨 패스만 ~30줄(하위호환) 고침. 재렌더: 콩 18.25%/옥수수 1.96%/잡초 4.55%/흙 75.24%,
   팔레트밖 0, 마스크 눈으로 확인(콩 초록·옥수수 파랑·잡초 빨강). ⚠️ 옥수수도 희소(1.96%) → 불균형 대상.
-- [ ] **의미분할 학습** — 별도 torch venv. 손실 = Dice/Lovász + 가중/포컬 CE
-  (콩+잡초 근거: 0.6·CE+0.4·Dice → 잡초 IoU 86.9), 클래스가중 inverse-sqrt/CB(β=0.999). **게이트는
-  잡초 IoU·recall — 전체 정확도 금지**(흙 75%라 "전부 흙"이 이미 75%). copy-paste 잡초 증강. D405
-  카메라 매칭 + train/eval 시드 분리.
-- [ ] **평가** — held-out 합성 시드 정원(잡초 IoU/recall) + AI Hub 쇠비름 실사진(sim-to-real, ~10%
-  갭은 실사진 소량 추가로만 닫힘 — arXiv:2511.02417; 흰배경 스코프는 원장 §7).
+- [x] **데이터셋 bake + torch venv** — `make bake`(train 320/eval 80, 시드 분리 1-40/1000번대,
+  증분·idempotent) + `make perception-venv`(conda, torch 2.6+cu124, ROS 파이썬 격리). DECISIONS 016.
+- [x] **의미분할 학습** — `make train`. smp U-Net(resnet34/imagenet), 손실 0.6·가중CE(inverse-sqrt)
+  +0.4·Dice(DECISIONS 015), AMP, 시드 고정(재현). → `models/best.pt`(gitignore 산출물, 재생성 계약).
+- [x] **평가 게이트** — `make eval-model`. held-out eval(안 본 시드 80장): **잡초 IoU 0.904/recall
+  0.965 · 옥수수 0.926/0.985 · mIoU 0.946**. 게이트는 per-class 잡초·옥수수 IoU·recall(🔒 보호,
+  전체 정확도 금지). ⚠️ 합성 test=합성 train 이라 쉬움 — 진짜 sim-to-real 은 아래 3-3.
+- [ ] **Stage 3-3 sim-to-real** — AI Hub 쇠비름 실사진(`data/aihub`, VS9/VL9 zip 준비됨) 전이 평가.
+  흰배경 개체표본이라 쇠비름 단일클래스 전이 스코프(014-2). ~10% 합성갭은 실사진 소량으로만 닫힘.
 
 ## 🔄 2026-07-20 — 사용자 대화로 계획 정련 (`docs/DECISIONS.md` 013)
 

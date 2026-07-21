@@ -31,13 +31,15 @@ from metrics import confusion, per_class_iou_recall  # noqa: E402
 
 WW = HERE.parent
 
-# 🔒 게이트 임계값 — v1 잠정. 첫 eval baseline 관측치를 보고 그 바로 아래로 보정할 것.
-#    (한 번 정하면 모델 바꾸는 커밋에서 함께 낮추지 않는다 — 골대 보호)
+# 🔒 게이트 임계값 — 2026-07-21 시드 baseline(held-out) 에서 보정. 관측치:
+#    잡초 IoU 0.904 / recall 0.965 · 옥수수 IoU 0.926 / recall 0.985 (make train, seed 0).
+#    임계는 관측치보다 ~0.05-0.08 아래 — 학습 변동(AMP/CUDA 잔여 비결정성)은 통과시키되,
+#    희소 클래스를 무시하는 회귀(IoU 급락)는 잡는다. 모델 바꾸는 커밋에서 함께 낮추지 마라(골대).
 GATES = {
-    ("weed", "IoU"): 0.50,
-    ("weed", "recall"): 0.65,
-    ("maize", "IoU"): 0.40,
-    ("maize", "recall"): 0.55,
+    ("weed", "IoU"): 0.85,
+    ("weed", "recall"): 0.90,
+    ("maize", "IoU"): 0.85,
+    ("maize", "recall"): 0.90,
 }
 
 
