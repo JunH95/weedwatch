@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -25,6 +25,7 @@ help:
 	@echo "make joints    - Y/Z 관절이 명령 위치에 mm 정밀 도달하는지 단언 (물리만)"
 	@echo "make straddle  - 두둑 걸터타고 주행 — 포탈 설계가 물리로 성립하는지 단언 (물리만)"
 	@echo "make camera    - 로봇 하방 카메라가 두둑을 보고 프레임 발행 — 2게이트 (GPU 필요)"
+	@echo "make dataset   - Stage3 학습데이터: CropCraft 로 RGB+세그멘테이션 마스크 생성+검증 (GPU)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
@@ -45,6 +46,13 @@ CROPCRAFT_SHA := 7128cd2acade50cc4a5a1761210b55989ab62527
 #   사용: make aihub AIHUB_KEY=<발급키>
 aihub:
 	@scripts/fetch_aihub.sh $(AIHUB_KEY)
+
+# Stage 3 학습 데이터: CropCraft 내장 렌더가 정원을 RGB(images/) + 세그멘테이션 마스크
+# (masks/, 흙 검정·작물 초록·잡초 빨강)로 두 번 렌더한다. GPU(Cycles+EEVEE) 필요.
+# 마스크가 실제로 작물/잡초를 가르는지 assert_dataset.py 가 픽셀단위로 단언.
+dataset:
+	@scripts/cropcraft.sh configs/train_garden.yaml
+	@$(ENV) python3 tools/assert_dataset.py
 
 cropcraft:
 	@if [ ! -d third_party/cropcraft ]; then \

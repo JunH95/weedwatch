@@ -1,0 +1,74 @@
+# Stage 3 학습 데이터 생성용 CropCraft 설정.
+# CropCraft 내장 렌더가 RGB(images/) + 세그멘테이션 마스크(masks/) 쌍을 자동 생성한다.
+#   crops(beds:) → 초록, weeds(weeds:) → 빨강, 흙/배경 → 검정 (3클래스).
+# ⚠️ oracle_test.yaml 과 다르다: 저긴 채점 잡초를 beds: 에 넣어 GT 좌표를 뽑지만(오라클),
+#    학습은 마스크가 라벨이라 잡초를 weeds: 에 둬야 빨강으로 칠해진다.
+# 자연광 HDRI (DECISIONS 014 — LED 터널 폐기). 어린 식물(weed-early 체제).
+# 학습/평가 시드 분리: 이건 train (configs/train_seeds.txt 와 맞출 것).
+
+output:
+  blender:
+    type: blender_file
+    filename: train_garden.blend
+
+render:
+  directory: render
+  env_path: /home/sunny/projects/weedwatch/third_party/cropcraft/assets/environments/alps_field_1k.hdr
+  env_rotation_deg: 0.0
+  frames: 6              # 첫 테스트 (검증되면 늘림)
+  samples: 20
+  cycles_device: GPU
+  resolution_x: 640
+  resolution_y: 640
+  camera:
+    height: 0.5         # 두둑 위 근접 top-down (D405 근사 — 나중 정밀 매칭)
+    fov_deg: 80.0
+    pitch_deg: 0.0      # 정하방
+    y_jitter: 0.06
+  label_colors:
+    crop:       [0, 255, 0]
+    weed:       [255, 0, 0]
+    background: [0, 0, 0]
+
+field:
+  random_seed: 1        # train
+
+  headland_width: 0.6
+  bed_width: 0.9
+  length: 2.5
+
+  beds:
+    bean:
+      plant_type: bean
+      plant_height: 0.13        # 어린 콩
+      plant_distance: 0.18
+      row_distance: 0.20
+      rows_count: 4
+      plants_count: 12
+    maize:
+      plant_type: maize
+      plant_height: 0.21        # 어린 옥수수 (small)
+      plant_distance: 0.25
+      row_distance: 0.35
+      rows_count: 2
+      plants_count: 8
+
+  weeds:
+    portulaca:
+      plant_type: portulaca
+      max_height: 0.10
+      density: 3.0
+    polygonum:
+      plant_type: polygonum
+      max_height: 0.15
+      density: 2.5
+    taraxacum:
+      plant_type: taraxacum
+      max_height: 0.08
+      density: 2.0
+
+  noise:
+    position: 0.02
+    tilt: 0.08
+    missing: 0.1
+    scale: 0.12
