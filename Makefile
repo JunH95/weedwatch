@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -27,6 +27,9 @@ help:
 	@echo "make camera    - 로봇 하방 카메라가 두둑을 보고 프레임 발행 — 2게이트 (GPU 필요)"
 	@echo "make dataset   - Stage3 학습데이터 스모크: CropCraft 로 1시드 RGB+마스크 생성+검증 (GPU)"
 	@echo "make bake      - Stage3 데이터셋 bake: 전 시드로 train/eval 세트 구축 (증분, GPU, 오래 걸림)"
+	@echo "make perception-venv - ML용 격리 venv(conda) + torch(CUDA) + 세그 라이브러리 설치"
+	@echo "make train     - Stage3 4클래스 세그 모델 학습 → models/best.pt (GPU, bake 먼저)"
+	@echo "make eval-model- Stage3 평가 게이트: held-out eval 에서 잡초·옥수수 IoU/recall 단언"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
@@ -63,6 +66,26 @@ bake:
 	@$(ENV) python3 tools/bake_dataset.py eval  configs/eval_seeds.txt
 	@$(ENV) python3 tools/assert_dataset.py models/dataset/train
 	@$(ENV) python3 tools/assert_dataset.py models/dataset/eval
+
+# perception(ML) 격리 venv. 시스템 3.10 에 python3-venv 가 없어 conda 로 만든다(sudo 불필요).
+# torch/torchvision 은 CUDA 휠이라 별도 index(cu124 = 드라이버 595 호환). ROS 와 완전 격리.
+perception-venv:
+	conda create -y -p perception/.venv python=3.11 pip
+	@# PYTHONNOUSERSITE=1 필수: conda 의 pip 은 Blender user-site(~/.local/lib/python3.11 의
+	@# PIL·yaml 등)를 "이미 설치됨"으로 보고 venv 에 안 넣는다. 그러면 env.sh(user-site off)에서
+	@# import 가 깨진다. user-site 를 끄고 설치해야 venv 가 자기완결이 된다.
+	PYTHONNOUSERSITE=1 perception/.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+	PYTHONNOUSERSITE=1 perception/.venv/bin/pip install -r perception/requirements.txt
+	@perception/env.sh python -c "import torch,segmentation_models_pytorch as smp; print('torch',torch.__version__,'cuda',torch.cuda.is_available(),'smp',smp.__version__)"
+
+# Stage 3-2c 학습: 4클래스 세그 모델(smp U-Net) → models/best.pt (GPU). make bake 먼저.
+#   손실 0.6·가중CE+0.4·Dice, inverse-sqrt 가중 (DECISIONS 015). TRAIN_ARGS 로 인자 전달.
+train:
+	perception/env.sh python perception/train.py $(TRAIN_ARGS)
+
+# Stage 3-2d 평가 게이트: held-out eval 에서 잡초·옥수수 IoU/recall 단언(전체정확도 금지).
+eval-model:
+	perception/env.sh python perception/eval_model.py --gate
 
 cropcraft:
 	@if [ ! -d third_party/cropcraft ]; then \

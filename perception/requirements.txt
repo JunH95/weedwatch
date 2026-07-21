@@ -1,0 +1,10 @@
+# perception(ML) 파이썬 의존성. ROS 와 격리된 env (perception/.venv, conda python 3.11).
+# 셋업: make perception-venv  (conda 로 env 생성 + torch + 아래 설치)
+#
+# ⚠️ torch/torchvision 은 CUDA 휠이라 별도 index 로 설치한다(여기 두면 CPU 휠이 잡혀 GPU 못 씀):
+#   perception/.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+#   (cu124 = 이 컴퓨터 드라이버 595 / RTX 4060 과 호환. make perception-venv 가 대신 해줌)
+segmentation-models-pytorch
+numpy
+pillow
+tqdm
