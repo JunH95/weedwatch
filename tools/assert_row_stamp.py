@@ -187,7 +187,53 @@ def tool_tip(base, i, carriage_i, tool_i):
     return tip_x, tip_y, tip_z
 
 
-# ── 주행 + 폐루프 제어 ───────────────────────────────────────────────────────
+# ── 주행 + 폐루프 제어 (헤드리스 채점·GUI watch 공용) ────────────────────────
+
+def build_plans():
+    """각 잡초의 이벤트 x(odom 기준) 스케줄 + 완주거리. 정답 좌표 + 인과공개(카메라 통과 시 드러남)."""
+    plans = []
+    for wx, wy in WEEDS:
+        i = weed_tool(wy)
+        strike_x = wx - TOOL_XS[i]                     # base_x 가 이 값이면 tip_x = wx
+        plans.append({
+            "wx": wx, "wy": wy, "i": i,
+            "reveal_x": wx - CAMERA_X,                 # 카메라가 잡초를 지나는 순간
+            "carriage_cmd": (wy - BASE_Y) - BAND_CENTERS[i],
+            "descend_x": strike_x - V * Z_SETTLE,      # 180ms(거리 V·0.18) 앞서 하강
+            "retract_x": strike_x + 0.06,              # 지나간 뒤 접기
+            "phase": 0,                                # 0 대기 1 정렬 2 하강 3 접힘
+        })
+    drive_dist = max(wx - TOOL_XS[weed_tool(wy)] for wx, wy in WEEDS) + 0.30
+    return plans, drive_dist
+
+
+def drive_loop(ww, plans, drive_dist, timeout_extra=12):
+    """무정차 출발 + odom 기반 스케줄 실행. 완주하면 True. 끝에 정지. GUI watch·헤드리스 공용."""
+    ww.send(f"v {V:.3f} 0")
+    deadline = time.time() + (drive_dist / V) + timeout_extra
+    completed = False
+    while time.time() < deadline:
+        ox = ww.odom_x()
+        if ox is None:
+            time.sleep(0.005)
+            continue
+        for pl in plans:
+            if pl["phase"] == 0 and ox >= pl["reveal_x"]:
+                ww.send(f"carriage {pl['i']} {pl['carriage_cmd']:.4f}")   # 카메라가 봄 → 정렬
+                pl["phase"] = 1
+            elif pl["phase"] == 1 and ox >= pl["descend_x"]:
+                ww.send(f"tool {pl['i']} {STRIKE:.3f}")                    # 예측 하강
+                pl["phase"] = 2
+            elif pl["phase"] == 2 and ox >= pl["retract_x"]:
+                ww.send(f"tool {pl['i']} {RAISE:.3f}")                     # 접기
+                pl["phase"] = 3
+        if all(pl["phase"] == 3 for pl in plans) and ox >= drive_dist - 0.05:
+            completed = True
+            break
+        time.sleep(0.005)
+    ww.send("v 0 0")
+    return completed
+
 
 def run():
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
@@ -232,45 +278,8 @@ def run():
             raise Fail("ww_cmd 준비(R) 신호가 안 왔습니다 — 명령 경로 실패")
         time.sleep(2.0)  # 로봇 안착 + odom 안정
 
-        # 각 잡초의 이벤트 x (odom 기준): 공개(카메라 통과) / 하강(툴 도달 180ms 전)
-        plans = []
-        for wx, wy in WEEDS:
-            i = weed_tool(wy)
-            strike_x = wx - TOOL_XS[i]          # base_x 가 이 값이면 tip_x = wx
-            plans.append({
-                "wx": wx, "wy": wy, "i": i,
-                "reveal_x": wx - CAMERA_X,        # 카메라가 잡초를 지나는 순간
-                "carriage_cmd": (wy - BASE_Y) - BAND_CENTERS[i],
-                "descend_x": strike_x - V * Z_SETTLE,   # 180ms(=거리 V·0.18) 앞서 하강
-                "retract_x": strike_x + 0.06,     # 지나간 뒤 접기
-                "phase": 0,                       # 0 대기 1 정렬 2 하강 3 접힘
-            })
-
-        # 무정차 출발
-        ww.send(f"v {V:.3f} 0")
-
-        drive_deadline = time.time() + (drive_dist / V) + 12
-        while time.time() < drive_deadline:
-            ox = ww.odom_x()
-            if ox is None:
-                time.sleep(0.005)
-                continue
-            for pl in plans:
-                if pl["phase"] == 0 and ox >= pl["reveal_x"]:
-                    ww.send(f"carriage {pl['i']} {pl['carriage_cmd']:.4f}")   # 카메라가 봄 → 정렬
-                    pl["phase"] = 1
-                elif pl["phase"] == 1 and ox >= pl["descend_x"]:
-                    ww.send(f"tool {pl['i']} {STRIKE:.3f}")                    # 예측 하강
-                    pl["phase"] = 2
-                elif pl["phase"] == 2 and ox >= pl["retract_x"]:
-                    ww.send(f"tool {pl['i']} {RAISE:.3f}")                     # 접기
-                    pl["phase"] = 3
-            if all(pl["phase"] == 3 for pl in plans) and ox >= drive_dist - 0.05:
-                completed = True
-                break
-            time.sleep(0.005)
-
-        ww.send("v 0 0")
+        plans, _dd = build_plans()
+        completed = drive_loop(ww, plans, drive_dist)   # 무정차 주행 + 스케줄 (공용)
         time.sleep(0.3)
         ww.send("q")
         joints_snapshot = list(ww.joints)

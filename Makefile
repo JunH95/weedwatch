@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp row percept-render percept percept-calib overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -33,6 +33,7 @@ help:
 	@echo "make stamp-targets - Stage4 인식→미터좌표: 잡초 검출률·타격 위치오차 단언 (held-out)"
 	@echo "make stamp     - Stage4 스탬핑: 두둑 위 잡초에 도구 끝 얹기 |도구-잡초|<2cm 단언 (물리)"
 	@echo "make row       - Stage4-3 무정차 행 스윕: 주행하며 임의(x,y) 잡초 타격 <2cm + 작물무접촉 (물리)"
+	@echo "make watch-row - (데스크톱) make row 를 GUI 창으로 재생 — 주행+스탬핑을 눈으로 봄"
 	@echo "make percept-render - Stage4-3 P4a: 로봇 카메라가 CropCraft 사실적 두둑 렌더 2게이트 (GPU)"
 	@echo "make percept   - Stage4-3 P4a: 로봇 카메라 렌더에 best.pt 라이브 추론 → 오라클 대조 검출률 (GPU)"
 	@echo "make overlay   - 인식 결과를 눈으로: 원본|예측+타격점 오버레이 PNG (사람 검증용)"
@@ -126,6 +127,11 @@ ww-cmd: build/ww_cmd
 # 물리(Tier 2, GPU 불필요)지만 ww_cmd 빌드가 선행돼야 한다.
 row: build/ww_cmd clean-sim
 	@$(ENV) python3 tools/assert_row_stamp.py
+
+# 사람 눈 관람용(데스크톱 전용): make row 와 같은 무정차 주행+스탬핑을 GUI 창으로 재생한다.
+# 헤드리스 단언이 아니라 "움직이는 걸 눈으로 본다". CLAUDE(에이전트)는 못 씀 — DISPLAY 필요.
+watch-row: build/ww_cmd
+	@scripts/watch_row.sh
 
 # Stage 4-3 Phase 4a 기반: 로봇 카메라가 CropCraft 사실적 두둑(model://oracle_test)을 GPU 렌더하는가.
 # 학습 카메라와 정합(Phase 3)된 위에서만 라이브 인식이 정직하다. 2게이트(검지않음+NVIDIA, assert_render).
