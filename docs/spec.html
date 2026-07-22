@@ -1,12 +1,11 @@
-<title>weedwatch — 엔지니어링 설계 문서</title>
+<title>weedwatch — 설계 문서</title>
 <style>
-  /* ============ 토큰 — 라이트=낮 밭(세이지 흙종이) / 다크=밤 밭 ============ */
   :root{
     --ground:#e9ebe3; --surface:#f4f6ef; --surface-2:#e0e3d7; --line:#cdd2c2;
     --ink:#1b201c; --ink-muted:#59635a;
-    --accent:#b5522e; --accent-2:#8a6a1f;        /* 점토 러스트 · 마른 흙 금 */
-    --ok:#2f7d4e; --plan:#2f6fa8; --open:#6b7280; /* 의미색: 검증 / 계획·설계 / 미정·한계 */
-    --seal:#b5522e;
+    --accent:#b5522e; --accent-2:#8a6a1f;
+    --ok:#2f7d4e; --plan:#2f6fa8; --open:#6b7280;
+    --seal:#3d4a3f;
     --shadow:0 1px 2px rgba(30,25,10,.06), 0 10px 30px rgba(30,25,10,.08);
     --serif:"Nanum Myeongjo","Apple Myungjo",Batang,serif;
     --sans:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,-apple-system,sans-serif;
@@ -19,20 +18,20 @@
       --ink:#e7ebe2; --ink-muted:#96a097;
       --accent:#d97847; --accent-2:#c9a758;
       --ok:#52b878; --plan:#5b9bd4; --open:#8b93a0;
-      --seal:#d97847;
+      --seal:#c7d2c4;
       --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 36px rgba(0,0,0,.5);
     }
   }
   :root[data-theme="light"]{
     --ground:#e9ebe3; --surface:#f4f6ef; --surface-2:#e0e3d7; --line:#cdd2c2;
     --ink:#1b201c; --ink-muted:#59635a; --accent:#b5522e; --accent-2:#8a6a1f;
-    --ok:#2f7d4e; --plan:#2f6fa8; --open:#6b7280; --seal:#b5522e;
+    --ok:#2f7d4e; --plan:#2f6fa8; --open:#6b7280; --seal:#3d4a3f;
     --shadow:0 1px 2px rgba(30,25,10,.06), 0 10px 30px rgba(30,25,10,.08);
   }
   :root[data-theme="dark"]{
     --ground:#0e1512; --surface:#161f1a; --surface-2:#1f2a23; --line:#2c3a30;
     --ink:#e7ebe2; --ink-muted:#96a097; --accent:#d97847; --accent-2:#c9a758;
-    --ok:#52b878; --plan:#5b9bd4; --open:#8b93a0; --seal:#d97847;
+    --ok:#52b878; --plan:#5b9bd4; --open:#8b93a0; --seal:#c7d2c4;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 36px rgba(0,0,0,.5);
   }
 
@@ -52,7 +51,6 @@
   p{margin:0 0 1rem} .muted{color:var(--ink-muted)}
   code{font-family:var(--mono); font-size:.86em; background:var(--surface-2); padding:.08rem .34rem; border-radius:5px}
 
-  /* ============ 스티키 목차 ============ */
   .nav{position:sticky; top:0; z-index:50; background:color-mix(in srgb,var(--ground) 86%, transparent);
     backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
   .nav-in{width:var(--wrap); margin:0 auto; display:flex; align-items:center; gap:1.1rem; padding:.55rem 0}
@@ -66,7 +64,6 @@
   .nav-links a.on{color:var(--accent); background:color-mix(in srgb,var(--accent) 12%, transparent)}
   .progress{height:2px; background:var(--accent); width:0}
 
-  /* ============ 레이아웃 ============ */
   section{padding:4.2rem 0; border-bottom:1px solid var(--line)}
   .eyebrow{display:flex; align-items:center; gap:.6rem; margin-bottom:.9rem; flex-wrap:wrap}
   .eyebrow .kick{font-family:var(--mono); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
@@ -78,28 +75,26 @@
   .lead{font-size:1.14rem; line-height:1.7}
   ul.clean{margin:.4rem 0 1rem; padding-left:1.15rem} ul.clean li{margin:.32rem 0} ul.clean li::marker{color:var(--accent)}
 
-  /* ============ 표지 ============ */
   .cover{padding:4.6rem 0 3.4rem; border-bottom:1px solid var(--line); position:relative; overflow:hidden}
   .cover .field{position:absolute; inset:auto 0 0 0; height:5px;
     background:repeating-linear-gradient(90deg,var(--accent-2) 0 3px,transparent 3px 46px); opacity:.5}
   .cover-in{display:grid; grid-template-columns:auto 1fr; gap:2rem; align-items:center}
   @media(max-width:640px){.cover-in{grid-template-columns:1fr; gap:1.3rem}}
-  .seal{width:104px; height:104px; border-radius:14px; background:var(--seal); color:#fff; transform:rotate(-3deg);
-    display:grid; place-items:center; box-shadow:var(--shadow); border:3px solid color-mix(in srgb,var(--seal) 68%,#000); flex:0 0 auto}
-  .seal .glyph{font-family:var(--mono); font-weight:800; font-size:.7rem; text-align:center; line-height:1.3;
-    color:color-mix(in srgb,#fff 92%,var(--seal))}
+  .seal{width:104px; height:104px; border-radius:14px; background:var(--seal);
+    display:grid; place-items:center; box-shadow:var(--shadow); flex:0 0 auto}
+  .seal .glyph{font-family:var(--mono); font-weight:700; font-size:1.7rem; letter-spacing:.04em;
+    color:var(--ground)}
   .cover-doc{font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:.7rem}
   .cover h1{font-size:clamp(2.4rem,6vw,3.8rem); line-height:1; margin:0 0 .4rem; letter-spacing:-.03em; font-weight:800}
   .cover h1 b{color:var(--accent)}
   .cover .tagline{font-size:1.15rem; margin:.1rem 0 .5rem; color:var(--ink)}
-  .cover .hook{font-family:var(--serif); font-style:italic; font-size:1.12rem; color:var(--accent-2); margin:.3rem 0 1.1rem; max-width:60ch}
+  .cover .hook{font-family:var(--serif); font-size:1.12rem; color:var(--accent-2); margin:.3rem 0 1.1rem; max-width:62ch; line-height:1.6}
   .chips{display:flex; flex-wrap:wrap; gap:.45rem; margin-bottom:1rem}
   .chip{display:inline-flex; gap:.4rem; align-items:center; font-size:.78rem; background:var(--surface); border:1px solid var(--line); border-radius:100px; padding:.28rem .64rem}
   .chip b{color:var(--accent-2); font-family:var(--mono); font-weight:600}
   .cover-meta{font-size:.8rem; color:var(--ink-muted); border-top:1px dashed var(--line); padding-top:.8rem}
   .cover-meta code{background:none; color:var(--accent-2); padding:0}
 
-  /* ============ 태그(의미색) ============ */
   .tag{display:inline-block; font-family:var(--mono); font-size:.68rem; font-weight:600; letter-spacing:.02em;
     padding:.08rem .45rem; border-radius:5px; vertical-align:middle; white-space:nowrap; border:1px solid transparent}
   .t-ok{color:var(--ok); background:color-mix(in srgb,var(--ok) 13%, transparent); border-color:color-mix(in srgb,var(--ok) 32%,transparent)}
@@ -108,7 +103,6 @@
   .legend{display:flex; flex-wrap:wrap; gap:1rem; margin:.2rem 0 1.4rem; font-size:.84rem; color:var(--ink-muted)}
   .legend span{display:inline-flex; gap:.4rem; align-items:center}
 
-  /* ============ 카드/그리드 ============ */
   .grid{display:grid; gap:1rem}
   .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
   @media(max-width:760px){.g2,.g3,.g4{grid-template-columns:1fr}}
@@ -116,7 +110,6 @@
   .card h4{margin-top:0}
   .card .n{font-family:var(--mono); font-size:.72rem; color:var(--accent); letter-spacing:.08em; text-transform:uppercase}
 
-  /* ============ 콜아웃 ============ */
   .callout{border-left:3px solid var(--accent); background:color-mix(in srgb,var(--accent) 7%, var(--surface));
     padding:.95rem 1.15rem; border-radius:0 12px 12px 0; margin:1.3rem 0}
   .callout.plan{border-left-color:var(--plan); background:color-mix(in srgb,var(--plan) 8%, var(--surface))}
@@ -124,7 +117,6 @@
   .callout .lb{font-family:var(--mono); font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); font-weight:700; display:block; margin-bottom:.35rem}
   .callout.plan .lb{color:var(--plan)} .callout.open .lb{color:var(--open)}
 
-  /* ============ 표 ============ */
   .tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; margin:1rem 0}
   table{border-collapse:collapse; width:100%; font-size:.88rem; min-width:520px}
   caption{caption-side:top; text-align:left; font-size:.8rem; color:var(--ink-muted); padding:.1rem .2rem .55rem}
@@ -135,19 +127,16 @@
   .val{font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--accent-2); font-weight:600}
   td .val{white-space:nowrap}
 
-  /* ============ 스탯 ============ */
   .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.7rem; margin:1.1rem 0}
   .stat{background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:.85rem .95rem}
   .stat .k{font-size:.72rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.05em}
   .stat .v{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:1.35rem; font-weight:700; color:var(--accent); margin-top:.15rem}
   .stat .u{font-size:.78rem; color:var(--ink-muted)}
 
-  /* ============ 정의 리스트 ============ */
   .kv{display:grid; grid-template-columns:auto 1fr; gap:.35rem 1rem; font-size:.94rem; margin:.6rem 0}
   .kv dt{font-family:var(--mono); font-weight:600; color:var(--accent-2); font-size:.85rem; padding-top:.1rem}
   .kv dd{margin:0}
 
-  /* ============ 로드맵 타임라인 ============ */
   .axis{position:relative; margin:1.3rem 0; padding-left:1.3rem}
   .axis::before{content:""; position:absolute; left:5px; top:.4rem; bottom:.4rem; width:2px; background:var(--line)}
   .node{position:relative; padding:.2rem 0 1rem 1rem}
@@ -158,7 +147,6 @@
   .node .lab{font-weight:700} .node .lab .st{font-family:var(--mono); font-size:.72rem; color:var(--ink-muted); margin-left:.5rem}
   .node .badge{font-family:var(--mono); font-size:.66rem; font-weight:700; color:var(--ground); background:var(--accent); padding:.05rem .4rem; border-radius:4px; margin-left:.45rem; text-transform:uppercase}
 
-  /* ============ 다이어그램 ============ */
   .diagram{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:1.1rem; margin:1.1rem 0; overflow-x:auto; box-shadow:var(--shadow)}
   .diagram .cap{font-family:var(--mono); font-size:.74rem; color:var(--ink-muted); margin-bottom:.5rem}
   .diagram pre.mermaid{margin:0; background:transparent; min-width:480px; text-align:center; line-height:1.4}
@@ -166,7 +154,8 @@
   .divider{display:flex; justify-content:center; padding:2rem 0 0}
   .divider span{width:7px; height:7px; background:var(--accent); border-radius:1px; transform:rotate(45deg)}
   footer{padding:2.6rem 0 3.4rem; text-align:center; color:var(--ink-muted); font-size:.84rem}
-  footer .seal{margin:0 auto 1rem; width:64px; height:64px; border-radius:9px}
+  footer .seal{margin:0 auto 1rem; width:60px; height:60px; border-radius:9px}
+  footer .seal .glyph{font-size:1rem}
   .reveal{opacity:0; transform:translateY(12px); transition:opacity .6s ease, transform .6s ease}
   .reveal.in{opacity:1; transform:none}
   @media (prefers-reduced-motion: reduce){.reveal{opacity:1; transform:none; transition:none}}
@@ -176,14 +165,13 @@
   <div class="nav-in">
     <div class="nav-brand"><b>weed</b>watch</div>
     <nav class="nav-links" aria-label="목차">
-      <a href="#thesis">논지</a>
-      <a href="#overview">개요</a>
+      <a href="#intro">개요</a>
+      <a href="#results">현재 성능</a>
       <a href="#arch">아키텍처</a>
       <a href="#robot">로봇</a>
       <a href="#perception">인식</a>
-      <a href="#action">행동</a>
+      <a href="#action">주행·타격</a>
       <a href="#verify">검증</a>
-      <a href="#experiment">실험</a>
       <a href="#roadmap">로드맵</a>
       <a href="#env">환경</a>
       <a href="#limits">한계</a>
@@ -194,333 +182,284 @@
 </div>
 
 <main>
-  <!-- ============ 표지 ============ -->
   <header class="cover">
     <div class="cover-in wrap">
-      <div class="seal" aria-hidden="true"><div class="glyph">✓ ASSERT<br>weed<br>watch</div></div>
+      <div class="seal" aria-hidden="true"><div class="glyph">WW</div></div>
       <div>
-        <div class="cover-doc">엔지니어링 설계 문서 · Engineering Design Doc</div>
+        <div class="cover-doc">설계 문서 · Engineering Design</div>
         <h1><b>weedwatch</b></h1>
         <div class="tagline muted">주말농장을 대신 돌보는 <b style="color:var(--ink)">자율 제초 로봇</b>을, <b style="color:var(--ink)">시뮬레이션 안에서</b> 만든다.</div>
-        <div class="hook">“사람이 GUI를 안 본다. 따라서 CLI에서 단언(assert)할 수 없는 기능은 존재하지 않는다.”</div>
+        <div class="hook">카메라로 작물과 잡초를 구별해, 잡초 위에 정밀하게 서서 찍어 누른다. 실물은 만들지 않는다. 사람이 화면을 들여다보지 않으므로, 모든 기능은 명령줄에서 수치로 단언(assert)할 수 있어야만 존재로 인정한다.</div>
         <div class="chips">
           <span class="chip">현재 <b>Stage 4-3 완료</b></span>
-          <span class="chip">인식 mIoU <b>0.946</b></span>
-          <span class="chip">잡초 IoU <b>0.959</b></span>
-          <span class="chip">자율 타격 <b>실현</b></span>
-          <span class="chip">시뮬 <b>Fortress 6.17</b></span>
+          <span class="chip">잡초 인식 IoU <b>0.959</b></span>
+          <span class="chip">정밀 타격 <b>&lt;1.5mm</b></span>
+          <span class="chip">자율 주행 타격 <b>동작</b></span>
         </div>
         <div class="cover-meta">
-          이 문서는 <b>사람이 읽는 종합본</b>이다. 정본(내 작업용) &mdash; 계획·논지 <code>PLAN.md</code> · 결정 <code>DECISIONS.md</code> · 실물 설계 <code>DESIGN.md</code> · 현재 상태 <code>STATUS.md</code> · 근거 <code>REFERENCES.md</code>. &nbsp;갱신: 2026-07-22
+          이 문서는 프로젝트 전체를 한눈에 보는 종합본이다. 상세는 각 문서로: 계획 <code>PLAN.md</code> · 결정 기록 <code>DECISIONS.md</code> · 실물 설계 <code>DESIGN.md</code> · 현황 <code>STATUS.md</code> · 근거 <code>REFERENCES.md</code>. &nbsp;최종 갱신 2026-07-22.
         </div>
       </div>
     </div>
     <div class="field"></div>
   </header>
 
-  <!-- ============ 1. 논지 & 문제 ============ -->
-  <section id="thesis">
+  <!-- 개요 -->
+  <section id="intro">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Thesis</span><span class="sub">왜 이 프로젝트인가</span></div>
-      <h2 class="reveal">비전이 필요한 건 제거가 아니라 <em>선택</em>이다</h2>
+      <div class="eyebrow reveal"><span class="kick">개요</span><span class="sub">무엇을, 왜, 어떻게</span></div>
+      <h2 class="reveal">취미 텃밭의 잡초를, 로봇이 골라서 뽑는다</h2>
       <div class="legend reveal">
-        <span><span class="tag t-ok">검증</span> 실측·단언됨</span>
-        <span><span class="tag t-plan">계획</span> 결정·설계됨, 미구현</span>
+        <span><span class="tag t-ok">검증</span> 시뮬에서 수치로 단언됨</span>
+        <span><span class="tag t-plan">계획</span> 설계는 끝, 구현 남음</span>
         <span><span class="tag t-open">미정</span> 사람이 정하거나, 정직한 한계</span>
       </div>
-      <p class="lead col reveal">기존 취미용 제초는 전부 <strong>비전을 우회한다</strong> &mdash; Tertill은 키 규칙, FarmBot은 심은 좌표 DB. 개체별 비전 제초는 실재하지만 <strong>5만~80만 달러짜리 헥타르용 기계</strong>에만 있다. weedwatch는 그 상용 능력을 <strong>두둑 하나로 내렸을 때</strong> 어떻게 되는가를 묻는다.</p>
+      <p class="lead col reveal">무멀칭 친환경 주말농장은 비닐도 제초제도 안 쓰기 때문에 잡초를 손으로 뽑아야 한다. 그런데 주중에 밭에 못 간다. 이걸 로봇에 맡기려면 작물과 잡초를 구별해야 하는데, 취미 규모에서 그걸 하는 상용 로봇은 없다. Tertill은 키 규칙(작은 건 잡초)으로, FarmBot은 심은 좌표 DB로 돌아갈 뿐 카메라로 종을 가리지 않는다.</p>
+      <p class="col reveal">그래서 카메라 비전으로 작물·잡초를 구별하는 제초 로봇을 만든다. 다만 실물은 만들지 않고 시뮬레이션 안에서 완결한다. 값싼 키 규칙으로는 왜 안 되는지 굳이 실험으로 증명하지는 않는다. 한국 잡초의 상당수가 상추보다 크게 자라 “작으면 잡초” 규칙이 무너진다는 건 이미 알려진 사실이고, 그래서 상용 정밀 제초가 전부 비전을 쓴다.</p>
 
-      <div class="grid g3" style="margin-top:1.6rem">
-        <div class="card reveal"><div class="n">문제의 본질</div><h4>키 규칙은 래칫이다 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">Tertill 특허가 자백한다 &mdash; <em>“tall=작물, short=잡초”</em>. 이건 분류기가 아니라 <strong>복구 모드 없는 래칫</strong>: 2주 놓치면 모든 잡초가 “작물”로 영구 사면. <strong>주말농장은 주말에 간다.</strong></p></div>
-        <div class="card reveal"><div class="n">키 분포의 역전</div><h4>AUC 0.144 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">한국 잡초의 <strong>85.7%가 상추보다 크다</strong>. “키 크면 작물” 규칙의 AUC=0.144 &mdash; 약한 게 아니라 <strong>역전</strong>이다. 오라클로 실측: 마디풀 9/18이 규칙에 “작물”로 오인돼 살아남음.</p></div>
-        <div class="card reveal"><div class="n">대조군이 증거</div><h4>고랑 vs 두둑 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">고랑은 대조군 &mdash; HSV 6줄이면 풀린다. 두둑이 과제다 &mdash; 같은 임계값이 작물을 몰살한다. <strong>그 격차가 이 로봇에 카메라가 달린 이유다.</strong></p></div>
+      <div class="grid g3 reveal" style="margin-top:1.6rem">
+        <div class="card"><div class="n">형태</div><h4>포탈형 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">두둑 하나를 걸터타고 양쪽 고랑을 달린다. 바퀴는 고랑, 도구는 두둑 위. 잡초 위에 물리적으로 설 수 있는 유일한 형태다.</p></div>
+        <div class="card"><div class="n">제거</div><h4>점 타격 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">수직 막대로 잡초를 찍어 누른다. 강체 물리라 시뮬로 정직하게 다룰 수 있다(연성체 자르기는 시뮬 불가).</p></div>
+        <div class="card"><div class="n">인식</div><h4>4클래스 분할 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">흙·콩·옥수수·잡초를 픽셀 단위로 가른다. 키 규칙이 아니라 학습된 의미분할(<code>best.pt</code>).</p></div>
       </div>
 
       <div class="callout reveal">
-        <span class="lb">대상 세그먼트 &mdash; 규정으로 정의됨</span>
-        <strong>무멀칭 친환경 주말농장.</strong> 서울시 동행서울 친환경농장 규정: <em>“비닐 멀칭을 하지 않는 환경친화적인 농법을 준수.”</em> 상업 밭엔 제초 문제가 없다 &mdash; 비닐·제초제가 있으니까. 주말농장에 제초 문제가 있는 건 <strong>그 둘이 금지돼서</strong>다. 제초 로봇은 비닐+제초제의 여집합이다. <span class="muted">(출처 PLAN §2·§2b, DECISIONS 005·008)</span>
-      </div>
-      <div class="callout open reveal">
-        <span class="lb">완성 기준 — kill event</span>
-        <code>‖도구 위치 − 잡초 정답 좌표‖ &lt; 2cm</code> <strong>AND</strong> 도달 유지 <strong>AND</strong> 작물 무접촉. 맨 위치가 아니라 <em>선택성</em> 조항이 핵심 &mdash; 하고 싶은 주장은 <em>“…그리고 작물은 안 건드렸다.”</em> <span class="muted">(DECISIONS 002)</span>
+        <span class="lb">이 프로젝트의 제1 제약</span>
+        개발과 검증을 화면 없이 한다. GUI를 열어 눈으로 확인하는 대신, 모든 기능을 명령줄에서 수치로 단언한다. 그래서 시뮬 테스트마다 게이트가 둘이다. 픽셀이 검지 않은가, 그리고 그걸 NVIDIA GPU가 그렸는가(소프트웨어 렌더러의 거짓 통과를 막는다). 이 제약이 문서·코드·검증 전체의 뼈대다.
       </div>
     </div>
   </section>
 
-  <!-- ============ 2. 개요 & 핵심 루프 ============ -->
-  <section id="overview">
+  <!-- 현재 성능 -->
+  <section id="results">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Overview</span><span class="sub">무엇을 만드나</span></div>
-      <h2 class="reveal">포탈형 로봇 + 자기검증 시뮬</h2>
-      <div class="grid g2 reveal">
-        <div>
-          <dl class="kv">
-            <dt>형태</dt><dd><strong>포탈형(straddle)</strong> &mdash; 두둑 하나를 걸터타고 양쪽 고랑을 달린다. 바퀴는 고랑에, 도구는 두둑 위. 잡초 위에 물리적으로 설 수 있는 유일한 형태. <span class="tag t-ok">검증</span></dd>
-            <dt>제거</dt><dd><strong>점 타격(point-strike)</strong> &mdash; 수직 막대로 찍어 누름. 강체 물리라 시뮬 가능(연성체 자르기는 불가). <span class="tag t-ok">검증</span></dd>
-            <dt>인식</dt><dd>흙/콩/옥수수/<strong>잡초</strong> 4클래스 의미분할(best.pt). 키 규칙 아님. <span class="tag t-ok">검증</span></dd>
-            <dt>실물</dt><dd>안 만든다 &mdash; <strong>시뮬 안에서</strong>. 단 buildable 수준으로 설계(<code>DESIGN.md</code> BOM). <span class="tag t-open">시뮬 밖</span></dd>
-          </dl>
-        </div>
-        <div class="card">
-          <h4 style="margin-top:0">제1 제약 — Claude가 만들고 스스로 검증</h4>
-          <p class="muted" style="margin:0 0 .6rem">사람이 GUI를 안 들여다본다. 그래서 <strong>CLI에서 assert 못 하는 기능은 존재할 수 없다.</strong> 모든 시뮬 테스트는 게이트가 둘 &mdash; 픽셀이 검지 않은가 <strong>AND</strong> NVIDIA가 그렸는가(llvmpipe 거짓통과 차단).</p>
-          <p class="muted" style="margin:0">이 문서·코드·검증이 전부 그 제약 위에 서 있다.</p>
-        </div>
+      <div class="eyebrow reveal"><span class="kick">현재 성능</span><span class="sub">지금까지의 결과</span></div>
+      <h2 class="reveal">인식부터 자율 타격까지, 무엇이 얼마나 되나</h2>
+      <div class="stats reveal">
+        <div class="stat"><div class="k">잡초 인식 IoU</div><div class="v">0.959</div><div class="u">recall 0.986</div></div>
+        <div class="stat"><div class="k">무정차 주행 속도</div><div class="v">0.20<span class="u"> m/s</span></div></div>
+        <div class="stat"><div class="k">정밀 타격 (좌표 주어짐)</div><div class="v">&lt;1.5<span class="u"> mm</span></div></div>
+        <div class="stat"><div class="k">자율 타격 (카메라만)</div><div class="v">3–5<span class="u"> cm</span></div></div>
       </div>
-
-      <div class="diagram reveal">
-        <div class="cap">핵심 루프 — 카메라가 앞서 보고, 주행이 X를 메우고, 도구가 무정차로 찍는다</div>
-        <pre class="mermaid">
-flowchart LR
-  CAM["down_cam<br/>(base 전방 0.33m)"] --> SEG["best.pt<br/>4클래스 분할"]
-  SEG --> LOC["픽셀→월드<br/>좌표"]
-  LOC --> ROUTE{"담당 툴<br/>(밴드)"}
-  ROUTE --> DRIVE["주행 정렬<br/>(odom)"]
-  DRIVE --> STRIKE["무정차<br/>점 타격"]
-  SEG --> TRIAGE["큰 잡초 / 작물<br/>→ 사람에게 보고"]
-  STRIKE --> DONE["처리됨 표시"]
-        </pre>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ 3. 시스템 아키텍처 ============ -->
-  <section id="arch">
-    <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Architecture</span><span class="sub">어떻게 짜였나 · 코드 진입점</span></div>
-      <h2 class="reveal">파이프라인과 인터페이스</h2>
-      <p class="lead col reveal">두 개의 파이썬이 있고 경계는 <strong>단단하다</strong>: ROS쪽은 <code>/usr/bin/python3</code> 3.10(rclpy가 도는 유일한 인터프리터), ML쪽은 별도 venv 3.11. <strong>둘을 import로 잇지 않는다 &mdash; 계약은 디스크 파일</strong>(<code>models/best.pt</code>, 검출 파일).</p>
-
-      <div class="diagram reveal">
-        <div class="cap">시스템 구성 — 제어는 odom, 채점은 지상진실(GT). 프로세스로 분리해 자기기만 차단</div>
-        <pre class="mermaid">
-flowchart TB
-  subgraph SIM["Gazebo Fortress (ogre2+EGL, 헤드리스)"]
-    W["robot_field.sdf<br/>두둑·고랑·CropCraft 식물"]
-    R["URDF 로봇<br/>멀티툴 N=3"]
-    CAMS["down_cam / depth / IMU"]
-  end
-  subgraph ROS["ROS 파이썬 3.10"]
-    WW["ww_cmd (ign-transport 직결)<br/>제어=odom · 3.6us/명령"]
-    GT["GT 구독자<br/>(채점 전용)"]
-  end
-  subgraph ML["ML venv 3.11"]
-    DS["detect_server<br/>best.pt · PNG 폴링"]
-  end
-  CAMS -->|"저장 PNG"| DS
-  DS -->|"검출 파일 (world 좌표)"| WW
-  WW -->|"odom_x 파일"| DS
-  WW -->|"/cmd_vel /carriage_i /tool_i"| R
-  R -->|"/odometry /joint_state"| WW
-  R -->|"dynamic_pose/info"| GT
-        </pre>
-      </div>
-
-      <h3 class="reveal">인터페이스 (이 문서만으로 이어 코딩) <span class="tag t-ok">검증</span></h3>
-      <div class="grid g2 reveal">
-        <div class="card">
-          <div class="n">ww_cmd 프로토콜</div>
-          <p class="muted" style="margin:.2rem 0 0">상주 프로세스(<code>ign topic -p</code>는 발행당 1.055초라 주행 중 못 씀). 줄 단위 텍스트:</p>
-          <ul class="clean" style="margin-bottom:0">
-            <li><code>v &lt;lin&gt; &lt;ang&gt;</code> · <code>carriage &lt;i&gt; &lt;m&gt;</code> · <code>tool &lt;i&gt; &lt;m&gt;</code> · <code>q</code></li>
-            <li>출력 <code>O simt x y yaw vx wz</code>(odom) · <code>J simt c0..c2 t0..t2</code>(achieved)</li>
-          </ul>
-        </div>
-        <div class="card">
-          <div class="n">좌표 정합</div>
-          <p class="muted" style="margin:.2rem 0 0">픽셀→월드는 색 마커로 직접 캘리브(복원오차 0):</p>
-          <ul class="clean" style="margin-bottom:0">
-            <li><code>world_x = cam_x − 0.457mm·(row−360)</code></li>
-            <li><code>world_y = cam_y − 0.457mm·(col−640)</code></li>
-            <li>두둑을 z=0.25로 올려 카메라가 식물 위 <strong>0.33m</strong>(학습 스케일 정합)</li>
-          </ul>
-        </div>
-      </div>
-      <p class="col muted reveal">상세: <code>tools/ww_cmd/ww_cmd.cc</code> · <code>perception/detect_server.py</code> · <code>perception/calibrate_camera.py</code> · DECISIONS 020~023.</p>
-    </div>
-  </section>
-
-  <!-- ============ 4. 로봇 설계 ============ -->
-  <section id="robot">
-    <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Robot</span><span class="sub">엔지니어링 · 미학 아님</span></div>
-      <h2 class="reveal">파라메트릭 멀티툴 포탈</h2>
-      <p class="lead col reveal">치수는 <code>garden_geometry.py</code>의 dataclass가 <strong>단일 출처</strong>다. <code>robot_body.py</code>(Blender bpy)가 그 숫자를 읽어 로봇 메시를 생성하고, <code>make_urdf.py</code>가 같은 숫자로 URDF·충돌·관성을 찍는다. <strong>숫자 하나 바꾸면 메시·물리가 같이 움직인다.</strong></p>
-
-      <div class="diagram reveal">
-        <div class="cap">관절 트리 — base 고정, 캐리지 3개가 X로 엇갈려 독립 Y, 각자 Z 툴</div>
-        <pre class="mermaid">
-flowchart TB
-  BASE["base_link (39.5kg)"] --> W1["wheel×4 (continuous, diff-drive)"]
-  BASE --> C0["carriage0 (Y, x=−0.09)"] --> T0["tool0 (Z)"]
-  BASE --> C1["carriage1 (Y, x=−0.27)"] --> T1["tool1 (Z)"]
-  BASE --> C2["carriage2 (Y, x=−0.45)"] --> T2["tool2 (Z)"]
-  BASE --> CAM["down_cam / depth / IMU (전방 x=0.22)"]
-        </pre>
-      </div>
-
-      <div class="grid g2 reveal">
-        <div>
-          <h4>왜 Blender bpy, CAD 아님 <span class="tag t-ok">검증</span></h4>
-          <p class="muted" style="margin:0">결정적 제약은 <strong>“코드→PNG→Claude가 봄→수정” 렌더 루프</strong>를 GUI 없이 도는 것. FreeCAD·build123d는 헤드리스 렌더 경로가 없어 탈락 &mdash; Blender bpy만 이 루프를 혼자 완결한다. CAD의 강점(STEP·공차)은 실물을 안 만드니 안 쓰인다. <span class="muted">(DECISIONS 012)</span></p>
-        </div>
-        <div>
-          <h4>멀티툴 N=3 X-엇갈림 <span class="tag t-ok">검증</span></h4>
-          <p class="muted" style="margin:0">두둑 90cm를 30cm 밴드 3개로. 독립 Y 캐리지가 한 빔 위에서 안 부딪히려면 <strong>X로 엇갈려야</strong>(x=−0.09/−0.27/−0.45) &mdash; 실제 다중툴 기계(Andela ARW-912) 방식. 카메라를 base로 이설(“툴=고정 픽셀” 불변식이 3툴에선 깨짐). <span class="muted">(DECISIONS 021)</span></p>
-        </div>
-      </div>
-
-      <h3 class="reveal">실물 BOM 요약 <span class="tag t-plan">결정·실물</span> <span class="tag t-open">시뮬 밖</span></h3>
-      <p class="col muted reveal">실제 엔지니어가 만들 수 있는 수준의 부품·정격을 <code>DESIGN.md</code>에 모았다 &mdash; 총 <strong>~$2,900</strong> + 서비스 ~$11/월. 시뮬은 여기서 걸터타기·구동·mm 위치만 검증하고, 나머지는 심-리얼 갭 원장으로 넘긴다(§한계).</p>
       <div class="tbl-wrap reveal">
         <table>
-          <caption>핵심 부품 (DESIGN §2~§4)</caption>
-          <thead><tr><th>서브시스템</th><th>부품</th><th>정격 · 근거</th><th class="val">$</th></tr></thead>
+          <caption>단계별 실측 — 두 가지 “명중률”을 구분한다</caption>
+          <thead><tr><th>무엇</th><th>조건</th><th>결과</th><th>명령</th></tr></thead>
           <tbody>
-            <tr><td>구동</td><td>ZLTECH 8″ 인휠 BLDC ×4</td><td>24V IP65, 정격 4·피크 12 N·m</td><td class="val">600</td></tr>
-            <tr><td>Y 캐리지</td><td>NEMA23 GT3 벨트 클로즈드루프</td><td>±0.1mm, IP65</td><td class="val">195</td></tr>
-            <tr><td>Z 도구</td><td>NEMA23 + Tr8×8 리드스크류</td><td>추력 ~628N &gt; 관입력 170–340N</td><td class="val">150</td></tr>
-            <tr><td>센싱</td><td>Intel RealSense D405</td><td>1280×720, 작동 7–50cm, 87° FOV</td><td class="val">—</td></tr>
-            <tr><td>컴퓨트</td><td>Jetson Orin Nano Super 8GB</td><td>67 TOPS, 7–25W</td><td class="val">249</td></tr>
-            <tr><td>전력</td><td>LiFePO4 640Wh + 200Wp 태양광</td><td>평균 ~65W · ~200Wh/순찰</td><td class="val">~500</td></tr>
+            <tr><td>잡초 인식</td><td>held-out 정원(안 본 시드)</td><td>잡초 IoU <span class="val">0.959</span> · recall <span class="val">0.986</span> · mIoU 0.958</td><td><code>make eval-model</code></td></tr>
+            <tr><td>정밀 위치 타격</td><td>잡초 좌표를 주고, 주행 정지</td><td>도구가 잡초 위 <span class="val">0.02–0.14cm</span></td><td><code>make stamp</code></td></tr>
+            <tr><td>무정차 타격</td><td>좌표 주고, 0.2m/s 주행</td><td>6/6 잡초 <span class="val">0.01–0.15cm</span> · 작물 무접촉</td><td><code>make row</code></td></tr>
+            <tr><td>완전 자율 타격</td><td><strong>카메라로 직접 보고</strong> 주행</td><td>재현율 <span class="val">0.25–0.5</span> · 오차 중앙 <span class="val">3–5cm</span> · 작물 무접촉</td><td><code>make row-live</code></td></tr>
           </tbody>
         </table>
       </div>
-      <div class="callout reveal">
-        <span class="lb">태양광은 전력이 아니라 광학 부품</span>
-        패널을 유지하는 건 전기가 아니라 <strong>그게 조명 터널의 천장</strong>이라서다 &mdash; 카메라와 LED를 같은 캐리지에 볼트로 고정하면 광-카메라 변환이 상수가 돼 Blender로 정확히 복제된다. (전력은 최악의 날에도 3.4배 남는다.) <span class="muted">(DECISIONS 010)</span>
+      <div class="callout open reveal">
+        <span class="lb">정직하게 — 자율 성능은 아직 낮다</span>
+        좌표를 주면 밀리미터로 찍지만, 로봇이 <strong>제 카메라로 직접 보고</strong> 찍으면 재현율 0.25–0.5에 오차 3–5cm다. 이 프로젝트가 실제로 증명하려던 게 바로 이 자율 성능인데, 지금 수치가 낮다. 원인은 빽빽한 겹침 밭에서 위에서 본 잎이 줄기 밑동을 가리는 것, 그리고 검출 노이즈다. <strong>다음에 올릴 곳이 여기다.</strong> 무정차 주행 자체는 잘 되고, 3개 툴이 나뉜 밴드를 맡아 x-근접·y-원거리 최악 배치까지 처리한다(단일 툴로는 불가). 밭 밀도가 높을 때 3개로 처리량이 충분한지는 아직 안 쟀다.
       </div>
     </div>
   </section>
 
-  <!-- ============ 5. 인식 ============ -->
+  <!-- 아키텍처 -->
+  <section id="arch">
+    <div class="wrap">
+      <div class="eyebrow reveal"><span class="kick">아키텍처</span><span class="sub">시스템 구성과 인터페이스</span></div>
+      <h2 class="reveal">파이프라인</h2>
+      <p class="lead col reveal">제어와 채점을 프로세스로 분리한다. 로봇은 오도메트리(바퀴 회전에서 뽑은 위치)로 제어하고, 채점은 시뮬의 지상진실 좌표로만 한다. 제어기가 정답을 물리적으로 못 보게 해서 “명령대로 갔다고 가정” 대신 “실제로 그 위치에 갔나”를 재게 만든다.</p>
+
+      <div class="diagram reveal">
+        <div class="cap">구성 — 제어는 odom, 채점은 지상진실(GT). 인식(ML)과 로봇 제어(ROS)는 디스크 파일로 잇는다.</div>
+        <pre class="mermaid">
+flowchart TB
+  subgraph SIM["Gazebo Fortress (헤드리스, GPU 렌더)"]
+    W["robot_field 월드<br/>두둑·고랑·CropCraft 식물"]
+    R["로봇 (URDF, 툴 3개)"]
+    CAMS["down_cam / depth / IMU"]
+  end
+  subgraph CTRL["로봇 제어"]
+    WW["ww_cmd (상주)<br/>제어=odom · 3.6us/명령"]
+    GT["지상진실 구독<br/>(채점 전용)"]
+  end
+  subgraph ML["인식"]
+    DS["detect_server<br/>best.pt · 프레임 폴링"]
+  end
+  CAMS -->|"저장 PNG"| DS
+  DS -->|"검출 좌표 파일"| WW
+  WW -->|"odom_x 파일"| DS
+  WW -->|"/cmd_vel /carriage_i /tool_i"| R
+  R -->|"/odometry /joint_state"| WW
+  R -->|"dynamic_pose"| GT
+        </pre>
+      </div>
+
+      <h3 class="reveal">인터페이스 <span class="tag t-ok">검증</span></h3>
+      <div class="grid g2 reveal">
+        <div class="card">
+          <div class="n">ww_cmd</div>
+          <p class="muted" style="margin:.2rem 0 .5rem">주행 중 폐루프 제어용 상주 프로세스. 매번 새로 발행하면 디스커버리에 1초가 걸려 주행 중엔 못 쓴다. 상주시키면 명령 쓰기 3.6us.</p>
+          <p class="muted" style="margin:0">입력 <code>v</code> <code>carriage i m</code> <code>tool i m</code>. 출력 <code>O</code>(odom) <code>J</code>(관절 실제 위치).</p>
+        </div>
+        <div class="card">
+          <div class="n">픽셀 → 월드 좌표</div>
+          <p class="muted" style="margin:.2rem 0 .5rem">색 마커로 직접 캘리브(복원 오차 0):</p>
+          <p class="muted" style="margin:0"><code>world_x = cam_x − 0.457mm·(row−360)</code><br/><code>world_y = cam_y − 0.457mm·(col−640)</code>. 두둑을 0.25m 올려 카메라가 식물 위 0.33m에서 본다(학습 스케일과 정합).</p>
+        </div>
+      </div>
+      <div class="callout plan reveal">
+        <span class="lb">파이썬 두 벌 — 나중에 정리</span>
+        지금 로봇 제어(ROS)와 인식(torch)이 서로 다른 파이썬 환경에서 돈다. 버전이 안 맞아서라기보다 무거운 딥러닝 의존성을 로봇 쪽에 안 섞으려는 격리에 가깝다. 하나로 합칠 수 있고, 환경 설정은 나중에 한 번 깔끔하게 정리할 예정이다.
+      </div>
+    </div>
+  </section>
+
+  <!-- 로봇 -->
+  <section id="robot">
+    <div class="wrap">
+      <div class="eyebrow reveal"><span class="kick">로봇</span><span class="sub">기구 설계</span></div>
+      <h2 class="reveal">파라메트릭 멀티툴 포탈</h2>
+      <p class="lead col reveal">치수는 <code>garden_geometry.py</code>의 데이터클래스 하나에만 적는다. 로봇 메시 생성기와 URDF·충돌·관성이 전부 그 숫자를 읽어간다. 숫자 하나를 바꾸면 메시와 물리가 같이 움직인다.</p>
+
+      <div class="diagram reveal">
+        <div class="cap">관절 구조 — 캐리지 3개가 X로 엇갈려 독립적으로 Y를 훑고, 각자 Z 축으로 도구를 내린다.</div>
+        <pre class="mermaid">
+flowchart TB
+  BASE["차체 (base, 39.5kg)"] --> W1["바퀴 4 (연속회전, diff-drive)"]
+  BASE --> C0["캐리지0 (Y, x=−0.09)"] --> T0["도구0 (Z)"]
+  BASE --> C1["캐리지1 (Y, x=−0.27)"] --> T1["도구1 (Z)"]
+  BASE --> C2["캐리지2 (Y, x=−0.45)"] --> T2["도구2 (Z)"]
+  BASE --> CAM["카메라·깊이·IMU (전방 x=0.22)"]
+        </pre>
+      </div>
+
+      <div class="grid g2 reveal">
+        <div>
+          <h4>멀티툴 3개, X로 엇갈림 <span class="tag t-ok">검증</span></h4>
+          <p class="muted" style="margin:0">두둑 폭 90cm를 30cm 밴드 세 개로 나눈다. 독립적으로 Y를 움직이는 캐리지 셋이 한 빔 위에서 안 부딪히려면 X 위치를 엇갈려야 한다(x = −0.09 / −0.27 / −0.45). 실제 다중툴 제초기(Andela ARW-912)가 쓰는 방식이다.</p>
+        </div>
+        <div>
+          <h4>움직임은 맞지만, 부품은 아직 추상 <span class="tag t-open">개선 예정</span></h4>
+          <p class="muted" style="margin:0">지금 로봇은 상자·실린더 메시에 관절만 붙인 형태다. 움직임은 정확하다(프리즘 Z관절이 리드스크류의 직선 운동을, 연속 관절이 인휠 모터를 대신한다). 다만 리드스크류·스텝모터·벨트 같은 <strong>실제 메커니즘이 눈에 보이지는 않는다.</strong> 부품을 하나하나 모델링해 조립하는 방향을 열어 두고 있다.</p>
+        </div>
+      </div>
+
+      <h3 class="reveal">실물 부품 <span class="tag t-plan">설계·실물</span> <span class="tag t-open">시뮬 밖</span></h3>
+      <p class="col muted reveal">실제로 만든다면 어떤 부품·정격이 들어가는지 <code>DESIGN.md</code>에 정리해 두었다(총 ~$2,900). 시뮬은 이 중 걸터타기·구동·mm 위치만 검증하고, 나머지는 실물 프로토타입에서 메워질 갭으로 기록한다(아래 한계 참고).</p>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>핵심 부품 (DESIGN §2–§4)</caption>
+          <thead><tr><th>부위</th><th>부품</th><th>정격 · 근거</th><th class="val">$</th></tr></thead>
+          <tbody>
+            <tr><td>구동</td><td>ZLTECH 8″ 인휠 BLDC 모터 4개</td><td>24V IP65, 정격 4 · 피크 12 N·m</td><td class="val">600</td></tr>
+            <tr><td>Y 캐리지</td><td>NEMA23 스텝 + GT3 벨트</td><td>±0.1mm 클로즈드루프, IP65</td><td class="val">195</td></tr>
+            <tr><td>Z 도구</td><td>NEMA23 스텝 + Tr8×8 리드스크류</td><td>추력 ~628N (관입력 170–340N)</td><td class="val">150</td></tr>
+            <tr><td>카메라</td><td>Intel RealSense D405</td><td>1280×720, 작동 7–50cm, 87° 화각</td><td class="val">—</td></tr>
+            <tr><td>컴퓨트</td><td>Jetson Orin Nano Super 8GB</td><td>67 TOPS, 7–25W</td><td class="val">249</td></tr>
+            <tr><td>전력</td><td>LiFePO4 640Wh + 태양광 200Wp</td><td>평균 ~65W, 순찰당 ~200Wh</td><td class="val">~500</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="col muted reveal">로봇 메시는 Blender 스크립트로 생성한다. 코드로 만들고 렌더해서 확인하고 고치는 루프를 화면 없이 도는 유일한 방법이라서다(<code>DECISIONS 012</code>). 부품 단위 CAD 조립은 별도로 검토 중인 방향이다.</p>
+    </div>
+  </section>
+
+  <!-- 인식 -->
   <section id="perception">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Perception</span><span class="sub">근거 위에 선 인식</span></div>
-      <h2 class="reveal">4클래스 의미분할, 문헌으로 튜닝</h2>
+      <div class="eyebrow reveal"><span class="kick">인식</span><span class="sub">의미분할</span></div>
+      <h2 class="reveal">흙·콩·옥수수·잡초, 문헌 근거로 학습</h2>
       <div class="stats reveal">
-        <div class="stat"><div class="k">잡초 IoU (정합후)</div><div class="v">0.959</div></div>
+        <div class="stat"><div class="k">잡초 IoU</div><div class="v">0.959</div></div>
         <div class="stat"><div class="k">잡초 recall</div><div class="v">0.986</div></div>
         <div class="stat"><div class="k">옥수수 IoU</div><div class="v">0.896</div></div>
         <div class="stat"><div class="k">mIoU</div><div class="v">0.958</div></div>
       </div>
       <div class="grid g3 reveal">
-        <div class="card"><div class="n">데이터</div><h4>CropCraft 합성 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">콩·옥수수 + 잡초 3종, 자연광 HDRI. 잡초 픽셀 <strong>4.55%</strong>(문헌 4–8% 근거 30개). 시드 분리(train 1–40 / eval 1000번대)로 held-out 보장.</p></div>
-        <div class="card"><div class="n">레시피</div><h4>손실·가중 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">0.6·가중CE(inverse-sqrt) + 0.4·Dice. 희소 클래스(옥수수 2.5%·잡초)를 “전부 흙”으로 안 무너뜨림 &mdash; 전부 IoU 0.9+. (PMC11136954 등)</p></div>
-        <div class="card"><div class="n">정합</div><h4>카메라 매칭 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">학습 카메라를 로봇 down_cam 인트린식(<strong>1280×720/87°/0.33m</strong>, D405)으로 재렌더·재학습. 온-루프 인식이 학습 분포와 같아야 정직하다. (DECISIONS 021-5)</p></div>
+        <div class="card"><div class="n">데이터</div><h4>합성 정원 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">CropCraft로 콩·옥수수 + 잡초 3종을 자연광에서 렌더. 잡초 픽셀 비율 4.55%는 문헌(실밭 잡초 바이오매스 중앙값 4%)에 맞춘 값이다. 시드를 분리해 학습이 한 번도 안 본 정원으로 평가한다.</p></div>
+        <div class="card"><div class="n">손실</div><h4>가중 + Dice <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">0.6·가중CE(inverse-sqrt) + 0.4·Dice. 흙이 75%라 그냥 두면 “전부 흙”으로 수렴하는데, 이 레시피가 희소 클래스(옥수수 2.5%·잡초)를 전부 IoU 0.9 위로 끌어올린다.</p></div>
+        <div class="card"><div class="n">카메라 정합</div><h4>학습=실사용 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">학습 카메라를 로봇 카메라 스펙(1280×720, 87°, 0.33m)으로 다시 렌더해 재학습했다. 로봇이 실제로 볼 화면과 학습 분포가 같아야 자율 인식이 정직하다.</p></div>
       </div>
       <div class="callout reveal">
         <span class="lb">게이트는 희소 표적을 직접 겨눈다</span>
-        흙이 75%라 “전부 흙” 예측이 이미 ~75% 정확도다. 그래서 게이트는 <strong>per-class 잡초·옥수수 IoU/recall</strong>이지 전체 정확도가 아니다(전체정확도는 소수클래스 오류를 10pt+ 숨긴다). 임계값은 <strong>보호 대상</strong> &mdash; 모델 바꾸는 커밋에서 같이 낮추지 않는다. <span class="muted">(DECISIONS 015·017)</span>
+        흙이 75%라 “전부 흙”이라 찍어도 정확도 75%가 나온다. 그래서 합격 기준은 전체 정확도가 아니라 잡초·옥수수의 클래스별 IoU와 recall이다. 이 임계값은 보호 대상이라, 모델을 바꾸는 커밋에서 함께 낮추지 않는다.
       </div>
     </div>
   </section>
 
-  <!-- ============ 6. 행동 ============ -->
+  <!-- 주행·타격 -->
   <section id="action">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Action</span><span class="sub">인식→물리 제어</span></div>
-      <h2 class="reveal">무정차 멀티툴 점타격</h2>
-      <p class="lead col reveal">잡초마다 정지하지 않는다. <strong>≤0.2 m/s 연속 주행 + 예측 하강</strong>(Z 정착 180ms 앞서). 정지-타격의 오차 예산은 제동 미끄러짐이 지배하는데, 무정차는 그 항이 아예 없다.</p>
+      <div class="eyebrow reveal"><span class="kick">주행·타격</span><span class="sub">인식에서 물리 동작으로</span></div>
+      <h2 class="reveal">무정차로 달리며 찍는다</h2>
+      <p class="lead col reveal">잡초마다 멈추지 않는다. 0.2m/s로 계속 달리면서, 도구가 잡초에 닿기 180ms 전에 미리 내린다(Z축 하강이 정착하는 데 걸리는 시간). 정지 후 타격은 제동 미끄러짐이 오차를 지배하는데, 무정차는 그 항이 아예 없다.</p>
       <div class="tbl-wrap reveal">
         <table>
-          <caption>주행 중 실측 (DECISIONS 020)</caption>
+          <caption>주행 중 실측</caption>
           <thead><tr><th>측정</th><th class="val">값</th><th>함의</th></tr></thead>
           <tbody>
-            <tr><td>제동거리</td><td class="val">≈0.40·v²</td><td>odom이 5~7배 과소보고 → 두 게이트 규율</td></tr>
-            <tr><td>Z 타격 정착</td><td class="val">180 ms</td><td>±2cm 창(0.2m/s=200ms) 안에 들어감</td></tr>
-            <tr><td>Y 캐리지</td><td class="val">~48 cm/s</td><td>밴드 이동 여유 → 멀티툴이 최악배치 해결</td></tr>
-            <tr><td>무정차 상한</td><td class="val">0.2 m/s</td><td>0.3은 창 133ms&lt;180ms라 불가</td></tr>
+            <tr><td>제동거리</td><td class="val">≈ 0.40·v²</td><td>오도메트리가 5–7배 과소보고 (그래서 게이트 둘)</td></tr>
+            <tr><td>Z 하강 정착</td><td class="val">180 ms</td><td>0.2m/s에서 ±2cm 창(200ms) 안에 들어감</td></tr>
+            <tr><td>무정차 상한 속도</td><td class="val">0.2 m/s</td><td>0.3은 창이 133ms라 하강이 못 따라감</td></tr>
           </tbody>
         </table>
       </div>
       <div class="grid g2 reveal">
-        <div class="card"><div class="n">make row</div><h4>제어 검증(오라클 좌표) <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0"><strong>0.196 m/s 무정차로 6잡초 전부 0.01~0.15cm.</strong> 5게이트: X정렬&lt;2cm·안티크리프·iterations·작물무접촉(4cm 옆 작물 살림)·odom↔GT 표류. 음성시험(하강 늦추면 전부 FAIL)로 게이트 실효 확인.</p></div>
-        <div class="card"><div class="n">make row-live</div><h4>완전 자율(카메라만) <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">오라클을 제어서 빼고 <strong>로봇이 제 카메라로 본 것만으로</strong> 주행 타격. 관측 재현율 0.25~0.5, 위치오차 중앙 ~3-5cm, 작물 물리 무접촉. 작물 코앞 잡초는 safe-remove(007). <span class="muted">CLAUDE.md 첫 줄이 오라클 없이 실현.</span></p></div>
+        <div class="card"><div class="n">make row</div><h4>좌표를 주면 (제어 검증) <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">0.196m/s 무정차로 잡초 6개를 전부 0.01–0.15cm에 찍는다. 4cm 옆 작물은 살린다. 하강 타이밍을 일부러 늦추면 전부 실패하는지도 확인했다(게이트가 실효한다는 증거).</p></div>
+        <div class="card"><div class="n">make row-live</div><h4>카메라로 직접 보면 (완전 자율) <span class="tag t-ok">검증</span> <span class="tag t-open">성능 개선 예정</span></h4><p class="muted" style="margin:0">정답 좌표 없이 로봇이 제 카메라로 본 것만으로 주행하며 찍는다. 재현율 0.25–0.5, 오차 중앙 3–5cm, 작물 물리 무접촉. 작물에 너무 가까운 잡초는 건드리지 않고 넘긴다.</p></div>
       </div>
-      <div class="callout open reveal">
-        <span class="lb">정직: 정밀 2cm vs 자율 ~5cm</span>
-        라이브(row-live)의 절대오차 ~5cm는 캐노피-vs-줄기밑동+시차+지연이 안 상쇄된 것 &mdash; <strong>정밀 2cm는 <code>make row</code>(오라클 좌표, 결정론적)가 별도 증명</strong>한다. row-live는 <em>자율</em>을 증명하지 절대 정밀이 아니다. <span class="muted">(DECISIONS 022·023)</span>
+      <div class="callout reveal">
+        <span class="lb">큰 잡초·작물 근처 잡초는 사람에게 넘긴다</span>
+        점 타격이 잡을 수 있는 건 어리고 작은 잡초뿐이다(분야 전체의 한계). 로봇은 잡초를 세 갈래로 나눈다. 자율 처리(찍는다), 사람에게 넘김(위치·사진 기록), 놓침(탐지 실패, 유일한 진짜 실패). 로봇은 항상 있지만 약하고, 사람은 강하지만 주말에만 온다. 이 상보성이 주말농장에 맞는다.
       </div>
     </div>
   </section>
 
-  <!-- ============ 7. 검증 방법론 ============ -->
+  <!-- 검증 -->
   <section id="verify">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Verify</span><span class="sub">이 프로젝트의 척추</span></div>
+      <div class="eyebrow reveal"><span class="kick">검증</span><span class="sub">이 프로젝트의 뼈대</span></div>
       <h2 class="reveal">단언할 수 없으면 존재하지 않는다</h2>
+      <p class="lead col reveal">화면을 안 보는 대신 4단으로 검증한다. 산수로 답할 수 있는 건 시뮬을 안 돌린다(느리고 불안정하고 GPU가 필요하니까). 시뮬은 산수로 못 푸는 것만 맡는다.</p>
       <div class="axis reveal">
-        <div class="node done"><div class="lab">Tier 0 · 위생 <span class="st">scripts/env.sh</span></div><div class="muted">python 3.10 / rclpy / EGL·NVIDIA / Blender GPU를 단언. 잘못된 파이썬·EGL을 원천 차단.</div></div>
-        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 57개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 &mdash; URDF·관성·기하 검사.</div></div>
-        <div class="node done"><div class="lab">Tier 2 · 렌더없는 시뮬 <span class="st">drive · joints · straddle · row</span></div><div class="muted">물리만(GPU 불필요). 제어→운동을 지상진실로 단언.</div></div>
-        <div class="node done"><div class="lab">Tier 3 · 렌더있는 시뮬 <span class="st">camera · percept · row-live</span></div><div class="muted">GPU 2게이트 — 픽셀 검지않음 AND NVIDIA가 그림.</div></div>
+        <div class="node done"><div class="lab">Tier 0 · 위생 <span class="st">env.sh</span></div><div class="muted">올바른 파이썬·EGL·GPU를 단언. 잘못된 환경을 아예 차단한다.</div></div>
+        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 57개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사.</div></div>
+        <div class="node done"><div class="lab">Tier 2 · 물리 시뮬 <span class="st">drive · joints · straddle · row</span></div><div class="muted">렌더 없이 물리만(GPU 불필요). 명령이 실제 운동이 되는지를 지상진실로 단언.</div></div>
+        <div class="node done"><div class="lab">Tier 3 · 렌더 시뮬 <span class="st">camera · percept · row-live</span></div><div class="muted">GPU 렌더. 픽셀이 검지 않은가, 그리고 NVIDIA가 그렸는가(게이트 둘).</div></div>
       </div>
       <div class="grid g3 reveal">
-        <div class="card"><div class="n">규율 1</div><h4>2게이트</h4><p class="muted" style="margin:0">픽셀만 보면 거짓 통과 &mdash; llvmpipe는 <em>멀쩡해 보이는</em> 그림을 100배 느리게 그린다. 그래서 항상 “NVIDIA가 그렸나”를 같이 본다.</p></div>
-        <div class="card"><div class="n">규율 2</div><h4>골대 보호</h4><p class="muted" style="margin:0"><code>eval_seeds.txt</code>와 임계 상수는 보호 대상. 모델 바꾸는 커밋에서 같이 안 건드린다. <strong>골대를 옮길 수 있는 에이전트는 언젠가 옮긴다.</strong></p></div>
-        <div class="card"><div class="n">규율 3</div><h4>flaky = 실패</h4><p class="muted" style="margin:0">불안정한 테스트는 실패한 테스트다. 임계값을 조용히 낮추지 않는다. 테스트를 고쳐 통과시키지 말고 <strong>코드를 고친다</strong>.</p></div>
-      </div>
-      <p class="col muted reveal"><code>make</code> 타깃 목록이 곧 단언 스위트다: <code>smoke doctor test drive joints straddle camera stamp row percept row-live train eval-model</code>. <span class="muted">(PLAN §5, CLAUDE.md)</span></p>
-    </div>
-  </section>
-
-  <!-- ============ 8. 실험 설계 ============ -->
-  <section id="experiment">
-    <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Experiment</span><span class="sub">Stage 5 · 자율주행 시나리오·넓은 밭 여기</span></div>
-      <h2 class="reveal">정책 4개, 같은 정원, 결정 노드만 교체</h2>
-      <p class="lead col reveal">로봇 4대가 아니라 <strong>결정 함수 4개</strong>다. 몸체·물리·정원(같은 시드로 결정론적 동일)은 고정하고, “이 blob이 잡초인가 + 어디로 갈까”만 갈아끼운다 &mdash; 그래서 성능 차이가 순전히 결정 노드에서 온다.</p>
-      <div class="tbl-wrap reveal">
-        <table>
-          <caption>정책 ablation (DECISIONS 004) — 임계값은 내가 아니라 외부 출처가 정한다(허수아비 방지)</caption>
-          <thead><tr><th>정책</th><th>결정 노드</th><th>임계값 출처</th><th>상태</th></tr></thead>
-          <tbody>
-            <tr><td class="val">P0</td><td>Tertill류 키 규칙 + 랜덤워크</td><td>특허 US10888045 (2.54 / 3.81cm)</td><td><span class="tag t-plan">Stage5</span></td></tr>
-            <tr><td class="val">P1</td><td>줄 기하학 (줄 위=작물)</td><td>—</td><td><span class="tag t-plan">Stage5</span></td></tr>
-            <tr><td class="val">P2</td><td>FarmBot류 심은 좌표 DB + HSV</td><td>FarmBot 문서</td><td><span class="tag t-plan">Stage5</span></td></tr>
-            <tr><td class="val">P3</td><td><strong>weedwatch</strong> — 의미분할 + 커버리지</td><td>= 본체</td><td><span class="tag t-ok">대부분 구현</span></td></tr>
-            <tr><td class="val">P4</td><td>Oracle — 완벽 인식 = 천장</td><td>GT</td><td><span class="tag t-plan">Stage5</span></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="grid g2 reveal">
-        <div class="card"><div class="n">make experiment</div><h4>산출물 <span class="tag t-plan">설계·미구현</span></h4><ul class="clean" style="margin:.3rem 0 0"><li><strong>표</strong>: 정책별 mean±std (recall·작물오검출·커버리지·주행거리·에너지)</li><li><strong>ROC</strong>: P0 임계값 스윕(고정 임계값 금지) → AUC로 “어떤 임계값도 못 가른다”</li><li><strong>구역 대조 2×3</strong>: 고랑/두둑 × HSV·키규칙·비전 — 두둑에서 HSV가 작물 몰살</li><li><strong>거리-recall 곡선</strong>: 잡초별 작물까지 거리 → 키 규칙이 죽는 지점</li></ul></div>
-        <div class="card"><div class="n">DECISIONS 014-3</div><h4>커버리지-용량 실험 <span class="tag t-plan">확정·미구현</span></h4><p class="muted" style="margin:.3rem 0 0"><strong>“정원을 크게. 한 로봇이 어디까지 관리 가능한가를 측정.”</strong> 에너지 예산(~200Wh/순찰)·속도·잡초밀도 → 한 순찰에 덮는 면적 = 서비스 가능 밭 크기. 로봇 크기 vs 밭 크기를 <strong>정하기가 아니라 재기로</strong> 답한다. 보스트로페돈 자율주행 커버리지 + <code>LinearBatteryPlugin</code>.</p></div>
-      </div>
-      <div class="callout open reveal">
-        <span class="lb">아직 사람이 정해야 — 데모 정원 크기</span>
-        128cm 폭 ~40kg 포탈은 5평 밭엔 큰 기계다. 데모 정원 크기·잡초 분포·커버리지 경로는 <strong>Stage 4~5에서 설계</strong>(PLAN §10 미해결). 이게 “자율주행 시나리오”의 실체 &mdash; 로드맵의 Stage 5 항목. <span class="muted">(DECISIONS 013-끝)</span>
+        <div class="card"><div class="n">규율</div><h4>게이트 둘</h4><p class="muted" style="margin:0">픽셀만 보면 거짓 통과한다. 소프트웨어 렌더러는 멀쩡해 보이는 그림을 100배 느리게 그린다. 그래서 “NVIDIA가 그렸나”를 항상 같이 본다.</p></div>
+        <div class="card"><div class="n">규율</div><h4>골대는 못 옮긴다</h4><p class="muted" style="margin:0">평가 시드와 합격 임계값은 보호 대상이다. 모델을 바꾸는 커밋에서 같이 손대지 않는다. 골대를 옮길 수 있으면 언젠가 옮기게 된다.</p></div>
+        <div class="card"><div class="n">규율</div><h4>불안정 = 실패</h4><p class="muted" style="margin:0">가끔 통과하는 테스트는 실패한 테스트다. 임계값을 조용히 낮추지 않고, 테스트가 아니라 코드를 고친다.</p></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 9. 로드맵 & 현재 상태 ============ -->
+  <!-- 로드맵 -->
   <section id="roadmap">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Roadmap</span><span class="sub">살아있는 상태 · 매 갱신마다 업데이트</span></div>
-      <h2 class="reveal">Stage 0 → 7</h2>
+      <div class="eyebrow reveal"><span class="kick">로드맵</span><span class="sub">진행 현황 · 갱신될 때마다 업데이트</span></div>
+      <h2 class="reveal">어디까지 왔고, 무엇이 남았나</h2>
       <div class="axis reveal">
-        <div class="node done"><div class="lab">Stage 0 · 스모크 <span class="st">완료</span></div><div class="muted">헤드리스 GPU 렌더 121장, GL_VENDOR=NVIDIA. 함정 3개 기록(EGL 인텔·구독자 없으면 렌더 안함·pkill 자살).</div></div>
-        <div class="node done"><div class="lab">Stage 1 · 정원 + 오라클 <span class="st">완료 · 프로젝트 성립조건</span></div><div class="muted">두둑/고랑 기하(상자), Blender GPU(장당 11.2s), 오라클 트릭(<code>beds:</code>에 target_ → 좌표). 시드 42 결정성.</div></div>
-        <div class="node done"><div class="lab">Stage 2 · 로봇 몸체 <span class="st">대부분 완료</span></div><div class="muted">파라메트릭 bpy → 관절별 OBJ → URDF. drive 0.300m/s·joints mm·straddle y0cm·camera 2게이트. (미완: ros_gz_bridge, make view)</div></div>
-        <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 세그, held-out 잡초 IoU 0.904→0.959, mIoU 0.946→0.958. sim-to-real 실사진은 스코프 아웃(018).</div></div>
-        <div class="node now"><div class="lab">Stage 4 · 인식→행동 (스탬핑) <span class="st">4-3 완료</span><span class="badge">현재</span></div><div class="muted">4-1 인식→미터(1.4mm) · 4-2 스탬핑(&lt;0.14cm) · 4-3 멀티툴 무정차 + 카메라 정합 + 정적/주행 라이브 자율(row-live). ADR 019~023.</div></div>
-        <div class="node plan"><div class="lab">Stage 5 · 실험 <span class="st">설계됨 · 다음</span></div><div class="muted">정책 P0/P1/P2/P4 표·ROC·구역대조·거리-recall + <strong>커버리지-용량(밭 크기 측정)</strong> + 배터리 에너지 모델. <code>make experiment</code>.</div></div>
-        <div class="node plan"><div class="lab">Stage 6 · 배터리 <span class="st">설계됨</span></div><div class="muted"><code>LinearBatteryPlugin</code>(15줄)으로 “잡초 하나당 에너지”. 도킹은 삭제(태양광 되면 목적 소멸, ADR 011).</div></div>
-        <div class="node plan"><div class="lab">Stage 7 · 관찰·대시보드 <span class="st">설계됨</span></div><div class="muted">SQLite+JPEG(sqlite3로 단언 가능), triage “이번 주말 뽑을 것”, 성장 시계열(3단계까지만 정직). report.py→정적 HTML.</div></div>
+        <div class="node done"><div class="lab">Stage 0 · 스모크 <span class="st">완료</span></div><div class="muted">화면 없이 GPU 렌더가 되는가. 사진 121장, NVIDIA가 그림. 함정 세 개 기록.</div></div>
+        <div class="node done"><div class="lab">Stage 1 · 정원 + 정답 좌표 <span class="st">완료</span></div><div class="muted">두둑·고랑 기하, Blender GPU 렌더, 잡초 정답 좌표를 뽑는 트릭. 시드 고정으로 정원 재현.</div></div>
+        <div class="node done"><div class="lab">Stage 2 · 로봇 몸체 <span class="st">대부분 완료</span></div><div class="muted">파라메트릭 생성 → URDF. 주행·관절 mm 정밀·걸터타기·카메라 전부 단언 통과.</div></div>
+        <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
+        <div class="node now"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span><span class="badge">현재</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
+        <div class="node plan"><div class="lab">다음 · 자율 성능 올리기 <span class="st">예정</span></div><div class="muted">자율 재현율 0.25–0.5를 끌어올린다. 겹침이 덜한 밭 구성, 검출 필터링·군집화 개선. 지금 가장 중요한 곳.</div></div>
+        <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 지그재그 커버리지 경로. 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
+        <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
+        <div class="node plan"><div class="lab">대시보드 <span class="st">설계됨</span></div><div class="muted">로봇이 처리·보고를 SQLite에 기록 → 정적 HTML 리포트(“이번 주말 뽑을 것” 목록, 처리한 잡초, 키 넘은 작물).</div></div>
       </div>
       <div class="callout open reveal">
-        <span class="lb">남은 사람 몫</span>
-        데모 <strong>정원 크기</strong> 확정 · 로봇 디자인 미결(포드↔데크 연결 등, “일단 놔두고 진도”) · GitHub 인증 · 버스 12V/24V · 실물 질량 ~40kg 반영. <span class="muted">(PLAN §9, DESIGN §8)</span>
+        <span class="lb">사람이 정해야 할 것</span>
+        데모 밭 크기(128cm 폭 로봇은 작은 밭엔 큰 기계다), 로봇 외형·부품 조립 방향, 파이썬 환경 정리, 실물 질량 반영.
       </div>
     </div>
   </section>
 
-  <!-- ============ 10. 환경 & 재현성 ============ -->
+  <!-- 환경 -->
   <section id="env">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Env</span><span class="sub">함정과 재현성</span></div>
+      <div class="eyebrow reveal"><span class="kick">환경</span><span class="sub">함정과 재현성</span></div>
       <h2 class="reveal">모르면 세션을 통째로 날린다</h2>
       <div class="grid g2 reveal">
         <div class="tbl-wrap" style="margin:0">
@@ -530,130 +469,105 @@ flowchart TB
             <tbody>
               <tr><td>OS / ROS</td><td class="val">Ubuntu 22.04 / Humble</td></tr>
               <tr><td>시뮬</td><td class="val">Ignition Fortress 6.17.0</td></tr>
-              <tr><td>Blender</td><td class="val">5.0.1 (snap 5.0/stable)</td></tr>
-              <tr><td>파이썬(ROS)</td><td class="val">/usr/bin/python3 3.10</td></tr>
-              <tr><td>CropCraft</td><td class="val">고정 SHA</td></tr>
-              <tr><td>GPU</td><td class="val">RTX 4060 8GB · EGL NVIDIA 고정</td></tr>
+              <tr><td>Blender</td><td class="val">5.0.1</td></tr>
+              <tr><td>정원 생성기</td><td class="val">CropCraft (고정 SHA)</td></tr>
+              <tr><td>GPU</td><td class="val">RTX 4060 · EGL은 NVIDIA로 고정</td></tr>
             </tbody>
           </table>
         </div>
         <div>
           <h4 style="margin-top:0">밟으면 조용히 틀리는 함정</h4>
           <ul class="clean" style="margin-bottom:0">
-            <li>시뮬은 <code>ign gazebo</code> &mdash; <code>gz sim</code>이 <strong>아니다</strong>(Classic 도구).</li>
-            <li>EGL 기본값은 인텔 내장을 잡음 → NVIDIA ICD 고정.</li>
-            <li>카메라는 <strong>구독자가 있을 때만</strong> 렌더.</li>
-            <li><code>-r</code> 빼면 시계가 안 흘러 한 장도 안 찍힘.</li>
-            <li>Bash 호출 간 셸 상태 미유지 → <code>env.sh</code> 단일 진입점.</li>
-            <li>Blender Cycles 기본 CPU(경고 없음) → <code>make blender-gpu</code>.</li>
+            <li>시뮬은 <code>ign gazebo</code>다. <code>gz sim</code>은 다른 도구(Classic)다.</li>
+            <li>EGL 기본값은 인텔 내장 그래픽을 잡는다. NVIDIA로 고정해야 한다.</li>
+            <li>카메라는 구독자가 있을 때만 렌더한다.</li>
+            <li><code>-r</code>을 빼면 시계가 안 흘러 한 장도 안 찍힌다.</li>
+            <li>Blender Cycles는 경고 없이 CPU로 돈다. 설정 파일로 GPU를 켜야 한다.</li>
           </ul>
         </div>
       </div>
-      <p class="col muted reveal"><strong>재생성 계약</strong>: <code>best.pt</code>는 gitignore 산출물이나 (config + seed + CropCraft SHA + 4클래스 패치)로 결정적 재생성. 전 함정은 <code>CLAUDE.md</code>에.</p>
+      <p class="col muted reveal">학습 모델은 (설정 + 시드 + 생성기 버전)으로 결정적으로 재생성된다. 모든 함정은 <code>CLAUDE.md</code>에 적어 두었다.</p>
     </div>
   </section>
 
-  <!-- ============ 11. 정직한 한계 ============ -->
+  <!-- 한계 -->
   <section id="limits">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Limits</span><span class="sub">심-리얼 갭 · 정직성의 핵심</span></div>
-      <h2 class="reveal">시뮬이 증명 못 하는 것</h2>
-      <p class="lead col reveal">원칙: <strong>“기계가 올바른 깊이에 정확히”까지 증명하고, 치사·효능은 인용한다.</strong> 시뮬이 보여주는 건 <em>“올바르게 분류하고 실행했다”</em>이지 <em>“죽었다”</em>가 아니다.</p>
+      <div class="eyebrow reveal"><span class="kick">한계</span><span class="sub">시뮬과 실물의 간극</span></div>
+      <h2 class="reveal">시뮬이 증명하지 못하는 것</h2>
+      <p class="lead col reveal">원칙은 하나다. “기계가 올바른 깊이에 정확히 갔다”까지 증명하고, 치사·효능은 문헌으로 인용한다. 시뮬이 보여주는 건 올바르게 분류하고 실행했다는 것이지, 잡초가 죽었다는 것이 아니다.</p>
       <div class="tbl-wrap reveal">
         <table>
-          <caption>심-리얼 갭 원장 (DESIGN §7, 9개 중 발췌) — 실물 프로토타입에서만 메워짐</caption>
-          <thead><tr><th>갭</th><th>왜 시뮬 불가</th><th>실물에서 메우는 법</th></tr></thead>
+          <caption>실물에서만 메워지는 간극 (DESIGN §7, 9개 중 발췌)</caption>
+          <thead><tr><th>간극</th><th>왜 시뮬 불가</th><th>실물에서 메우는 법</th></tr></thead>
           <tbody>
-            <tr><td>잡초 사멸</td><td>연성체 물리 없음</td><td>문헌 인용(BoniRob 3cm 깊이)</td></tr>
-            <tr><td>스탬핑 관입력</td><td>강체만</td><td>로드셀 실측 170–340N vs 추력 628N</td></tr>
-            <tr><td>crop-vs-weed 실판별</td><td>AI Hub 527=개체표본(흰 배경)</td><td>맞는 top-down 실데이터</td></tr>
-            <tr><td>옥외 조명·젖은 잎</td><td>렌더 sim2real 갭</td><td>도메인 랜덤화 + 소량 실사진</td></tr>
-            <tr><td>실 깊이 노이즈·IR</td><td>시뮬 깊이 노이즈 0(낙관)</td><td>D405 실측</td></tr>
+            <tr><td>잡초가 죽는가</td><td>연성체 물리 없음</td><td>문헌 인용 (3cm 깊이면 사멸)</td></tr>
+            <tr><td>흙 관입력</td><td>강체만 다룸</td><td>로드셀 실측 (170–340N)</td></tr>
+            <tr><td>실사진 판별</td><td>맞는 실데이터 없음</td><td>top-down 실촬영 확보</td></tr>
+            <tr><td>옥외 조명·젖은 잎</td><td>렌더와 실촬영의 간극</td><td>도메인 랜덤화 + 소량 실사진</td></tr>
           </tbody>
         </table>
       </div>
       <div class="callout open reveal">
-        <span class="lb">신뢰도 경계 (README 전 재확인)</span>
-        AUC 0.144는 <strong>성숙기 잡초 키 기준</strong>이라 두 체제(매일 순찰 vs 놓침)를 다 서술해야 한다 &mdash; 정직한 프레이밍은 “규칙이 분류를 못 한다”가 아니라 <strong>래칫/복구불가</strong>. 초장표는 고추만 1차 검증(나머지 작업 추정치), 잡초 생장속도(cm/day) 미확보 → 래칫 논거는 구조적·미정량. <span class="muted">(PLAN §10)</span>
+        <span class="lb">근거 신뢰도</span>
+        작물 초장표는 고추만 1차 검증됐고 나머지는 작업 추정치라, 공식 출처로 인용하지 않는다. 잡초 생장 속도 데이터는 못 구해서, “놓치면 다 커진다”는 래칫 논거는 구조적이되 정량화되지는 않았다. 이런 신뢰도 경계는 <code>PLAN.md §10</code>에 남겨 두었다.
       </div>
     </div>
   </section>
 
-  <!-- ============ 12. 부록 ============ -->
+  <!-- 부록 -->
   <section id="appendix">
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="kick">Appendix</span><span class="sub">결정 기록 · 문서 지도 · 근거</span></div>
+      <div class="eyebrow reveal"><span class="kick">부록</span><span class="sub">결정 기록 · 문서 지도 · 근거</span></div>
       <h2 class="reveal">부록</h2>
 
       <h3 class="reveal">문서 지도 — 무엇이 어디에</h3>
       <div class="tbl-wrap reveal">
         <table>
-          <thead><tr><th>문서</th><th>역할</th><th>규율</th></tr></thead>
+          <thead><tr><th>문서</th><th>역할</th></tr></thead>
           <tbody>
-            <tr><td><code>docs/spec.html</code></td><td>이 문서 &mdash; 사람이 읽는 종합본</td><td>상태·로드맵을 매 갱신마다 업데이트</td></tr>
-            <tr><td><code>PLAN.md</code></td><td>전체 계획·논지·검증 아키텍처</td><td>큰 방향</td></tr>
-            <tr><td><code>DECISIONS.md</code></td><td>결정 기록(ADR 001~023)</td><td>append-only, 안 고침</td></tr>
-            <tr><td><code>DESIGN.md</code></td><td>실물 buildable 설계·BOM·갭 원장</td><td>실물 참조</td></tr>
-            <tr><td><code>STATUS.md</code></td><td>현재 어디까지 왔나</td><td>코드와 원자적으로 갱신</td></tr>
-            <tr><td><code>REFERENCES.md</code></td><td>근거(URL·신뢰도)</td><td>DECISIONS 015 뒷받침</td></tr>
+            <tr><td><code>docs/spec.html</code></td><td>이 문서. 전체를 한눈에 보는 종합본, 진행에 맞춰 갱신</td></tr>
+            <tr><td><code>PLAN.md</code></td><td>전체 계획·논지·검증 아키텍처</td></tr>
+            <tr><td><code>DECISIONS.md</code></td><td>결정 기록(추가만 하고 고치지 않음)</td></tr>
+            <tr><td><code>DESIGN.md</code></td><td>실물 제작 설계·부품·심-리얼 간극</td></tr>
+            <tr><td><code>STATUS.md</code></td><td>현재 어디까지 왔나(코드와 함께 갱신)</td></tr>
+            <tr><td><code>REFERENCES.md</code></td><td>결정을 뒷받침하는 근거(출처·신뢰도)</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3 class="reveal">결정 기록 (ADR) — 23개 한 줄</h3>
+      <h3 class="reveal">주요 결정 기록</h3>
       <div class="tbl-wrap reveal">
         <table>
           <thead><tr><th class="val">#</th><th>결정</th></tr></thead>
           <tbody>
-            <tr><td class="val">001</td><td>시뮬 = 네이티브 Humble + Fortress 6.17 (Harmonic·Docker 기각)</td></tr>
-            <tr><td class="val">002</td><td>제거 = 스탬핑(강체). 제거엔 지능 불필요, 선택에 필요</td></tr>
-            <tr><td class="val">003</td><td>잡초 정답 좌표 = <code>beds:</code>에 target_ 선언</td></tr>
-            <tr><td class="val">004</td><td>베이스라인 = 로봇 4대 아닌 함수 4개 (P0~P4)</td></tr>
-            <tr><td class="val">005</td><td>논지 = 줄이 아니라 키 분포 (AUC 0.144 역전)</td></tr>
-            <tr><td class="val">006</td><td>로봇 = 포탈형(straddle) 확정</td></tr>
-            <tr><td class="val">007</td><td>큰 잡초 = 죽이지 않고 사람에게 triage</td></tr>
-            <tr><td class="val">008</td><td>논지를 규모로 좁힘 (개체별 비전 = 헥타르용에만)</td></tr>
-            <tr><td class="val">009</td><td>도구 = “점 타격”(Andela 인용)</td></tr>
-            <tr><td class="val">010</td><td>태양광 = 광학 부품(조명 천장), 전력 아님</td></tr>
-            <tr><td class="val">011</td><td>도킹 삭제 (태양광 되면 목적 소멸)</td></tr>
-            <tr><td class="val">012</td><td>로봇 몸체 = Blender bpy (CAD 커널 안 씀)</td></tr>
-            <tr><td class="val">013</td><td>작물=콩+옥수수 · straddle=낮은작물 · 제거=사라짐</td></tr>
-            <tr><td class="val">014</td><td>구동 BLDC · 자연광 학습 · 정원 크게(측정) · 센서 노이즈</td></tr>
-            <tr><td class="val">015</td><td>잡초 밀도·불균형 목표 = 문헌 근거 30개</td></tr>
-            <tr><td class="val">016</td><td>세그 4클래스 (흙/콩/옥수수/잡초)</td></tr>
-            <tr><td class="val">017</td><td>학습 결과 = 근거 레시피 검증(잡초 IoU 0.904)</td></tr>
-            <tr><td class="val">018</td><td>sim-to-real 실사진 전이 스코프 아웃</td></tr>
-            <tr><td class="val">019</td><td>4-2 스탬핑 = 도구가 잡초 위 &lt;2mm</td></tr>
-            <tr><td class="val">020</td><td>4-3 = 무정차 + 멀티툴 점타격</td></tr>
-            <tr><td class="val">021</td><td>멀티툴 N=3 X엇갈림 + 카메라 base 이설</td></tr>
-            <tr><td class="val">022</td><td>4a 정적 라이브 인식 (sim카메라→best.pt)</td></tr>
-            <tr><td class="val">023</td><td>4b 주행 라이브 = 카메라만으로 자율 타격</td></tr>
+            <tr><td class="val">001</td><td>시뮬 = 네이티브 Humble + Fortress 6.17 (다른 후보 기각)</td></tr>
+            <tr><td class="val">002</td><td>제거 = 점 타격(강체). 제거엔 지능이 필요 없고, 선택에 필요하다</td></tr>
+            <tr><td class="val">003</td><td>잡초 정답 좌표를 뽑는 트릭</td></tr>
+            <tr><td class="val">006</td><td>로봇 = 포탈형(걸터타기)</td></tr>
+            <tr><td class="val">007</td><td>큰 잡초는 죽이지 않고 사람에게 넘김(triage)</td></tr>
+            <tr><td class="val">010</td><td>태양광은 전력이 아니라 조명(광학) 부품</td></tr>
+            <tr><td class="val">012</td><td>로봇 몸체는 Blender 스크립트로(CAD 커널 안 씀)</td></tr>
+            <tr><td class="val">013–014</td><td>작물=콩+옥수수, 낮은 작물 제초기, 정원은 크게(측정)</td></tr>
+            <tr><td class="val">015–017</td><td>잡초 밀도·손실·4클래스, 학습 결과 검증</td></tr>
+            <tr><td class="val">019–021</td><td>정밀 타격, 무정차 멀티툴, 3툴 X엇갈림</td></tr>
+            <tr><td class="val">022–023</td><td>정적/주행 라이브 인식 = 카메라만으로 자율 타격</td></tr>
           </tbody>
         </table>
       </div>
-
-      <h3 class="reveal">근거 (REFERENCES 5 카테고리)</h3>
-      <ul class="clean col reveal">
-        <li><strong>잡초 밀도·현장 잡초압</strong> — 실밭 바이오매스 중앙값 4%(PMC11272534), 쇠비름 매트형(SARE)</li>
-        <li><strong>weed-seg 클래스 밸런스</strong> — Milioto ICRA 2018(흙 97.8%/잡초 0.7%)</li>
-        <li><strong>불균형 학습</strong> — inverse-sqrt(PMC13275391), 0.6CE+0.4Dice→잡초 IoU 86.9(PMC11136954), Class-Balanced(Cui CVPR 2019)</li>
-        <li><strong>희소클래스 증강</strong> — copy-paste(+2.8 IoU, arXiv:2012.07177)</li>
-        <li><strong>합성·sim-to-real</strong> — CropCraft(arXiv:2511.02417, ~10% mIoU 갭)</li>
-      </ul>
-      <p class="col muted reveal">전문·URL·신뢰도 주의는 <code>docs/REFERENCES.md</code>.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(23건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 
   <div class="divider"><span></span></div>
   <footer>
-    <div class="seal" aria-hidden="true"><div class="glyph">✓<br>weed<br>watch</div></div>
-    <div>weedwatch — 시뮬 안에서 만들고, CLI로 단언한다.</div>
-    <div class="muted" style="margin-top:.3rem">이 종합본은 프로젝트가 갱신될 때마다 같이 갱신된다 · 정본은 <code>docs/*.md</code></div>
+    <div class="seal" aria-hidden="true"><div class="glyph">WW</div></div>
+    <div>weedwatch — 시뮬레이션 안에서 만들고, 명령줄에서 단언한다.</div>
+    <div class="muted" style="margin-top:.3rem">이 종합본은 프로젝트가 갱신될 때마다 함께 갱신된다.</div>
   </footer>
 </main>
 
 <script>
-  // 스크롤 진행바 + 목차 활성 + 리빌 (reduced-motion 존중)
   (function(){
     var prog=document.getElementById('prog');
     var links=[].slice.call(document.querySelectorAll('.nav-links a'));
