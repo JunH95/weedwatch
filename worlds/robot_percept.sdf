@@ -1,0 +1,66 @@
+<?xml version="1.0" ?>
+<!--
+  정적 라이브 인식 월드 (Tier 3 — GPU 렌더링 필요, EGL, Stage 4-3 Phase 4a).
+
+  로봇이 CropCraft 사실적 두둑(model://oracle_test, target_ 잡초 = 채점 정답 좌표)을 걸터탄 채
+  정지하고, 로봇의 하방 카메라(down_cam)가 그 두둑을 GPU 렌더한다. 별도 ML 프로세스(detect_server)
+  가 그 프레임에 best.pt 를 라이브 추론해 잡초 좌표를 뽑아 오라클과 비교한다.
+  4-1(stamp_targets)이 학습 렌더에 오프라인 추론이었다면, 여기는 **로봇 카메라의 실제 렌더**에
+  라이브 추론이다 — sim 카메라→인식 다리를 잇는다(카메라 정합 Phase 3 위에서만 정직).
+
+  ── 좌표 정합 (중요) ──────────────────────────────────────────────────────
+  학습 카메라(train_garden.yaml)는 CropCraft 식물(평지 z=0) 위 0.33m 에서 찍혔다. 로봇 down_cam 은
+  world z≈0.58. 스케일을 맞추려면 두둑을 z=0.25 로 올려 카메라가 식물 위 0.33m 가 되게 한다
+  (물리 월드 두둑 윗면 0.25 와도 정합). Y: 오라클 필드 중심(y≈0.45) → 로봇 straddle 중심(0.6) 로
+  +0.15. X: 카메라(x=0.22)가 잡초 있는 구역을 보게 이동. 잡초 world 좌표 = 오라클(x,y) + (dx,dy).
+
+  렌더 2게이트(검지않음 AND NVIDIA)는 assert_render.py 재사용. 실행: make percept-render / make percept
+-->
+<sdf version="1.9">
+  <world name="robot_percept">
+    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <!-- 카메라를 실제로 그리는 부분 (별도 렌더 스레드, ogre2 = EGL 전용). -->
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+
+    <!-- 자연광 — 학습(train_garden.yaml)이 자연광 HDRI 라 정합. 그림자 켬. -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows><pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.4 -0.85</direction>
+    </light>
+
+    <model name="furrow_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="c">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material><ambient>0.30 0.22 0.14 1</ambient><diffuse>0.50 0.37 0.24 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- CropCraft 사실적 두둑 (OBJ+MTL, PBR). target_ 잡초 좌표는 models/oracle_test.json.
+         z=0.25 로 올려 카메라가 식물 위 0.33m (학습 스케일 정합). (dx,dy)=(-0.18,+0.15) 로
+         잡초 구역을 카메라(0.22,0.6) 아래로. 잡초 world = 오라클(x,y)+(dx,dy). detect_server 와 일치. -->
+    <include>
+      <uri>model://oracle_test</uri>
+      <name>garden</name>
+      <pose>-0.18 0.15 0.25 0 0 0</pose>
+    </include>
+
+    <!-- 로봇을 두둑 걸터타게. 카메라(down_cam)가 CropCraft 잡초를 내려다본다. -->
+    <include>
+      <uri>model://weedwatch_robot</uri>
+      <name>weedwatch</name>
+      <pose>0 0.600 0.01 0 0 0</pose>
+    </include>
+  </world>
+</sdf>
