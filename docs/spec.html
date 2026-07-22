@@ -429,7 +429,7 @@ flowchart TB
       <div class="axis reveal">
         <div class="node done"><div class="lab">Tier 0 · 위생 <span class="st">env.sh</span></div><div class="muted">올바른 파이썬·EGL·GPU를 단언. 잘못된 환경을 아예 차단한다.</div></div>
         <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 57개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사.</div></div>
-        <div class="node done"><div class="lab">Tier 2 · 물리 시뮬 <span class="st">drive · joints · straddle · row</span></div><div class="muted">렌더 없이 물리만(GPU 불필요). 명령이 실제 운동이 되는지를 지상진실로 단언.</div></div>
+        <div class="node done"><div class="lab">Tier 2 · 물리 시뮬 <span class="st">drive · joints · straddle · tilt · row</span></div><div class="muted">렌더 없이 물리만(GPU 불필요). 명령이 실제 운동이 되는지를 지상진실로 단언.</div></div>
         <div class="node done"><div class="lab">Tier 3 · 렌더 시뮬 <span class="st">camera · percept · row-live</span></div><div class="muted">GPU 렌더. 픽셀이 검지 않은가, 그리고 NVIDIA가 그렸는가(게이트 둘).</div></div>
       </div>
       <div class="grid g3 reveal">
@@ -451,7 +451,7 @@ flowchart TB
         <div class="node done"><div class="lab">Stage 2 · 로봇 몸체 <span class="st">대부분 완료</span></div><div class="muted">파라메트릭 생성 → URDF. 주행·관절 mm 정밀·걸터타기·카메라 전부 단언 통과.</div></div>
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
-        <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">착수</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 한다. 그러면 보는 것(카메라 직하점)과 찍는 것(도구 팁)이 각도 몇 도에 cm씩 밀리는데, IMU 자세와 깊이를 융합해 그만큼 되짚어 보정한다. Tier 1 준정적 기울기(사면 충돌) → Tier 2 동적 요철(고랑 흙덩이). 센서엔 실측 노이즈를 넣고, 보정 켠 것과 끈 것을 같은 시드에서 A/B로 단언한다.</div></div>
+        <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">착수</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 한다. 그러면 보는 것(카메라 직하점)과 찍는 것(도구 팁)이 각도 몇 도에 cm씩 밀리는데, IMU 자세와 깊이를 융합해 그만큼 되짚어 보정한다. Tier 1 준정적 기울기(사면 충돌) → Tier 2 동적 요철(고랑 흙덩이). 센서엔 실측 노이즈를 넣고, 보정 켠 것과 끈 것을 같은 시드에서 A/B로 단언한다. 첫 단추(로봇이 크로스슬로프에서 5° 기울고 IMU가 그 기울기를 정확히 읽는가, 그리고 물리가 안 터지는가)는 <code>make tilt</code>로 확인했다.</div></div>
         <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">예정</span></div><div class="muted">재현율 0.25–0.5를 끌어올린다. 잡초를 이랑 빈틈에 두는 현실적 밭 배치(지금은 일부러 겹쳐 심어 최악), 깊이로 잡초 키에서 오는 시차 보정, 검출 군집화 개선.</div></div>
         <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 보스트로페돈(지그재그) 커버리지 경로(Nav2 RPP 컨트롤러 · 강화학습 아님). 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
         <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
@@ -522,6 +522,7 @@ flowchart TB
             <tr><td>실사진 판별</td><td>맞는 실데이터 없음</td><td>top-down 실촬영 확보</td></tr>
             <tr><td>옥외 조명·젖은 잎</td><td>렌더와 실촬영의 간극</td><td>도메인 랜덤화 + 소량 실사진</td></tr>
             <tr><td>요철 충격·진동</td><td>강체, 서스펜션 없음</td><td>실물 완충·컴플라이언스로 메움 (Stage 5는 실측 센서 노이즈까지만)</td></tr>
+            <tr><td>IMU 자세 드리프트</td><td>시뮬은 참자세에서 계산(적분 안 함)</td><td>orientation 노이즈 주입 + 실물 EKF 벤치</td></tr>
           </tbody>
         </table>
       </div>

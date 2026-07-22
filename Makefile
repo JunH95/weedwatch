@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -228,6 +228,15 @@ joints: clean-sim
 # 물리로 성립하는지 — DECISIONS 006 의 핵심 주장이자 Stage 1 "두둑을 탈 수 있는가" 위험의 완결.
 straddle: clean-sim
 	@$(ENV) python3 tools/assert_straddle.py
+
+# Stage 5 Tier 1 기울기 선검증 (Tier 2 — 물리만). 로봇이 크로스슬로프에서 실제로 기울고,
+# DART 가 기운 접촉에서 안 터지고, IMU 가 그 기울기를 읽는가. 게이트 2개: IMU(센서) AND
+# 지상진실(물리). 지금껏 어떤 월드에도 imu-system 이 없어 IMU 가 발행조차 안 됐다(DECISIONS 025).
+# 이게 통과해야 Stage 5 흔들림 보정 하네스로 넘어간다.
+worlds/robot_tilt.sdf: tools/make_tilt_world.py
+	@$(ENV) python3 tools/make_tilt_world.py > worlds/robot_tilt.sdf
+tilt: worlds/robot_tilt.sdf clean-sim
+	@$(ENV) python3 tools/assert_tilt.py
 
 # 로봇 하방 카메라 검증 (Tier 3 — GPU 렌더링 필요). 카리지에 강체 고정된 카메라가
 # 두둑을 내려다보고 프레임을 발행하는가. smoke 와 같은 2게이트(검지 않음 AND NVIDIA).
