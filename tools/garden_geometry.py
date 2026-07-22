@@ -97,8 +97,18 @@ class Portal:
     leg_width: float = 0.06
 
     # ── Y 캐리지 (빔을 따라 좌우로 = 두둑 폭을 훑음) ─────────────────────
-    carriage_travel: float = 0.45  # 중심에서 한쪽으로 ±0.45 (두둑 90cm 커버)
+    # 멀티툴(DECISIONS 020): 두둑 90cm 를 n_tools 밴드로 나눠 각 툴이 자기 밴드만 짧게 훑는다.
+    # 단일 캐리지가 90cm 를 건너려면 1.9s (48cm/s) 라 카메라 리드(0.2m/s 에서 1.55s)를 넘겨
+    # x-근접·y-원거리 최악배치에서 잡초를 놓친다. 밴드를 나누면 각 툴 이동이 짧아 여유가 생긴다.
+    # carriage_travel 은 이제 "어느 툴이든 닿는 최대 Y 반경"(사이드 페어링 clearance 근거) — 밴드
+    # 중심 ±0.30 + 밴드 반폭 ±0.15 = ±0.45 로 값은 유지. 실제 관절 행정은 tool_band_half.
+    carriage_travel: float = 0.45  # 최대 Y 반경 (페어링 안쪽면 clear 근거). 관절 행정 아님.
     carriage_size: float = 0.10  # 캐리지 본체 한 변
+    n_tools: int = 3  # 점 타격 툴 개수 (독립 Y + 독립 Z). DECISIONS 020.
+    tool_x0: float = -0.09  # 맨 앞 툴의 X (카메라 뒤). 기존 단일툴 값.
+    tool_stagger_x: float = 0.18  # 툴 간 X 간격. 캐리지 X-길이(carriage_size·1.4=0.14)보다
+                                  # 넓어야 Y 범위가 겹치는 순간에도 캐리지끼리 안 부딪힌다.
+    camera_x: float = 0.22  # 하방 카메라 X (base 고정 전방 팔, 두둑 전체를 봄). DECISIONS 006.
 
     # ── Z 축 (막대가 아래로 = 점 타격 + 카메라 하강) ────────────────────
     # docs/DECISIONS.md 009: 점 타격, 로봇팔 아님. 직선 레일 하나.
@@ -113,13 +123,53 @@ class Portal:
         시각 막대보다 길어져 접힘 자세에서 두둑을 파고든다 (적대적 검증에서 잡힘)."""
         return self.z_travel * self.tool_rod_fraction
 
-    # ── 카메라 (캐리지에 강체 고정, 아래를 봄) ──────────────────────────
-    # 캐리지에 붙어서 툴 팁이 항상 같은 픽셀에 온다 → 헤드리스 픽셀 단언이 됨.
-    # 주의: 실측값 (make_urdf down_cam 센서 pose 와 일치). 센서는 LED 밑(월드 z≈0.395)에
-    #    있어 두둑 윗면(0.25) 위 ~0.145m — 근접 스캔형(카리지가 Y 로 훑어 좁은 시야로 커버).
-    #    옛 0.35 는 스펙 희망값인데 그렇게 높이면 카리지·빔에 부딪힌다(적대적 검증 지적).
-    #    "더 높여 넓게 보기" + LED 를 렌즈 둘레 링으로 = 카메라 조립 디자인 패스로 남김.
-    camera_height_above_bed: float = 0.145  # 두둑 윗면에서 카메라까지 (근접, 실제 배치값)
+    # ── 멀티툴 밴드 기하 (DECISIONS 020) ────────────────────────────────
+
+    def tool_band_centers(self, g: Garden) -> list[float]:
+        """각 툴이 담당하는 Y 밴드의 중심 (로봇 중심=두둑 중심 기준). 두둑 폭을 균등 분할.
+        n_tools=3, bed_width=0.90 → [-0.30, 0.0, +0.30]."""
+        step = g.bed_width / self.n_tools
+        return [-g.bed_width / 2 + step / 2 + i * step for i in range(self.n_tools)]
+
+    def tool_band_half(self, g: Garden) -> float:
+        """한 툴의 Y 관절 행정(밴드 반폭). = bed_width/(2·n_tools). n=3 → 0.15."""
+        return g.bed_width / (2 * self.n_tools)
+
+    def tool_xs(self) -> list[float]:
+        """각 툴의 X. 엇갈려(stagger) 독립 Y 범위가 겹쳐도 캐리지끼리 안 부딪히게.
+        n=3 → [-0.09, -0.19, -0.29]. 맨 앞(카메라에 가장 가까운) 툴이 리드 최소."""
+        return [self.tool_x0 - i * self.tool_stagger_x for i in range(self.n_tools)]
+
+    def tool_lead(self, i: int) -> float:
+        """툴 i 와 카메라의 X 차이 = 주행으로 메워야 하는 정렬 거리(리드). 카메라가 먼저 봄.
+        n=3 → [0.31, 0.41, 0.51]. 뒤쪽 툴일수록 리드가 커 시간 여유가 오히려 많다."""
+        return self.camera_x - self.tool_xs()[i]
+
+    def band_of(self, g: Garden, y: float) -> int:
+        """로봇 중심 기준 y 위치의 잡초를 담당하는 툴 인덱스. 밴드 경계로 가른다."""
+        step = g.bed_width / self.n_tools
+        idx = int((y + g.bed_width / 2) // step)
+        return max(0, min(self.n_tools - 1, idx))
+
+    # ── 카메라 (base 고정 전방 팔) 파생 위치 ────────────────────────────
+
+    def camera_z(self) -> float:
+        """하방 카메라의 월드 z (고랑 바닥 기준). 빔 바로 아래에 매단다.
+        robot_body 의 cam_z 와 make_urdf 센서 pose 가 이 단일 출처를 읽어야 어긋나지 않는다."""
+        beam_bottom = self.clearance  # 빔 아랫면 = clearance (터널 천장)
+        return beam_bottom - 0.02
+
+    def camera_height_above_bed(self, g: Garden) -> float:
+        """두둑 윗면에서 카메라까지 높이 (파생). n=3 기준 ≈0.33m — 스펙 0.35 근접.
+        학습 카메라(train_garden.yaml)를 이 값에 정합해야 온-루프 인식이 정직하다(Phase 3)."""
+        return self.camera_z() - g.bed_height
+
+    # ── 카메라 (멀티툴 이후 base 고정 전방 팔, 두둑 전체를 봄) ────────────
+    # 단일툴 때는 캐리지에 붙여 "툴이 항상 같은 픽셀"(DECISIONS 006)을 썼지만, 캐리지가
+    # n_tools 개가 되면 어디 붙일지 모호해진다. 카메라를 base 전방 팔로 옮겨 두둑 폭 전체를
+    # 내려다본다(고정 카메라 + 다중 툴 = Andela/ecoRobotix 실제 아키텍처). 툴 팁은 이제
+    # FK(base GT + carriage_i + tool_i)로 구하므로 픽셀 고정 불변식이 없어도 단언은 성립한다.
+    # 높이는 파생값 — camera_z()(빔 바로 아래) 에서 두둑 윗면(bed_height)을 뺀다. 단일 출처.
 
     # ── 배터리 베이 (앞쪽, 무게중심 낮게 — Aigen 인용) ──────────────────
     # 128cm 폭에 고랑 30cm 위 60cm 높이라 넘어지기 쉽다. 무게를 낮고 앞에 둔다.

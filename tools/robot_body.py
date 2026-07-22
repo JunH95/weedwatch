@@ -390,49 +390,51 @@ def build():
                                    (wx, wy, P.wheel_dia / 2), mats["wheel"], mats["hub"],
                                    outboard=sy)
 
-    # ── 4. 빔 (터널 천장 = clearance 높이에, 캐리지 레일) ──────────────
-    # 주의: 빔은 clearance(고랑 바닥~빔 아랫면=0.60) 높이의 **터널 천장**에 있어야 한다.
-    # 예전엔 pod 아랫면(0.26) 밑 0.22 에 뒀는데, 그러면 캐리지·카메라·도구가 전부
-    # 바퀴(z=0) 근처/아래로 매달려 로봇이 캐리지로 서고 바퀴가 떠서 주행이 안 됐다
-    # (diff-drive 디버깅에서 발견). deck_top_z() 공식도 빔 아랫면=clearance 를 전제한다.
-    # 이제 빔은 데크 바로 아래(0.60~0.68), 캐리지는 그 아래 터널 안에서 Y 로 훑는다.
+    # ── 4. 빔 (터널 천장 = clearance 높이, 멀티툴 갠트리 레일) ──────────────
+    # 빔은 clearance(고랑 바닥~빔 아랫면=0.60) 높이의 **터널 천장**. 예전엔 pod 아랫면 밑에
+    # 뒀다가 캐리지·도구가 바퀴 밑으로 매달려 로봇이 캐리지로 서는 diff-drive 버그를 냈다
+    # (회귀 가드: test_urdf 비-바퀴 충돌 z>0). deck_top_z() 도 빔 아랫면=clearance 를 전제한다.
+    # 멀티툴: 3개 툴이 X 로 엇갈려 매달리므로 빔을 툴 X 범위만큼 넓혀 갠트리 platen 처럼 만든다.
     beam_z = P.clearance + P.beam_height / 2
-    parts.append(box("beam", (0.10, P.track(G) * 0.85, P.beam_height),
-                     (0, 0, beam_z), mats["frame"], bevel=0.01))
+    txs = P.tool_xs()
+    band_centers = P.tool_band_centers(G)
+    beam_cx = (min(txs) + max(txs)) / 2
+    beam_lx = (max(txs) - min(txs)) + P.carriage_size * 1.4 + 0.06   # 툴 X 범위 + 캐리지 + 여유
+    parts.append(box("beam", (beam_lx, P.track(G) * 0.85, P.beam_height),
+                     (beam_cx, 0, beam_z), mats["frame"], bevel=0.01))
     beam_bottom = beam_z - P.beam_height / 2
 
-    # ── 5. Y 캐리지 (빔에 매달려 좌우로) — 주황, 움직이는 부품 ─────────
-    # 빔 아랫면에 딱 붙는다. 실제 주행 시 Y축으로 ±carriage_travel 움직임.
-    carriage_y = 0.0
+    # ── 5. 하방 카메라 (base 전방 팔에 고정 — 멀티툴이라 캐리지에 못 붙임) ──────
+    # 캐리지가 3개라 "카메라를 캐리지에 붙여 툴이 항상 같은 픽셀"(DECISIONS 006)이 불가능하다.
+    # base 전방 팔에 올려 두둑 폭 전체를 내려다본다(고정 카메라 + 다중 툴 = 실제 다중툴 기계,
+    # Andela/ecoRobotix). 툴 팁은 FK(base GT + carriage_i + tool_i)로 구하므로 픽셀 고정 없이도
+    # 단언이 성립한다. 높이·X 는 garden_geometry 단일 출처(camera_x, camera_z). LED 는 렌즈 둘레 링.
+    cam_x = P.camera_x
+    cam_z = P.camera_z()                 # ≈0.58 = 빔 바로 아래, 두둑(0.25) 위 ~0.33m
+    arm_x0 = beam_cx + beam_lx / 2       # 빔 앞면에서 팔이 앞으로 뻗어나감
+    parts.append(box("cam_arm", (cam_x - arm_x0, 0.03, 0.03),
+                     ((arm_x0 + cam_x) / 2, 0.0, cam_z + 0.012), mats["frame"]))
+    parts.append(box("camera", (0.05, 0.05, 0.035), (cam_x, 0.0, cam_z),
+                     mats["camera"], bevel=0.006))
+    parts.append(ring("led", 0.045, 0.007, (cam_x, 0.0, cam_z - 0.022), mats["led"]))
+
+    # ── 6. N개 Y 캐리지 + Z 점타격 툴 (독립 액추에이터. DECISIONS 020) ─────────
+    # 각 툴: 자기 밴드(90/N cm) 중심에 서서 짧게 ±tool_band_half Y 훑고, Z 리드스크류로 내려찍는다.
+    # X 로 엇갈려(txs) 있어 인접 툴 Y 범위가 겹치는 순간에도 캐리지끼리 안 부딪힌다.
+    # "앞에서 보고(카메라) 뒤에서 친다(툴)" — 툴이 전부 카메라 뒤(음수 X)에 있다.
     carriage_top = beam_bottom
     carriage_z = carriage_top - P.carriage_size / 2
-    parts.append(box("carriage", (P.carriage_size * 1.4, P.carriage_size, P.carriage_size),
-                     (0, carriage_y, carriage_z), mats["carriage"], bevel=0.008))
     carriage_bottom = carriage_z - P.carriage_size / 2
-
-    # ── 6. 전방 카메라 팔 + 하방 카메라 + LED 링 (RealSense D405, DESIGN.md) ──
-    # 카메라를 카리지 앞으로 뺀 팔에 올려 두둑 위 ~0.33m 에서 내려다본다. 카리지·툴에 안
-    # 가리고(그래서 앞으로 뺌), LED 는 렌즈 둘레 '링'(디스크 아님 — 예전엔 렌즈를 막았다).
-    cam_x = 0.22
-    cam_z = beam_bottom - 0.02          # ≈0.58 = 빔 바로 아래, 두둑(0.25) 위 ~0.33m
-    arm_x0 = 0.10                        # 카리지 앞면쯤에서 시작
-    parts.append(box("cam_arm", (cam_x - arm_x0, 0.03, 0.03),
-                     ((arm_x0 + cam_x) / 2, carriage_y, cam_z + 0.012), mats["frame"]))
-    parts.append(box("camera", (0.05, 0.05, 0.035), (cam_x, carriage_y, cam_z),
-                     mats["camera"], bevel=0.006))
-    parts.append(ring("led", 0.045, 0.007, (cam_x, carriage_y, cam_z - 0.022), mats["led"]))
-
-    # ── 7. Z 액추에이터 (리드스크류 + 스텝모터) + 점 타격 막대 ─────────────
-    # "앞에서 보고(카메라) 뒤에서 친다(도구)". Z 는 리드스크류로 내려찍는다(DESIGN.md).
-    tool_x = -0.09
     rod_len = P.tool_rod_len  # 단일 출처 — make_urdf 충돌·관성도 같은 값을 읽는다
-    parts.append(box("z_motor", (0.05, 0.05, 0.06), (tool_x, carriage_y, carriage_top + 0.03),
-                     mats["frame"]))                     # NEMA23 스텝 (카리지 위)
-    parts.append(cyl("z_screw", 0.006, 0.15, (tool_x + 0.02, carriage_y, carriage_bottom - 0.06),
-                     mats["hub"], axis="z"))              # Tr8×8 리드스크류 (두둑 위)
-    parts.append(cyl("tool_rod", P.tool_rod_dia / 2, rod_len,
-                     (tool_x, carriage_y, carriage_bottom - rod_len / 2),
-                     mats["tool"], axis="z"))
+    for i, (cx, cy) in enumerate(zip(txs, band_centers)):
+        parts.append(box(f"carriage{i}", (P.carriage_size * 1.4, P.carriage_size, P.carriage_size),
+                         (cx, cy, carriage_z), mats["carriage"], bevel=0.008))
+        parts.append(box(f"z_motor{i}", (0.05, 0.05, 0.06), (cx, cy, carriage_top + 0.03),
+                         mats["frame"]))                     # NEMA23 스텝 (캐리지 위)
+        parts.append(cyl(f"z_screw{i}", 0.006, 0.15, (cx + 0.02, cy, carriage_bottom - 0.06),
+                         mats["hub"], axis="z"))              # Tr8×8 리드스크류
+        parts.append(cyl(f"tool_rod{i}", P.tool_rod_dia / 2, rod_len,
+                         (cx, cy, carriage_bottom - rod_len / 2), mats["tool"], axis="z"))
 
     # ── 8. 배터리 + 전장함 (사이드 포드 안, 앞쪽·낮게 — 무게중심) ──────────
     # 예전엔 가운데 터널에 떠 있었다(물리 영향 0이나 이상함). 실제 배치: 배터리는 한 포드,
@@ -567,20 +569,26 @@ def render_views(outdir: Path):
 
 
 # URDF 링크별로 부품을 묶는 규칙. 각 링크는 별도 OBJ 가 되고 URDF 가 조인트로 잇는다.
-# 이름 접두사로 판별. 여기 안 걸리는 건 전부 base(고정 몸통).
-LINK_OF = [
-    ("wheel_-1_-1", "wheel_rl"),  # 뒤좌
-    ("wheel_-1_1", "wheel_rr"),   # 뒤우
-    ("wheel_1_-1", "wheel_fl"),   # 앞좌
-    ("wheel_1_1", "wheel_fr"),    # 앞우
-    ("carriage", "carriage"),     # Y 프리즘
-    ("cam_arm", "carriage"),      # 전방 카메라 팔 (캐리지와 같이 Y 이동)
-    ("camera", "carriage"),
-    ("led", "carriage"),
-    ("z_motor", "carriage"),      # Z 스텝모터 (캐리지에 고정)
-    ("z_screw", "carriage"),      # Z 리드스크류 (캐리지에 고정)
-    ("tool_rod", "tool"),         # Z 프리즘 (막대)
-]
+# 이름 접두사로 판별. 여기 안 걸리는 건 전부 base(고정 몸통) — cam_arm/camera/led 가 이제 base.
+# 멀티툴: carriage{i}/z_motor{i}/z_screw{i} → carriage{i}, tool_rod{i} → tool{i} (i=0..n_tools-1).
+def _link_rules():
+    rules = [
+        ("wheel_-1_-1", "wheel_rl"),  # 뒤좌
+        ("wheel_-1_1", "wheel_rr"),   # 뒤우
+        ("wheel_1_-1", "wheel_fl"),   # 앞좌
+        ("wheel_1_1", "wheel_fr"),    # 앞우
+    ]
+    for i in range(P.n_tools):
+        rules += [
+            (f"tool_rod{i}", f"tool{i}"),       # Z 프리즘 (막대)
+            (f"carriage{i}", f"carriage{i}"),   # Y 프리즘
+            (f"z_motor{i}", f"carriage{i}"),    # Z 스텝모터 (캐리지에 고정)
+            (f"z_screw{i}", f"carriage{i}"),    # Z 리드스크류 (캐리지에 고정)
+        ]
+    return rules
+
+
+LINK_OF = _link_rules()
 
 
 def link_of(name: str) -> str:

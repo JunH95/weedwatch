@@ -11,6 +11,10 @@
 //
 // 그래서 디스커버리를 한 번만 하고 계속 살아 있는 프로세스를 둔다. 파이프로 말한다.
 //
+// ── 멀티툴 (DECISIONS 020) ────────────────────────────────────────────────
+// 점 타격 툴이 N 개다(기본 3). 각 툴은 독립 Y 캐리지 + 독립 Z. 명령·상태 모두 인덱스로
+// 가른다. N 은 --n-tools 로 받는다(하네스가 garden_geometry.Portal.n_tools 를 넘긴다).
+//
 // ── 왜 `ign topic -e` 로 상태를 못 받나 ──────────────────────────────────
 // 파이프로 리다이렉트하면 stdio 가 블록버퍼링(4KB)으로 바뀌어, 50Hz odom 이 버퍼가
 // 찰 때까지 최대 수백 ms 밀린다. 제어 루프에 들어가면 그 지연이 그대로 오차다.
@@ -22,25 +26,27 @@
 // GT 는 별도 프로세스가 받아 사후 채점에만 쓴다. import 한 줄로 뚫리는 규율은 규율이 아니다.
 //
 // ── 프로토콜 (줄 단위 텍스트) ────────────────────────────────────────────
-//   stdin  : "v <lin_x> <ang_z>"   전진/회전 속도 명령
-//            "carriage <pos>"      Y 캐리지 목표 [m]
-//            "tool <pos>"          Z 도구 목표 [m]
-//            "q"                   종료
-//   stdout : "R <topic>"                          구독/광고 준비 완료
-//            "O <simt> <x> <y> <yaw> <vx> <wz>"   오도메트리
-//            "J <simt> <carriage> <tool>"         관절 achieved 위치
-//            "E <message>"                        오류
+//   stdin  : "v <lin_x> <ang_z>"      전진/회전 속도 명령
+//            "carriage <i> <pos>"     툴 i 의 Y 캐리지 목표 [m] (밴드 중심 기준 상대)
+//            "tool <i> <pos>"         툴 i 의 Z 도구 목표 [m] (0=접힘, 음수=하강)
+//            "q"                      종료
+//   stdout : "R <topic> ..."                          구독/광고 준비 완료
+//            "O <simt> <x> <y> <yaw> <vx> <wz>"        오도메트리
+//            "J <simt> <c0..c{N-1}> <t0..t{N-1}>"      관절 achieved 위치 (캐리지 N, 툴 N)
+//            "E <message>"                             오류
 //
 // 빌드:  make build/ww_cmd     (g++ + pkg-config. colcon 아님 — src/ 는 ROS 패키지 전용)
-// 실행:  ./scripts/env.sh build/ww_cmd [--world <name>] [--model <name>]
+// 실행:  ./scripts/env.sh build/ww_cmd [--world <name>] [--model <name>] [--n-tools <N>]
 
 #include <atomic>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <ignition/msgs/double.pb.h>
 #include <ignition/msgs/model.pb.h>
@@ -51,6 +57,7 @@
 namespace {
 
 std::mutex g_out;
+int g_n_tools = 3;  // --n-tools 로 덮어쓴다. OnJoints 콜백이 참조.
 
 // 한 줄 = 한 flush. 파이프 상대가 즉시 읽을 수 있어야 제어 지연이 안 생긴다.
 void Emit(const std::string &line) {
@@ -82,21 +89,32 @@ void OnOdom(const ignition::msgs::Odometry &msg) {
   Emit(os.str());
 }
 
-// joint_state 는 Model 메시지로 온다. 우리가 쓰는 두 프리즘 관절만 뽑는다.
+// joint_state 는 Model 메시지로 온다. N 개 캐리지·툴 프리즘 관절을 인덱스별로 뽑는다.
 // achieved(sim 이 보고하는 실제 도달 위치)이지 명령이 아니다 — 4-2 가 이 값으로 채점했다.
 void OnJoints(const ignition::msgs::Model &msg) {
-  double carriage = std::nan("");
-  double tool = std::nan("");
+  std::vector<double> carriage(g_n_tools, std::nan(""));
+  std::vector<double> tool(g_n_tools, std::nan(""));
+  bool any = false;
   for (const auto &joint : msg.joint()) {
     if (!joint.has_axis1()) continue;
-    if (joint.name() == "carriage_joint") carriage = joint.axis1().position();
-    else if (joint.name() == "tool_joint") tool = joint.axis1().position();
+    int idx = -1;
+    if (std::sscanf(joint.name().c_str(), "carriage%d_joint", &idx) == 1 &&
+        idx >= 0 && idx < g_n_tools) {
+      carriage[idx] = joint.axis1().position();
+      any = true;
+    } else if (std::sscanf(joint.name().c_str(), "tool%d_joint", &idx) == 1 &&
+               idx >= 0 && idx < g_n_tools) {
+      tool[idx] = joint.axis1().position();
+      any = true;
+    }
   }
-  if (std::isnan(carriage) && std::isnan(tool)) return;
+  if (!any) return;
   std::ostringstream os;
   os.setf(std::ios::fixed);
   os.precision(6);
-  os << "J " << StampSeconds(msg.header()) << ' ' << carriage << ' ' << tool;
+  os << "J " << StampSeconds(msg.header());
+  for (double c : carriage) os << ' ' << c;
+  for (double t : tool) os << ' ' << t;
   Emit(os.str());
 }
 
@@ -109,7 +127,9 @@ int main(int argc, char **argv) {
     const std::string arg = argv[i];
     if (arg == "--world") world = argv[++i];
     else if (arg == "--model") model = argv[++i];
+    else if (arg == "--n-tools") g_n_tools = std::atoi(argv[++i]);
   }
+  if (g_n_tools < 1) g_n_tools = 1;
 
   ignition::transport::Node node;
 
@@ -126,16 +146,25 @@ int main(int argc, char **argv) {
   }
 
   auto cmd_vel = node.Advertise<ignition::msgs::Twist>("/cmd_vel");
-  auto carriage_cmd = node.Advertise<ignition::msgs::Double>("/carriage_cmd");
-  auto tool_cmd = node.Advertise<ignition::msgs::Double>("/tool_cmd");
-  if (!cmd_vel || !carriage_cmd || !tool_cmd) {
-    Emit("E 발행자 광고 실패 (/cmd_vel, /carriage_cmd, /tool_cmd)");
-    return 1;
+  if (!cmd_vel) { Emit("E 발행자 광고 실패 (/cmd_vel)"); return 1; }
+
+  // N 개 캐리지·툴 명령 발행자. 인덱스로 접근.
+  std::vector<ignition::transport::Node::Publisher> carriage_cmd, tool_cmd;
+  std::string advertised = "/cmd_vel";
+  for (int i = 0; i < g_n_tools; ++i) {
+    const std::string ct = "/carriage" + std::to_string(i) + "_cmd";
+    const std::string tt = "/tool" + std::to_string(i) + "_cmd";
+    auto cp = node.Advertise<ignition::msgs::Double>(ct);
+    auto tp = node.Advertise<ignition::msgs::Double>(tt);
+    if (!cp || !tp) { Emit("E 발행자 광고 실패: " + ct + " / " + tt); return 1; }
+    carriage_cmd.push_back(std::move(cp));
+    tool_cmd.push_back(std::move(tp));
+    advertised += " " + ct + " " + tt;
   }
 
   // 하네스가 이 줄을 보고 "명령 경로가 살아 있다"를 확인한 뒤 주행을 시작한다.
   // 디스커버리 레이스를 위치 오차로 위장시키지 않기 위한 신호다.
-  Emit("R " + odom_topic + " " + joint_topic + " /cmd_vel /carriage_cmd /tool_cmd");
+  Emit("R " + odom_topic + " " + joint_topic + " " + advertised);
 
   std::string line;
   while (std::getline(std::cin, line)) {
@@ -156,11 +185,13 @@ int main(int argc, char **argv) {
     }
 
     if (verb == "carriage" || verb == "tool") {
+      int idx = 0;
       double pos = 0.0;
-      if (!(is >> pos)) { Emit("E " + verb + " 인자 부족: " + line); continue; }
+      if (!(is >> idx >> pos)) { Emit("E " + verb + " 인자 부족 (i pos): " + line); continue; }
+      if (idx < 0 || idx >= g_n_tools) { Emit("E " + verb + " 인덱스 범위밖: " + line); continue; }
       ignition::msgs::Double msg;
       msg.set_data(pos);
-      (verb == "carriage" ? carriage_cmd : tool_cmd).Publish(msg);
+      (verb == "carriage" ? carriage_cmd : tool_cmd)[idx].Publish(msg);
       continue;
     }
 

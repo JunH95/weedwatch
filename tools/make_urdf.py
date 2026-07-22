@@ -70,9 +70,9 @@ def _mass(name: str) -> float:
         return 22.0   # 프레임·데크 12.4 + 배터리 4.8 + 전장 4.8 (포드 안 낮게, base_inertial)
     if name.startswith("wheel"):
         return 2.5    # ZLTECH 8″ 허브 BLDC 서보 (모터 내장)
-    if name == "carriage":
-        return 2.0    # Y 게이트리 + NEMA23 + 카메라 팔·D405
-    if name == "tool":
+    if name.startswith("carriage"):
+        return 2.0    # Y 게이트리 + NEMA23 (카메라는 이제 base — 멀티툴이라 카리지서 분리)
+    if name.startswith("tool"):
         return 0.5    # Z 스텝 + 리드스크류 너트 + STS304 막대
     return 0.5
 
@@ -182,34 +182,36 @@ def build_urdf() -> str:
   </joint>
 """)
 
-    # ── 캐리지: prismatic Y (두둑 폭 훑기) ──
+    # ── N개 캐리지(prismatic Y) + 툴(prismatic Z), 독립 액추에이터 (DECISIONS 020) ──
+    # 각 툴은 자기 밴드(90/N cm) 중심(links.json 원점)에 서서 짧게 ±tool_band_half 만 훑는다.
+    # 관절 행정이 좁아 카메라 리드 안에 정렬이 끝난다(무정차). X 로 엇갈려 캐리지끼리 안 부딪힌다.
+    # 세로 막대(툴)라 충돌도 z 축, 길이는 z_travel(행정)이 아니라 막대 물리 길이(tool_rod_len) —
+    # 행정을 쓰면 충돌·관성이 시각 막대보다 길어져 접힘 자세에서 두둑을 파고든다(적대적 검증).
     cs = P.carriage_size
     car_col = collision_box((cs * 1.4, cs, cs))
     cm = _mass("carriage")
     car_in = inertial_xml(cm, (0, 0, 0), box_inertia(cm, cs * 1.4, cs, cs))
-    out.append(link_with_mesh("carriage", "carriage.obj", car_col, car_in))
-    out.append(f"""  <joint name="carriage_joint" type="prismatic">
-    <parent link="base_link"/>
-    <child link="carriage"/>
-    <origin xyz="{xyz(o['carriage'])}" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="{-P.carriage_travel:.3f}" upper="{P.carriage_travel:.3f}" effort="50" velocity="0.5"/>
-  </joint>
-""")
-
-    # ── tool: prismatic Z (점 타격 막대, 캐리지 자식) ──
-    # 세로 막대라 충돌도 z 축. 길이는 z_travel(행정)이 아니라 막대 물리 길이(tool_rod_len).
-    # 행정을 쓰면 충돌·관성이 시각 막대보다 길어져 접힘 자세에서 두둑을 파고든다.
     tool_col = collision_cyl(P.tool_rod_dia / 2, P.tool_rod_len, axis="z")
     tm = _mass("tool")
     tool_in = inertial_xml(tm, (0, 0, 0),
                            cylinder_inertia(tm, P.tool_rod_dia / 2, P.tool_rod_len, axis="z"))
-    out.append(link_with_mesh("tool", "tool.obj", tool_col, tool_in))
-    # tool 원점은 캐리지 원점 기준 상대좌표로
-    tool_rel = [o["tool"][i] - o["carriage"][i] for i in range(3)]
-    out.append(f"""  <joint name="tool_joint" type="prismatic">
-    <parent link="carriage"/>
-    <child link="tool"/>
+    band_half = P.tool_band_half(G)
+    for i in range(P.n_tools):
+        car, tool = f"carriage{i}", f"tool{i}"
+        out.append(link_with_mesh(car, f"{car}.obj", car_col, car_in))
+        out.append(f"""  <joint name="{car}_joint" type="prismatic">
+    <parent link="base_link"/>
+    <child link="{car}"/>
+    <origin xyz="{xyz(o[car])}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="{-band_half:.3f}" upper="{band_half:.3f}" effort="50" velocity="0.5"/>
+  </joint>
+""")
+        out.append(link_with_mesh(tool, f"{tool}.obj", tool_col, tool_in))
+        tool_rel = [o[tool][k] - o[car][k] for k in range(3)]  # tool 원점은 캐리지 기준 상대
+        out.append(f"""  <joint name="{tool}_joint" type="prismatic">
+    <parent link="{car}"/>
+    <child link="{tool}"/>
     <origin xyz="{xyz(tool_rel)}" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="{-P.z_travel:.3f}" upper="0" effort="50" velocity="0.3"/>
@@ -255,20 +257,21 @@ def imu_sensor_gazebo() -> str:
 
 
 def camera_sensor_gazebo(o: dict) -> str:
-    """캐리지에 강체 고정된 하방 RGB + 깊이 카메라 (Intel RealSense D405, DESIGN.md).
+    """base 전방 팔에 고정된 하방 RGB + 깊이 카메라 (Intel RealSense D405, DESIGN.md).
 
-    카메라가 캐리지에 붙어 같이 움직이므로 툴 팁이 항상 같은 픽셀에 온다 → 헤드리스
-    픽셀 단언의 기반(DECISIONS 006). 전방 팔에 올려 두둑 위 ~0.33m 에서 내려다본다:
-    카리지·툴에 안 가리고, LED 는 렌즈 둘레 링(자기 LED 를 안 봄).
+    멀티툴(DECISIONS 020) 이후 카메라는 캐리지가 아니라 **base 에 고정**이다 — 캐리지가
+    n_tools 개라 어디 붙일지 모호하고, 고정 카메라가 두둑 폭 전체를 봐야 임의 (x,y) 잡초를
+    잡는다(고정 카메라 + 다중 툴 = Andela/ecoRobotix). 툴 팁은 FK 로 구하므로 픽셀 고정 불변식이
+    없어도 단언 성립. 두둑 위 ~0.33m 에서 정하방.
 
-    센서 위치는 robot_body 가 export 한 카메라 시각 박스의 월드좌표(camera_world)에서
-    카리지 원점을 빼서 정확히 맞춘다 — 센서와 시각 카메라가 어긋나지 않는다.
+    센서 위치 = robot_body 가 export 한 카메라 시각 박스의 월드좌표(camera_world). base 원점이
+    (0,0,0)이라 그대로 센서 pose 다 — 센서와 시각 카메라가 어긋나지 않는다.
     rpy=(0,π/2,0) → 광축 +X 를 -Z(정하방)로. 인트린식은 D405(1280×720, HFOV 87°).
     """
-    cam, car = o.get("camera_world", o["carriage"]), o["carriage"]
-    off = f"{cam[0]-car[0]:.4f} {cam[1]-car[1]:.4f} {cam[2]-car[2]:.4f}"
+    cam = o.get("camera_world", [P.camera_x, 0.0, P.camera_z()])
+    off = f"{cam[0]:.4f} {cam[1]:.4f} {cam[2]:.4f}"
     HFOV, W, H = 1.5184, 1280, 720   # D405: 87° / 1280×720
-    return f"""  <gazebo reference="carriage">
+    return f"""  <gazebo reference="base_link">
     <sensor name="down_cam" type="camera">
       <pose>{off} 0 1.5708 0</pose>
       <topic>robot/camera</topic>
@@ -315,11 +318,11 @@ def joint_controllers_gazebo() -> str:
     도구(0.2kg, 수직이라 중력 1.96N 이 정상상태 오차를 만든다): p 만으론 오차 mg/p 가
     남으므로 i 게인으로 없앤다. 값은 assert_joints.py 로 실측 튜닝했다 (오버슈트·정착).
     """
-    specs = [
-        ("carriage_joint", "carriage_cmd", 700.0, 6.0, 60.0),
+    specs = []
+    for i in range(P.n_tools):
+        specs.append((f"carriage{i}_joint", f"carriage{i}_cmd", 700.0, 6.0, 60.0))
         # 도구 0.5kg(허브 스텝+막대) 중력 4.9N 이겨내려 P 상향 — 정상상태 오차 < 3mm
-        ("tool_joint", "tool_cmd", 2000.0, 40.0, 55.0),
-    ]
+        specs.append((f"tool{i}_joint", f"tool{i}_cmd", 2000.0, 40.0, 55.0))
     blocks = []
     for joint, topic, p, i, d in specs:
         blocks.append(f"""  <gazebo>

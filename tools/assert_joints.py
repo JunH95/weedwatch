@@ -7,10 +7,13 @@
 대충 고랑에 세우고, 캐리지(Y)와 도구(Z)가 정밀 위치를 담당한다. 그 mm 정밀도가 실제로
 나오는지가 여기서 증명된다. 없으면 성공 기준을 달성할 물리적 수단이 없다.
 
-  carriage_joint : prismatic Y (±0.45) — 두둑 폭을 좌우로 훑어 잡초의 좌우 위치에 정렬
-  tool_joint     : prismatic Z (-0.35~0) — 점 타격 막대 하강(음수)/접힘(0)
+멀티툴(DECISIONS 020): N개 툴이 각자 독립 캐리지(Y)+도구(Z). 각 툴이 자기 밴드(90/N cm)를
+짧게 훑는다. 여기선 툴마다 캐리지를 밴드 안 임의값으로, 도구를 하강/복귀시켜 독립 도달을 단언.
 
-명령 토픽(ignition.msgs.Double, m):  /carriage_cmd  /tool_cmd
+  carriage{i}_joint : prismatic Y (±tool_band_half=0.15) — 툴 i 의 밴드 좌우 정렬
+  tool{i}_joint     : prismatic Z (-0.35~0) — 툴 i 점 타격 막대 하강(음수)/접힘(0)
+
+명령 토픽(ignition.msgs.Double, m):  /carriage{i}_cmd  /tool{i}_cmd
 관절 상태 읽기: /world/robot_drive/model/weedwatch/joint_state
 
 주의: "잡초가 죽었나" 는 시뮬 못 한다(연성체 물리 없음). 여기서 재는 건 "막대가 정확히
@@ -34,6 +37,9 @@ JOINT_TOPIC = "/world/robot_drive/model/weedwatch/joint_state"
 
 sys.path.insert(0, str(WW / "tools"))
 from assert_drive import g, parse_messages  # noqa: E402  (텍스트 protobuf 파서 재사용)
+from garden_geometry import Portal  # noqa: E402
+
+N_TOOLS = Portal().n_tools
 
 SETTLE = 3.0        # 명령 후 PID 정착 대기 [s]
 TOL_Y = 0.003       # 캐리지 허용오차 3mm (수평, 중력 무관)
@@ -77,13 +83,17 @@ def publish(topic: str, value: float):
 
 
 # 시험 순서: (명령토픽, 관절이름, 목표[m], 허용오차, 설명)
-STEPS = [
-    ("/carriage_cmd", "carriage_joint", +0.30, TOL_Y, "캐리지 오른쪽 +0.30"),
-    ("/carriage_cmd", "carriage_joint", -0.30, TOL_Y, "캐리지 왼쪽 -0.30"),
-    ("/carriage_cmd", "carriage_joint", +0.123, TOL_Y, "캐리지 임의값 +0.123 (mm 정밀)"),
-    ("/tool_cmd", "tool_joint", -0.20, TOL_Z, "도구 하강 -0.20 (중력 이겨내기)"),
-    ("/tool_cmd", "tool_joint", 0.0, TOL_Z, "도구 접힘 0.0 (복귀)"),
-]
+# 멀티툴: N개 툴 각각을 독립 시험. 캐리지 목표는 밴드 반폭(±0.15) 안 임의값(방향 번갈아 → 양방향
+# 다 커버), 도구는 하강(중력 이겨내기) 후 복귀. 조인트 값은 밴드 중심 기준 상대(0=중심, 0=접힘).
+_CARR_TARGETS = [+0.123, -0.123, +0.100]  # 툴별 임의값 (mm 정밀). ±0.15 밴드 안.
+STEPS = []
+for _i in range(N_TOOLS):
+    _ct = _CARR_TARGETS[_i % len(_CARR_TARGETS)]
+    STEPS += [
+        (f"/carriage{_i}_cmd", f"carriage{_i}_joint", _ct, TOL_Y, f"툴{_i} 캐리지 {_ct:+.3f} (밴드 훑기)"),
+        (f"/tool{_i}_cmd", f"tool{_i}_joint", -0.20, TOL_Z, f"툴{_i} 도구 하강 -0.20 (중력 이겨내기)"),
+        (f"/tool{_i}_cmd", f"tool{_i}_joint", 0.0, TOL_Z, f"툴{_i} 도구 접힘 0.0 (복귀)"),
+    ]
 
 
 class Fail(Exception):

@@ -3,7 +3,7 @@
 > 이 파일은 **코드와 같은 커밋에서** 갱신한다. 그게 이 파일의 유일한 가치다.
 > 로봇이 움직이게 만든 커밋이 이 파일도 같이 고쳐야 한다.
 
-**마지막 갱신**: 2026-07-21 · **현재 단계**: Stage 4-2 스탬핑 완료 (도구가 잡초 위 <2mm) → 4-3 X정렬 주행 다음
+**마지막 갱신**: 2026-07-22 · **현재 단계**: Stage 4-3 Phase 1 완료 (멀티툴 N=3 재설계 + Stage 2 회귀 무손실) → Phase 2 무정차 제어루프 harness 다음
 
 ---
 
@@ -255,9 +255,18 @@ README 에 그렇게 적을 것. 한국 작물 메시 추가는 나중.
   - [x] **메커니즘 확정: 무정차 + 멀티툴 점타격** (DECISIONS 020, 사용자 방향). 잡초마다 정지 안 함.
     농학 근거: 주간 흙 교란은 발아 70~400%↑ → 교란 적을수록 유리(점타격 < 끌기 < 호미), 무정차
     끌림 ~2cm 는 작지만 실재 비용(Stage 5 에서 끌린 길이 보고).
-  - [ ] **행 스윕 단언 harness 빌드** (다음 세션). worlds/robot_row.sdf(잡초 x/y 흩음 + 작물 마커) +
-    tools/assert_row_stamp.py. ww_cmd + assert_drive 파서 재사용. 게이트: X정렬<2cm + 안티크리프
+  - [x] **Phase 1: 멀티툴 N=3 재설계 + Stage 2 회귀** (DECISIONS 021). 두둑 90cm=30cm 밴드 3개, 각 툴
+    독립 캐리지(Y ±0.15)+도구(Z). **X 로 엇갈림**(stagger 0.18 → x=−0.09/−0.27/−0.45) — 독립 Y 라 같은
+    X 면 캐리지 충돌하므로(빌드 중 발견) 실제 다중툴 기계(Andela)처럼 엇갈린다. **카메라를 base 전방
+    팔로 이설**(캐리지 3개라 "툴=고정 픽셀" 불변식 붕괴 → 고정 카메라가 두둑 전체를 봄, FK 로 단언).
+    회귀 무손실: drive 0.300m/s·straddle y0cm·camera(base::down_cam NVIDIA)·test 57·joints 3툴 mm
+    정밀(0.09~0.14mm)·**stamp 6잡초(3툴×2밴드) 각 <0.02cm**. 질량 34.5→39.5kg 물리 무영향.
+  - [ ] **Phase 2: 무정차 제어루프 harness** (다음). worlds/robot_row.sdf(잡초 x/y 흩음 + 작물 마커) +
+    tools/assert_row_stamp.py. ww_cmd + assert_drive 파서 재사용. 알려진 좌표 + 인과공개(카메라 지나간
+    순간에만 표적 드러남)로 주행+X정렬+예측Z+3툴 스케줄링만 격리. 게이트: X정렬<2cm + 안티크리프
     (속도로 기어가 통과 차단) + iterations 예산 + 작물 무접촉 + odom↔GT 표류 보고.
+  - [ ] **Phase 3: 카메라 정합 재학습** (train_garden.yaml 을 로봇 down_cam 인트린식으로 → 재bake/train/eval).
+  - [ ] **Phase 4: 실제 카메라 온-루프** (perception/detect_server.py + assert_row_stamp --live + row-live 2게이트).
 
 ## 2026-07-20 — 사용자 대화로 계획 정련 (`docs/DECISIONS.md` 013)
 

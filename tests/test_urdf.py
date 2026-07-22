@@ -56,7 +56,8 @@ def test_모든_링크_관성_대각성분_양수(urdf):
     """izz=0 같은 무효 관성이 하나라도 있으면 DART 가 관절체 전체를 망가뜨린다.
     tool(가는 막대)의 izz=3.6e-6 이 %.5f 반올림으로 0 이 됐던 게 실제 버그였다."""
     inertias = urdf.findall(".//inertial/inertia")
-    assert len(inertias) == 7, f"링크 7개인데 관성 {len(inertias)}개"
+    n_links = 1 + 4 + 2 * P.n_tools   # base + 바퀴4 + (캐리지+툴)×n_tools
+    assert len(inertias) == n_links, f"링크 {n_links}개인데 관성 {len(inertias)}개"
     for i in inertias:
         for ax in ("ixx", "iyy", "izz"):
             v = float(i.get(ax))
@@ -107,37 +108,42 @@ def test_wheel_radius_가_바퀴_반지름(urdf):
 
 def test_캐리지가_바퀴_접지면_위(origins):
     """캐리지 충돌 박스(높이 carriage_size)가 바퀴 바닥(z=0)보다 위에 있어야 한다.
-    안 그러면 로봇이 캐리지로 서고 바퀴가 떠서 접지력이 0 이 된다 (실제 버그)."""
-    carriage_bottom = origins["carriage"][2] - P.carriage_size / 2
-    assert carriage_bottom > 0.05, f"캐리지 바닥 {carriage_bottom:.3f} 이 바퀴 접지면에 너무 가깝다"
+    안 그러면 로봇이 캐리지로 서고 바퀴가 떠서 접지력이 0 이 된다 (실제 버그). 멀티툴 전부."""
+    for i in range(P.n_tools):
+        carriage_bottom = origins[f"carriage{i}"][2] - P.carriage_size / 2
+        assert carriage_bottom > 0.05, f"carriage{i} 바닥 {carriage_bottom:.3f} 이 접지면에 너무 가깝다"
 
 
 def test_도구_기본자세가_바퀴_접지면_위(origins):
     """도구(Z 프리즘, 기본=접힘)의 충돌이 바퀴 바닥 위에 있어야 한다.
-    (내려찍기 자세에서는 당연히 내려가지만, 이동 기본자세에서는 접혀 있어야 한다.)"""
-    tool_bottom = origins["tool"][2] - P.tool_rod_len / 2
-    assert tool_bottom > 0, f"도구 기본자세 바닥 {tool_bottom:.3f} 이 지면 아래다"
+    (내려찍기 자세에서는 당연히 내려가지만, 이동 기본자세에서는 접혀 있어야 한다.) 멀티툴 전부."""
+    for i in range(P.n_tools):
+        tool_bottom = origins[f"tool{i}"][2] - P.tool_rod_len / 2
+        assert tool_bottom > 0, f"tool{i} 기본자세 바닥 {tool_bottom:.3f} 이 지면 아래다"
 
 
 # ── Y/Z 관절 위치 컨트롤러 (mm 정밀의 수단) ──────────────────────────────────
 
 
-def test_관절_위치컨트롤러가_두_프리즘관절에_붙었다(urdf):
-    """캐리지(Y)·도구(Z) 에 JointPositionController + 명령 토픽이 있어야 한다."""
+def test_관절_위치컨트롤러가_모든_프리즘관절에_붙었다(urdf):
+    """캐리지(Y)·도구(Z) 각각에 JointPositionController + 명령 토픽이 있어야 한다 (멀티툴)."""
     ctrl = {}
     for plugin in urdf.findall(".//gazebo/plugin"):
         if "JointPositionController" in (plugin.get("name") or ""):
             ctrl[plugin.find("joint_name").text] = plugin.find("topic").text
-    assert ctrl.get("carriage_joint") == "carriage_cmd"
-    assert ctrl.get("tool_joint") == "tool_cmd"
+    for i in range(P.n_tools):
+        assert ctrl.get(f"carriage{i}_joint") == f"carriage{i}_cmd"
+        assert ctrl.get(f"tool{i}_joint") == f"tool{i}_cmd"
 
 
 def test_프리즘_관절_한계가_설계대로(urdf):
-    """캐리지 ±carriage_travel, 도구 -z_travel~0 (0=접힘). 성공 기준의 도달 범위."""
+    """캐리지 ±tool_band_half(밴드 반폭), 도구 -z_travel~0 (0=접힘). 도달 범위. 멀티툴 전부."""
     joints = {j.get("name"): j for j in urdf.findall(".//joint")}
-    c = joints["carriage_joint"].find("limit")
-    assert float(c.get("lower")) == pytest.approx(-P.carriage_travel)
-    assert float(c.get("upper")) == pytest.approx(P.carriage_travel)
-    t = joints["tool_joint"].find("limit")
-    assert float(t.get("lower")) == pytest.approx(-P.z_travel)
-    assert float(t.get("upper")) == pytest.approx(0.0)
+    band_half = P.tool_band_half(G)
+    for i in range(P.n_tools):
+        c = joints[f"carriage{i}_joint"].find("limit")
+        assert float(c.get("lower")) == pytest.approx(-band_half)
+        assert float(c.get("upper")) == pytest.approx(band_half)
+        t = joints[f"tool{i}_joint"].find("limit")
+        assert float(t.get("lower")) == pytest.approx(-P.z_travel)
+        assert float(t.get("upper")) == pytest.approx(0.0)
