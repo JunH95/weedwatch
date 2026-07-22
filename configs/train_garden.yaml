@@ -18,11 +18,11 @@ render:
   frames: 8              # 시드당 프레임(카메라가 두둑 따라 이동). bake 는 시드×이 값 = 총 장수
   samples: 20
   cycles_device: GPU
-  resolution_x: 640
-  resolution_y: 640
+  resolution_x: 1280      # 로봇 down_cam(D405) 정합 — 온-루프 인식이 학습 분포와 같아야 (DECISIONS 021-5)
+  resolution_y: 720
   camera:
-    height: 0.5         # 두둑 위 근접 top-down (D405 근사 — 나중 정밀 매칭)
-    fov_deg: 80.0
+    height: 0.33        # 로봇 카메라 실제 높이(두둑 위 ~0.33m, garden_geometry.camera_height_above_bed)
+    fov_deg: 87.0       # D405 HFOV 87° (make_urdf down_cam 과 동일). 옛 0.5m/80°/640² 는 "D405 근사"였음
     pitch_deg: 0.0      # 정하방
     y_jitter: 0.06
   label_colors:              # 4클래스 (콩/옥수수 분리) — DECISIONS 016. crops 키가 이걸 켠다.
