@@ -1,0 +1,108 @@
+<?xml version="1.0" ?>
+<!--
+  무정차 행 스윕 검증 월드 (Tier 2 — 렌더링 없음, GPU 불필요, Stage 4-3 Phase 2).
+
+  4-2(robot_stamp)는 로봇이 서 있는 채로 두둑 폭(Y)만 검증했다. 여기선 로봇이 두둑을 걸터탄 채
+  +x 로 **무정차 주행**하며 임의 (x,y) 잡초를 타격한다. 카메라(base x=0.22)가 잡초를 먼저 보고,
+  로봇이 달려 담당 툴(x=-0.09/-0.27/-0.45, 엇갈림)이 그 위에 올 때 예측 하강한다.
+
+  잡초는 **x/y 양방향으로 흩는다** — 4-2 처럼 한 X 선에 몰면 주행으로 메우는 X 정렬을 검증할 수
+  없다. y 는 세 밴드에 고루 → 서로 다른 툴이 담당. 일부러 x-근접·y-원거리 쌍(w0,w1)을 넣어
+  단일 캐리지로는 못 따라가는(멀티툴이라야 풀리는) 최악배치를 포함한다(DECISIONS 020).
+
+  작물 마커(crop_*)는 무접촉 게이트용 — 어떤 툴도 작물 반경을 침범하면 안 된다(점타격의 선택성,
+  002/009). 잡초·작물 마커는 시각 전용(충돌 없음, "죽었나"는 안 잼 002). 두둑만 충돌(도구가 멈춤).
+  좌표는 assert_row_stamp.py 의 WEEDS/CROPS 와 일치해야 한다.
+
+  실행:  tools/assert_row_stamp.py   (make row)
+-->
+<sdf version="1.9">
+  <world name="robot_row">
+    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows><pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.4 -0.85</direction>
+    </light>
+
+    <model name="furrow_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="c">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material><ambient>0.3 0.22 0.14 1</ambient><diffuse>0.5 0.37 0.24 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 긴 두둑 (y=+0.6, 윗면 z=0.25, x 방향으로 길게). 충돌 있음 — 도구가 여기서 멈춘다. -->
+    <model name="bed">
+      <static>true</static>
+      <pose>1.4 0.600 0.125 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
+        <visual name="v">
+          <geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+          <material><ambient>0.25 0.17 0.10 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 잡초 마커 6개 (x/y 흩음). 밴드: y[0.15,0.45]=t0 / [0.45,0.75]=t1 / [0.75,1.05]=t2.
+         w0(0.70,0.30 t0)·w1(0.95,0.85 t2) = x-근접 y-원거리 최악배치(다른 툴이라야 둘 다 잡음).
+         빨강 = 잡초(타격 대상). assert_row_stamp.WEEDS 와 일치. -->
+    <model name="weed_0"><static>true</static><pose>0.70 0.30 0.28 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.5 0.1 0.1 1</ambient><diffuse>0.7 0.15 0.15 1</diffuse></material></visual></link></model>
+    <model name="weed_1"><static>true</static><pose>0.95 0.85 0.28 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.5 0.1 0.1 1</ambient><diffuse>0.7 0.15 0.15 1</diffuse></material></visual></link></model>
+    <model name="weed_2"><static>true</static><pose>1.25 0.55 0.28 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.5 0.1 0.1 1</ambient><diffuse>0.7 0.15 0.15 1</diffuse></material></visual></link></model>
+    <model name="weed_3"><static>true</static><pose>1.60 0.35 0.28 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.5 0.1 0.1 1</ambient><diffuse>0.7 0.15 0.15 1</diffuse></material></visual></link></model>
+    <model name="weed_4"><static>true</static><pose>1.95 0.95 0.28 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.5 0.1 0.1 1</ambient><diffuse>0.7 0.15 0.15 1</diffuse></material></visual></link></model>
+    <model name="weed_5"><static>true</static><pose>2.30 0.62 0.28 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.5 0.1 0.1 1</ambient><diffuse>0.7 0.15 0.15 1</diffuse></material></visual></link></model>
+
+    <!-- 작물 마커 4개 (초록). 잡초 아닌 곳 — 어떤 툴도 여기 침범하면 안 된다(무접촉 게이트).
+         잡초 사이·툴 경로 근처에 둬서 "선택적으로 잡초만" 을 실제로 시험. assert_row_stamp.CROPS 와 일치. -->
+    <model name="crop_0"><static>true</static><pose>0.85 0.55 0.30 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.1 0.5 0.1 1</ambient><diffuse>0.15 0.7 0.15 1</diffuse></material></visual></link></model>
+    <model name="crop_1"><static>true</static><pose>1.45 0.80 0.30 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.1 0.5 0.1 1</ambient><diffuse>0.15 0.7 0.15 1</diffuse></material></visual></link></model>
+    <model name="crop_2"><static>true</static><pose>1.75 0.60 0.30 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.1 0.5 0.1 1</ambient><diffuse>0.15 0.7 0.15 1</diffuse></material></visual></link></model>
+    <model name="crop_3"><static>true</static><pose>2.10 0.40 0.30 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.1 0.5 0.1 1</ambient><diffuse>0.15 0.7 0.15 1</diffuse></material></visual></link></model>
+    <!-- crop_4: 잡초 w2(1.25,0.55) 바로 4cm 옆. 점타격이 잡초는 찍고 이 작물은 안 건드리는가 =
+         선택성(002/009). 호미날(폭 넓음)이면 여기 걸리지만 12mm 점타격은 안 걸려야 한다. -->
+    <model name="crop_4"><static>true</static><pose>1.25 0.51 0.30 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.1 0.5 0.1 1</ambient><diffuse>0.15 0.7 0.15 1</diffuse></material></visual></link></model>
+
+    <!-- 로봇: 두둑 중심(y=0.6) 걸터타고 x=0 에서 시작해 +x 무정차 주행. 이름 weedwatch 고정. -->
+    <include>
+      <uri>model://weedwatch_robot</uri>
+      <name>weedwatch</name>
+      <pose>0 0.600 0.01 0 0 0</pose>
+    </include>
+  </world>
+</sdf>

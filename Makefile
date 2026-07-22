@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp row overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -32,6 +32,7 @@ help:
 	@echo "make eval-model- Stage3 평가 게이트: held-out eval 에서 잡초·옥수수 IoU/recall 단언"
 	@echo "make stamp-targets - Stage4 인식→미터좌표: 잡초 검출률·타격 위치오차 단언 (held-out)"
 	@echo "make stamp     - Stage4 스탬핑: 두둑 위 잡초에 도구 끝 얹기 |도구-잡초|<2cm 단언 (물리)"
+	@echo "make row       - Stage4-3 무정차 행 스윕: 주행하며 임의(x,y) 잡초 타격 <2cm + 작물무접촉 (물리)"
 	@echo "make overlay   - 인식 결과를 눈으로: 원본|예측+타격점 오버레이 PNG (사람 검증용)"
 	@echo "make ww-cmd    - Stage4-3 주행 중 제어용 상주 명령 프로세스 빌드 (ign topic -p 는 1초라 못 씀)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
@@ -116,6 +117,13 @@ build/ww_cmd: tools/ww_cmd/ww_cmd.cc
 	@echo "build/ww_cmd 빌드됨"
 
 ww-cmd: build/ww_cmd
+
+# Stage 4-3 Phase 2 무정차 행 스윕: 로봇이 두둑을 걸터탄 채 +x 무정차 주행하며 임의 (x,y) 잡초를
+# 타격. 카메라가 먼저 보고(인과공개) 담당 툴(엇갈린 X)이 지나갈 때 예측 하강. 제어=odom(ww_cmd),
+# 채점=지상진실(별도 구독). 게이트: X정렬<2cm·안티크리프·iterations·작물무접촉·odom↔GT표류 보고.
+# 물리(Tier 2, GPU 불필요)지만 ww_cmd 빌드가 선행돼야 한다.
+row: build/ww_cmd clean-sim
+	@$(ENV) python3 tools/assert_row_stamp.py
 
 # 사람 검증용: held-out 정원에 모델을 돌려 [원본 | 예측+타격점] 오버레이 PNG 생성.
 # 단언이 아니라 눈으로 보는 용도 → artifacts/perception_overlay.png 를 열어 본다.

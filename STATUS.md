@@ -3,7 +3,7 @@
 > 이 파일은 **코드와 같은 커밋에서** 갱신한다. 그게 이 파일의 유일한 가치다.
 > 로봇이 움직이게 만든 커밋이 이 파일도 같이 고쳐야 한다.
 
-**마지막 갱신**: 2026-07-22 · **현재 단계**: Stage 4-3 Phase 1 완료 (멀티툴 N=3 재설계 + Stage 2 회귀 무손실) → Phase 2 무정차 제어루프 harness 다음
+**마지막 갱신**: 2026-07-22 · **현재 단계**: Stage 4-3 Phase 2 완료 (무정차 주행하며 6잡초 <0.15cm 타격, 작물 무접촉) → Phase 3 카메라 정합 재학습 다음
 
 ---
 
@@ -261,10 +261,14 @@ README 에 그렇게 적을 것. 한국 작물 메시 추가는 나중.
     팔로 이설**(캐리지 3개라 "툴=고정 픽셀" 불변식 붕괴 → 고정 카메라가 두둑 전체를 봄, FK 로 단언).
     회귀 무손실: drive 0.300m/s·straddle y0cm·camera(base::down_cam NVIDIA)·test 57·joints 3툴 mm
     정밀(0.09~0.14mm)·**stamp 6잡초(3툴×2밴드) 각 <0.02cm**. 질량 34.5→39.5kg 물리 무영향.
-  - [ ] **Phase 2: 무정차 제어루프 harness** (다음). worlds/robot_row.sdf(잡초 x/y 흩음 + 작물 마커) +
-    tools/assert_row_stamp.py. ww_cmd + assert_drive 파서 재사용. 알려진 좌표 + 인과공개(카메라 지나간
-    순간에만 표적 드러남)로 주행+X정렬+예측Z+3툴 스케줄링만 격리. 게이트: X정렬<2cm + 안티크리프
-    (속도로 기어가 통과 차단) + iterations 예산 + 작물 무접촉 + odom↔GT 표류 보고.
+  - [x] **Phase 2: 무정차 제어루프 harness** (`make row`). robot_row.sdf(잡초 6개 x/y 흩음 + 작물 5개) +
+    assert_row_stamp.py(ww_cmd Popen 폐루프, 제어=odom / 채점=GT 프로세스 분리). 알려진 좌표 + **인과공개**
+    (카메라가 지나간 순간 odom_x≥wx−0.22 에만 표적 드러냄) → 담당 툴(엇갈린 X) 정렬 → 잡초 도달 180ms
+    앞서 예측 하강. **결과: 0.196m/s 무정차로 6잡초 전부 0.01~0.15cm 타격**(w0·w1 x-근접 y-원거리 최악
+    배치를 서로 다른 툴이 동시 처리 — 멀티툴 정당화). 5게이트 전부 실효: X정렬<2cm · 안티크리프
+    0.196≥0.18 · iterations 완주 · **작물 무접촉 4.0cm≥3cm**(w2 4cm 옆 작물을 점타격이 살림 = 선택성
+    002/009) · odom↔GT 표류 0.2cm 보고. **음성시험**: 하강을 교차 뒤로 늦추니 6개 전부 "미하강" FAIL
+    → 예측 리드가 실제로 일하고 게이트가 실패를 잡음 확인.
   - [ ] **Phase 3: 카메라 정합 재학습** (train_garden.yaml 을 로봇 down_cam 인트린식으로 → 재bake/train/eval).
   - [ ] **Phase 4: 실제 카메라 온-루프** (perception/detect_server.py + assert_row_stamp --live + row-live 2게이트).
 
