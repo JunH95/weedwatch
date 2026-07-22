@@ -3,7 +3,7 @@
 > 이 파일은 **코드와 같은 커밋에서** 갱신한다. 그게 이 파일의 유일한 가치다.
 > 로봇이 움직이게 만든 커밋이 이 파일도 같이 고쳐야 한다.
 
-**마지막 갱신**: 2026-07-22 · **현재 단계**: Stage 4-3 Phase 3 완료 (카메라 정합 재학습, 잡초 IoU 0.959 게이트 통과) → Phase 4 실제 카메라 온-루프 다음
+**마지막 갱신**: 2026-07-22 · **현재 단계**: Stage 4-3 Phase 4a 완료 (로봇 카메라 렌더에 best.pt 라이브 추론 → 오라클 대조, sim카메라→인식 다리) → Phase 4b 주행 라이브 온-루프 다음
 
 ---
 
@@ -276,14 +276,17 @@ README 에 그렇게 적을 것. 한국 작물 메시 추가는 나중.
     (1280×720)에서 H/W 뒤바꿔 배치 collate 붕괴 → 로봇은 고정 landscape라 90° 제거(h·v 플립이 180°
     커버). ② 카메라 낮춰(0.33m) 시야 좁아지며 옥수수 0.027%로 희소화 관찰 — inverse-sqrt 가중+Dice가
     흡수해 게이트 통과(정직 플래그). best.pt 재생성 계약: config + seed 고정.
-  - [~] **Phase 4a: 정적 라이브 인식 (진행 — 기반 완료)**. `make percept-render`: 로봇 카메라가
-    CropCraft 사실적 두둑(model://oracle_test, target_ 잡초=오라클 정답)을 GPU 렌더 2게이트 통과.
-    두둑을 z=0.25 로 올려 카메라가 식물 위 0.33m(학습 스케일 정합). **best.pt 라이브 검증(ad-hoc)**:
-    실제 렌더 프레임에서 잡초 16.9% 검출(blob 38개 ≥400px) — Phase 3 카메라 정합이 sim카메라→인식
-    다리를 실증. **남은 것**: `perception/detect_server.py`(best.pt 상주 폴링) + 픽셀→월드 좌표변환
-    (카메라 pose 로 캘리브, stamp_targets 가 미뤄둔 절대좌표) + 오라클(oracle.py) 채점 게이트.
-    `worlds/robot_percept.sdf`.
-  - [ ] **Phase 4b: 주행 라이브 온-루프** (CropCraft 정원을 주행 월드에 + assert_row_stamp --live + row-live).
+  - [x] **Phase 4a: 정적 라이브 인식** (DECISIONS 022, `make percept`). 로봇이 CropCraft 사실적 두둑
+    (model://oracle_test, target_ 잡초=오라클 정답)을 걸터탄 채 down_cam 이 GPU 렌더 → `detect_server.py`
+    가 best.pt 라이브 추론 → 픽셀→world 변환 → 오라클 대조. 두둑 z=0.25 로 올려 카메라 식물 위 0.33m
+    (학습 스케일 정합). **픽셀→world 매핑은 색 마커로 직접 캘리브**(robot_calib.sdf + calibrate_camera.py,
+    복원오차 0): +x→−row, +y→−col, 0.457mm/px. **결과**: 렌더 2게이트 통과, 시야 안 target 4/4 검출
+    (≤8cm). 위치오차 중앙 5.54cm — 4-1(상대오프셋 1.4mm)과 달리 절대좌표라 캐노피-vs-밑동+가장자리
+    시차+콩가림이 안 상쇄됨(정직 플래그, stamp_targets 가 미뤄둔 절대좌표). 정밀 타격은 Phase2(오라클
+    좌표 <0.15cm)·카메라-상대 제어(4b)가 담당 — 4a 는 인식 다리 검증. `perception/{detect_server,
+    assert_percept,calibrate_camera}.py`·`worlds/{robot_percept,robot_calib}.sdf`.
+  - [ ] **Phase 4b: 주행 라이브 온-루프** (CropCraft 정원을 주행 월드에 + assert_row_stamp --live +
+    row-live). 카메라-상대 제어로 정밀 타격 + detect_server 상주(--watch) 스트림.
 
 ## 2026-07-20 — 사용자 대화로 계획 정련 (`docs/DECISIONS.md` 013)
 

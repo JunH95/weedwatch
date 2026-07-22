@@ -747,3 +747,36 @@ drive(0.300m/s 직진)·straddle(y편차 0cm)·camera(base::down_cam 렌더, NVI
 인과공개) → ③ **카메라 정합 재학습**(best.pt 학습 카메라 640×640/80°/0.5m ≠ 로봇 down_cam
 1280×720/87°/0.33m — train_garden.yaml 주석 "나중 정밀 매칭"이 미뤄둔 갭. 로봇 인트린식으로 재렌더·
 재학습) → ④ 온-루프 스왑(detect_server + row-live 2게이트). 각 단계 CLI 단언, 실패 원인 격리.
+
+## 022. Stage 4-3 Phase 4a — 정적 라이브 인식: sim카메라→best.pt 다리 (2026-07-22)
+
+**날짜**: 2026-07-22 · **상태**: 완료 · `make percept` · 021-5 증분의 온-루프 첫 단계
+
+**한 일**: 로봇이 CropCraft 사실적 두둑(model://oracle_test)을 걸터탄 채 down_cam 이 GPU 렌더 →
+`detect_server.py` 가 best.pt 라이브 추론 → 픽셀→world → 오라클(정답 좌표) 대조. 4-1(stamp_targets)이
+학습 렌더에 오프라인 + 렌더마스크 GT 였다면, 여기는 **로봇 카메라의 실제 렌더**에 라이브 + **오라클
+world 좌표** GT — 카메라 정합(021-5) 위에서만 정직하다(정합 전이면 분포차로 실패).
+
+**픽셀→world 매핑 = 색 마커로 직접 캘리브 (오라클 노이즈 회피).** worlds/robot_calib.sdf 가 알려진
+world 좌표에 원색 마커 3개(빨강 중심·파랑 +x·초록 +y). perception/calibrate_camera.py 가 렌더→색으로
+픽셀중심→2D 아핀. 결과(복원오차 0): **이미지 중심(640,360)=카메라 직하점, +world_x→−row, +world_y→
+−col, 0.457mm/px**. 처음 6개 축-플립 후보를 오라클로 맞추려다 실패했는데(best.pt 가 clutter taraxacum
+까지 검출해 blob 32개 vs target 18 → 노이즈), 마커 캘리브가 명료하게 풀었다. detect_server 상수화.
+
+**좌표 정합(중요):** 학습 카메라는 CropCraft 식물(평지 z=0) 위 0.33m. 로봇 down_cam 은 world z≈0.58.
+스케일 맞추려 오라클 두둑을 **z=0.25 로 올려** 카메라가 식물 위 0.33m(물리 월드 두둑 윗면과도 정합).
+
+**결과(make percept):** 렌더 2게이트(검지않음 std 19.9 AND NVIDIA) 통과. 카메라 footprint 33×58cm(근접
+스캐너) 안 오라클 target 4/4 검출(≤8cm). best.pt 가 잡초를 실제 렌더에서 잡음 — 다리 성립.
+
+**정직 플래그 — 절대 위치오차 5.5cm(4-1 은 1.4mm):** 원인은 절대-좌표라 안 상쇄되는 것들 —
+① best.pt 블롭은 캐노피 중심, 오라클은 줄기 밑동 ② footprint 가장자리 잡초의 시차(높이·오프셋 비례)
+③ 콩 가림. 4-1 은 같은 이미지 내 예측-vs-마스크 상대오프셋이라 원근이 양쪽에 걸려 상쇄됐다
+(stamp_targets 주석 "절대좌표 왜곡은 나중"). **⟹ 매칭 반경 8cm(캐노피 스프레드 규모)로 "그 잡초를
+맞게 식별했나"만 게이트. 서브센치 정밀 타격은 Phase 2(오라클 좌표 <0.15cm)·카메라-상대 제어(4b)가
+별도 증명 — 4a 는 인식 다리이지 절대 정밀이 아니다.** 좁은 근접 footprint 라 정적 1프레임은 target
+소수만 봄 — 전 두둑 커버리지는 주행(4b)이 맡는다.
+
+**신규 파일:** perception/{detect_server,assert_percept,calibrate_camera}.py · worlds/{robot_percept,
+robot_calib}.sdf · make {percept,percept-render,percept-calib}. ROS↔ML 경계는 PNG 파일(rclpy 불요,
+detect_server 가 <save> PNG 를 소비). detect_server 는 --watch 상주모드로 4b(주행 스트림) 재사용.
