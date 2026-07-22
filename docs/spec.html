@@ -354,7 +354,9 @@ flowchart TB
             <tr><td>Y 캐리지</td><td>NEMA23 스텝 + GT3 벨트</td><td>±0.1mm 클로즈드루프, IP65</td><td class="val">195</td></tr>
             <tr><td>Z 도구</td><td>NEMA23 스텝 + Tr8×8 리드스크류</td><td>추력 ~628N (관입력 170–340N)</td><td class="val">150</td></tr>
             <tr><td>카메라</td><td>Intel RealSense D405</td><td>1280×720, 작동 7–50cm, 87° 화각</td><td class="val">—</td></tr>
-            <tr><td>컴퓨트</td><td>Jetson Orin Nano Super 8GB</td><td>67 TOPS, 7–25W</td><td class="val">249</td></tr>
+            <tr><td>자세 (IMU)</td><td>Bosch BNO085</td><td>온보드 센서퓨전, 쿼터니언 직출 · 흔들림 보정·EKF</td><td class="val">~30</td></tr>
+            <tr><td>위치추정</td><td>휠 엔코더(모터 내장) + AprilTag 말뚝 4</td><td>휠오도 → +IMU/EKF → 코너 태그 (L1·L2·L3)</td><td class="val">~40</td></tr>
+            <tr><td>컴퓨트</td><td>Jetson Orin Nano Super 8GB</td><td>67 TOPS, 7–25W · Teensy 4.1/micro-ROS 프론트엔드</td><td class="val">249</td></tr>
             <tr><td>전력</td><td>LiFePO4 640Wh + 태양광 200Wp</td><td>평균 ~65W, 순찰당 ~200Wh</td><td class="val">~500</td></tr>
           </tbody>
         </table>
@@ -451,17 +453,21 @@ flowchart TB
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
         <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">착수</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 한다. 그러면 보는 것(카메라 직하점)과 찍는 것(도구 팁)이 각도 몇 도에 cm씩 밀리는데, IMU 자세와 깊이를 융합해 그만큼 되짚어 보정한다. Tier 1 준정적 기울기(사면 충돌) → Tier 2 동적 요철(고랑 흙덩이). 센서엔 실측 노이즈를 넣고, 보정 켠 것과 끈 것을 같은 시드에서 A/B로 단언한다.</div></div>
         <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">예정</span></div><div class="muted">재현율 0.25–0.5를 끌어올린다. 잡초를 이랑 빈틈에 두는 현실적 밭 배치(지금은 일부러 겹쳐 심어 최악), 깊이로 잡초 키에서 오는 시차 보정, 검출 군집화 개선.</div></div>
-        <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 지그재그 커버리지 경로. 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
+        <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 보스트로페돈(지그재그) 커버리지 경로(Nav2 RPP 컨트롤러 · 강화학습 아님). 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
         <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
         <div class="node plan"><div class="lab">대시보드 <span class="st">설계됨</span></div><div class="muted">로봇이 처리·보고를 SQLite에 기록 → 정적 HTML 리포트(“이번 주말 뽑을 것” 목록, 처리한 잡초, 키 넘은 작물).</div></div>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">자율주행은 왜 강화학습이 아닌가</span>
+        경로는 보스트로페돈(밭을 지그재그로 왕복) 약 50줄과 Nav2 RPP 컨트롤러로 충분하다. 5×5m 두둑에 MPPI나 학습 정책은 과잉이고, 무엇보다 이 프로젝트는 모든 걸 결정적으로 명령줄에서 단언하는데 확률적 정책은 단언이 어렵다. 위치추정은 사다리로 올린다. L0 지상진실(기준선) → L1 휠 엔코더 오도메트리 → L2 +IMU/EKF → L3 두둑 네 귀퉁이 AprilTag 말뚝. “고랑이 곧 레일”이라 X 위치추정은 기하에서 거의 공짜다. 앞에서 보고 뒤에서 찍는다 — 시각 서보는 안 한다(마지막 20cm는 데드레커닝 1–2mm).
       </div>
       <div class="callout reveal">
         <span class="lb">Stage 5에서 미리 짚어 둔 기술 리스크</span>
         두둑 충돌을 상자에서 사면·요철로 바꾸면 물리 엔진(DART)이 튈 수 있다 — 상자를 쓴 이유가 원래 안정성이었다. 소규모로 선검증한다. 로봇은 강체라 서스펜션이 없어 요철 충격이 실물보다 거칠다(각주로 명시). 기울고 미끄러지면 휠 오도메트리가 더 나빠져, 이때부터 IMU를 섞는 위치추정(EKF)이 비로소 의미를 갖는다.
       </div>
       <div class="callout open reveal">
-        <span class="lb">사람이 정해야 할 것</span>
-        데모 밭 크기(128cm 폭 로봇은 작은 밭엔 큰 기계다), 로봇 외형·부품 조립 방향, 파이썬 환경 정리, 실물 질량 반영.
+        <span class="lb">아직 안 정한 것 — 대부분은 “재보고 정함”</span>
+        자율주행 방식·위치추정·센서·설계 도구는 이미 확정이다(위·아래 참고). 의도적으로 미룬 건 둘뿐이다. 데모 밭 크기와 배터리 용량은 커버리지 에너지를 실제로 재본 뒤 정한다(측정→결정 규율). 순수하게 열린 선택은 로봇 외형·부품 CAD 조립 방향, 파이썬 환경 정리, 실물 질량 반영 정도다.
       </div>
     </div>
   </section>
