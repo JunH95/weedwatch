@@ -6,7 +6,12 @@
 **이 프로젝트의 핵심 제약: Claude가 만들고 Claude가 스스로 검증한다.**
 사람이 GUI를 들여다보지 않는다. 따라서 **CLI에서 단언(assert)할 수 없는 기능은 존재할 수 없다.**
 
-전체 계획: `docs/PLAN.md` · 결정 기록: `docs/DECISIONS.md` · 현재 위치: `STATUS.md`
+**문서 지도** — 사람이 읽는 종합본: `docs/spec.html`(엔지니어링 설계 문서, Artifact 발행). 내 작업 정본:
+`docs/PLAN.md`(계획·논지) · `docs/DECISIONS.md`(결정 ADR, append-only) · `docs/DESIGN.md`(실물 BOM·갭) ·
+`STATUS.md`(현재 위치, 코드와 원자 갱신) · `docs/REFERENCES.md`(근거).
+
+**살아있는 문서 규율**: `STATUS.md`·`DECISIONS.md`를 갱신할 때 `docs/spec.html`의 "로드맵·현재 상태"
+섹션도 같이 갱신하고 **같은 URL로 재발행**(Artifact `file_path` 동일). 종합본이 실제 진행과 안 어긋나게.
 
 ---
 
