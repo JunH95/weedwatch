@@ -63,18 +63,30 @@ def _predict(model, img_path: str, device: str) -> np.ndarray:
         return model(x).argmax(1)[0].cpu().numpy()
 
 
+def filter_weed_mask(mask: np.ndarray, k: int = 5) -> np.ndarray:
+    """잡초 마스크 정리 (4b-2): 형태학적 열림(얇은 잎경계·흙 오검출 노이즈 제거) + 닫힘(잎 가림으로
+    쪼개진 한 잡초 파편을 하나로 병합). k×k 구조요소. best.pt 원시 마스크는 blob 이 과분할·노이즈가
+    많아(4a 오버레이) 그대로면 로봇이 엉뚱한 데/한 잡초를 여러 번 찍는다."""
+    st = np.ones((k, k), bool)
+    return ndimage.binary_closing(ndimage.binary_opening(mask, st), st)
+
+
 def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
-                 min_area: int = MIN_AREA_PX):
+                 min_area: int = MIN_AREA_PX, filter_noise: bool = True):
     """프레임 → [(world_x, world_y, area_px)]. base_pose=(x,y,z,yaw) 지상진실.
 
     잡초 클래스 연결요소 중심을 카메라 기하로 world 좌표화. yaw 로 base 전방/좌 오프셋을 회전.
+    filter_noise=True 면 형태학 필터(4b-2)로 노이즈·과분할을 정리한 뒤 인스턴스를 뽑는다.
     """
     bx, by, bz, byaw = base_pose
     cam_x = bx + math.cos(byaw) * CAM_DX
     cam_y = by + math.sin(byaw) * CAM_DX
     c, s = math.cos(byaw), math.sin(byaw)
     pred = _predict(model, img_path, device)
-    lbl, n = ndimage.label(pred == WEED)
+    mask = pred == WEED
+    if filter_noise:
+        mask = filter_weed_mask(mask)
+    lbl, n = ndimage.label(mask)
     out = []
     for i in range(1, n + 1):
         ys, xs = np.where(lbl == i)
