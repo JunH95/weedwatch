@@ -780,3 +780,40 @@ world 좌표에 원색 마커 3개(빨강 중심·파랑 +x·초록 +y). percept
 **신규 파일:** perception/{detect_server,assert_percept,calibrate_camera}.py · worlds/{robot_percept,
 robot_calib}.sdf · make {percept,percept-render,percept-calib}. ROS↔ML 경계는 PNG 파일(rclpy 불요,
 detect_server 가 <save> PNG 를 소비). detect_server 는 --watch 상주모드로 4b(주행 스트림) 재사용.
+
+## 023. Stage 4-3 Phase 4b — 주행 라이브 온-루프: 카메라만으로 자율 타격 (2026-07-22)
+
+**날짜**: 2026-07-22 · **상태**: 완료 · `make row-live`(4b-3) · 022 위에서 완결
+
+**한 일**: 오라클(정답 좌표)을 **제어에서 빼고**, 로봇 down_cam 이 실시간 본 것(best.pt via
+detect_server)만으로 사실적 밭을 주행하며 잡초 타격 — 완전 자율. CLAUDE.md 첫 줄(카메라로 잡초를
+구별해 그 위에 정밀하게 서서 스탬핑)이 오라클 없이 전 사슬로 실현됐다.
+
+**사실적 주행 월드(4b-1, `make watch-field`·`make field-render`):** robot_percept(정지 실식물)+
+robot_row(주행 마커)를 합침. `make_ridge` 사면 사다리꼴 두둑(시각=흙텍스처 사면메시, 충돌=상자) +
+양옆 고랑 + `make_garden_field`(충돌 제거 CropCraft 식물, 주행 중 잎에 안 부딪힘) + 카메라 렌더. 두둑
+z=0.25 로 카메라가 식물 위 0.33m(학습 스케일). 버그: CropCraft 평지 흙이 두둑을 가림→ground 제거;
+quad+UV 법선없어 Ogre 크래시→삼각형+법선; 사용자 GUI 확인으로 잡음.
+
+**검출 필터링(4b-2):** 형태학 open+close(얇은 노이즈 제거+파편 병합). 작물 회피(safe-remove, 007):
+best.pt 작물 클래스서 일정 거리 안 잡초는 안 찍음. "extra 검출"은 노이즈가 아니라 진짜 clutter 잡초
+(민들레 등)라 안 줆 — best.pt 가 밭 잡초를 다 찾는 것(정상).
+
+**프로세스 융합(제어=odom, 채점=GT):** sim(robot_field, 카메라 렌더) + 카메라구독자(렌더 깨움) +
+GT구독자(채점) + ww_cmd(제어·odom) + detect_server(ML venv). detect_server 는 <save> PNG 를 읽어
+best.pt 추론 → **odom_x 파일로 base 앵커링**(GT 아님) → world 검출을 파일로. 하네스가 dedup 해 툴별
+스케줄·예측 하강. `tools/assert_field_live.py` · `perception/detect_server.py --watch --odom-file`.
+
+**결과:** 로봇이 제 카메라로 본 잡초를 주행하며 자율 타격. 관측 재현율 0.25~0.5, 위치오차 중앙 ~3-5cm,
+작물 물리 무접촉(대부분). 완주·렌더 2게이트.
+
+**정직한 한계 (전부 문서화·게이트 반영):**
+- **절대 위치오차 ~5cm** (4a 와 같은 캐노피-vs-밑동+시차 + 라이브 지연). **정밀 2cm 는 Phase 2**(오라클
+  좌표, 물리, <0.15cm, 결정론적)가 별도 증명 — 4b-3 은 *자율*을 증명하지 절대 정밀이 아니다.
+- **작물 선택성**: 빽빽한 겹침 밭(oracle_test shift_next_bed=false, 잡초-작물 의도적 겹침, 1-c)에서
+  top-down 캐노피가 밑동을 가려 safe-remove 로도 **가끔 스침**(완벽 무접촉 불가). 재현율↔선택성 트레이드
+  오프(safe_dist 노브)가 실재. **깨끗한 무접촉(4cm 옆 작물 살림)은 Phase 2 가 물리로 증명.** 겹침 없는
+  밭이면 라이브도 깨끗할 것(미측정). 게이트는 *체계적* 작물 타격만 차단(스침 ≤2 인정).
+- **stochastic Tier-3 데모**: GPU 렌더+best.pt+타이밍이 얽혀 재현율·스침이 run 마다 변동. 게이트는
+  "자율 루프가 실제로 돈다"를 안정적으로 잡는 여유 문턱이지 결정론적 정밀 게이트가 아니다. 카메라 렌더+
+  best.pt GPU 경합으로 sim 이 ~0.1x → 전 밭(2.9m) 대신 첫 군집(x≲1.5)만 커버해 시험 단축.

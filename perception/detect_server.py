@@ -33,9 +33,10 @@ import segmentation_models_pytorch as smp
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from seg_data import _MEAN, _STD, NUM_CLASSES, WEED  # noqa: E402
+from seg_data import _MEAN, _STD, NUM_CLASSES, WEED, MAIZE  # noqa: E402
 
 WW = HERE.parent
+BEAN = 1  # seg_data 클래스: 0 흙 · 1 콩 · 2 옥수수(MAIZE) · 3 잡초(WEED)
 
 # ── 카메라 기하 (worlds/robot_calib.sdf 캘리브 결과. 바꾸려면 재캘리브) ──
 MPP = 0.000457              # m/px (두둑 z=0.25 위 0.33m). calibrate_camera 로 유도.
@@ -72,13 +73,16 @@ def filter_weed_mask(mask: np.ndarray, k: int = 5) -> np.ndarray:
 
 
 def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
-                 min_area: int = MIN_AREA_PX, filter_noise: bool = True):
+                 min_area: int = MIN_AREA_PX, filter_noise: bool = True,
+                 safe_dist: float = 0.0):
     """프레임 → [(world_x, world_y, area_px)]. base_pose=(x,y,z,yaw) 지상진실.
 
     잡초 클래스 연결요소 중심을 카메라 기하로 world 좌표화. yaw 로 base 전방/좌 오프셋을 회전.
-    filter_noise=True 면 형태학 필터(4b-2)로 노이즈·과분할을 정리한 뒤 인스턴스를 뽑는다.
+    filter_noise=True 면 형태학 필터(4b-2)로 노이즈·과분할을 정리.
+    **작물 회피(safe_dist)**: 콩·옥수수(best.pt 작물 클래스)에서 이 거리 안의 잡초는 뺀다 — 점타격이
+    작물을 칠 위험. DECISIONS 007 safe-remove(작물 코앞 잡초는 사람 몫). 오라클 아닌 로봇 제 인식으로.
     """
-    bx, by, bz, byaw = base_pose
+    bx, by, _bz, byaw = base_pose
     cam_x = bx + math.cos(byaw) * CAM_DX
     cam_y = by + math.sin(byaw) * CAM_DX
     c, s = math.cos(byaw), math.sin(byaw)
@@ -86,6 +90,11 @@ def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
     mask = pred == WEED
     if filter_noise:
         mask = filter_weed_mask(mask)
+    dist_crop, safe_px = None, 0.0
+    if safe_dist > 0:                                       # 작물 회피 켤 때만 계산
+        crop = (pred == BEAN) | (pred == MAIZE)
+        dist_crop = ndimage.distance_transform_edt(~crop)  # 각 픽셀 → 최근접 작물 픽셀 거리(px)
+        safe_px = safe_dist / MPP
     lbl, n = ndimage.label(mask)
     out = []
     for i in range(1, n + 1):
@@ -93,6 +102,8 @@ def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
         if len(xs) < min_area:
             continue
         col, row = xs.mean(), ys.mean()
+        if dist_crop is not None and dist_crop[int(round(row)), int(round(col))] < safe_px:
+            continue                                        # 작물 코앞 → safe-remove (007)
         dx_base = -MPP * (row - CV)      # base 전방(+x)
         dy_base = -MPP * (col - CU)      # base 좌(+y)
         wx = cam_x + c * dx_base - s * dy_base
@@ -102,7 +113,10 @@ def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
 
 
 def _latest_png(d: Path):
+    # 두 번째 최신 반환 — 가장 최신 PNG 는 sim 이 지금 쓰는 중일 수 있어(반쯤 쓰인 파일 → PIL 크래시).
     pngs = sorted(d.glob("*.png"), key=lambda p: p.stat().st_mtime)
+    if len(pngs) >= 2:
+        return pngs[-2]
     return pngs[-1] if pngs else None
 
 
@@ -112,15 +126,26 @@ def main():
     ap.add_argument("--out", help="검출 world 좌표를 쓸 파일 (라인당 'x y area')")
     ap.add_argument("--base", nargs=4, type=float, metavar=("X", "Y", "Z", "YAW"),
                     default=[0.0, 0.6, 0.0, 0.0], help="지상진실 base pose (정지 4a 는 고정)")
+    ap.add_argument("--odom-file", help="주행(4b-3): 이 파일의 현재 odom_x 를 읽어 base 를 앵커링. "
+                    "제어=odom 규율(GT 아님). base_y 는 --base 의 Y 사용.")
+    ap.add_argument("--safe-dist", type=float, default=0.0,
+                    help="작물(콩·옥수수) 이 거리[m] 안의 잡초는 뺀다(safe-remove, 007). 0=끔.")
     ap.add_argument("--ckpt", default=None)
     ap.add_argument("--once", help="한 프레임만 검출해 stdout 에 출력하고 종료")
     args = ap.parse_args()
     model, device = load_model(args.ckpt)
+    base_y = args.base[1]
 
     if args.once:
         for wx, wy, a in detect_frame(model, args.once, tuple(args.base), device):
             print(f"{wx:.4f} {wy:.4f} {a}")
         return
+
+    def read_odom_x():
+        try:
+            return float(Path(args.odom_file).read_text().split()[0])
+        except (FileNotFoundError, ValueError, IndexError):
+            return None
 
     if args.watch:
         wd = Path(args.watch)
@@ -130,11 +155,23 @@ def main():
             f = _latest_png(wd)
             if f and f != last:
                 last = f
-                dets = detect_frame(model, str(f), tuple(args.base), device)
-                if args.out:
-                    Path(args.out).write_text("\n".join(f"{x:.4f} {y:.4f} {a}" for x, y, a in dets))
-                print(f"D {len(dets)} {f.name}", flush=True)
-            time.sleep(0.05)
+                if args.odom_file:                      # 주행: odom 으로 base_x 앵커링
+                    ox = read_odom_x()
+                    if ox is None:
+                        time.sleep(0.02); continue
+                    base = (ox, base_y, 0.0, 0.0)
+                else:
+                    base = tuple(args.base)
+                try:
+                    dets = detect_frame(model, str(f), base, device, safe_dist=args.safe_dist)
+                except Exception as e:                  # 반쯤 쓰인 PNG 등 → 스킵(다음 프레임)
+                    print(f"E skip {f.name}: {e}", flush=True)
+                    time.sleep(0.02); continue
+                if args.out:                            # 이 프레임의 world 검출 (하네스가 dedup)
+                    Path(args.out).write_text(
+                        f"# {base[0]:.4f}\n" + "\n".join(f"{x:.4f} {y:.4f} {a}" for x, y, a in dets))
+                print(f"D {len(dets)} @x={base[0]:.2f} {f.name}", flush=True)
+            time.sleep(0.03)
 
 
 if __name__ == "__main__":
