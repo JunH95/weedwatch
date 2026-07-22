@@ -327,7 +327,8 @@ flowchart TB
   BASE --> C0["캐리지0 (Y, x=−0.09)"] --> T0["도구0 (Z)"]
   BASE --> C1["캐리지1 (Y, x=−0.27)"] --> T1["도구1 (Z)"]
   BASE --> C2["캐리지2 (Y, x=−0.45)"] --> T2["도구2 (Z)"]
-  BASE --> CAM["카메라·깊이·IMU (전방 x=0.22)"]
+  BASE --> CAM["카메라·깊이 (전방 x=0.22, 정하방)"]
+  BASE --> IMU["IMU (차체 중심)"]
         </pre>
       </div>
 
@@ -410,6 +411,10 @@ flowchart TB
         <span class="lb">큰 잡초·작물 근처 잡초는 사람에게 넘긴다</span>
         점 타격이 잡을 수 있는 건 어리고 작은 잡초뿐이다(분야 전체의 한계). 로봇은 잡초를 세 갈래로 나눈다. 자율 처리(찍는다), 사람에게 넘김(위치·사진 기록), 놓침(탐지 실패, 유일한 진짜 실패). 로봇은 항상 있지만 약하고, 사람은 강하지만 주말에만 온다. 이 상보성이 주말농장에 맞는다.
       </div>
+      <div class="callout reveal">
+        <span class="lb">다음: 흔들리면 보는 것과 찍는 것이 같이 밀린다</span>
+        깊이·IMU 센서는 이미 로봇에 달려 발행되지만, 지금 자율 루프는 RGB 한 장만 쓴다. 게다가 로봇은 평평한 바닥을 달려 몸이 수평을 유지한다. 밭에 요철을 넣어 실제로 기울게 하면, 카메라 직하점은 두둑 위 0.33m에서 기울기 3도에 약 1.7cm, 도구 팁은 매달린 팔 길이만큼 그 이상 밀린다 — 허용오차 2cm를 넘는다. 그래서 다음 스테이지에서 IMU 자세와 깊이를 픽셀→월드 역투영과 도구 정기구학 양쪽에, 그리고 프레임 시각과 타격 시각 각각에서 처음으로 융합한다. 보정을 켠 것과 끈 것을 같은 시드에서 비교해, 켜면 허용오차 안·끄면 초과임을 지상진실로 단언한다.
+      </div>
     </div>
   </section>
 
@@ -443,11 +448,16 @@ flowchart TB
         <div class="node done"><div class="lab">Stage 1 · 정원 + 정답 좌표 <span class="st">완료</span></div><div class="muted">두둑·고랑 기하, Blender GPU 렌더, 잡초 정답 좌표를 뽑는 트릭. 시드 고정으로 정원 재현.</div></div>
         <div class="node done"><div class="lab">Stage 2 · 로봇 몸체 <span class="st">대부분 완료</span></div><div class="muted">파라메트릭 생성 → URDF. 주행·관절 mm 정밀·걸터타기·카메라 전부 단언 통과.</div></div>
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
-        <div class="node now"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span><span class="badge">현재</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
-        <div class="node plan"><div class="lab">다음 · 자율 성능 올리기 <span class="st">예정</span></div><div class="muted">자율 재현율 0.25–0.5를 끌어올린다. 겹침이 덜한 밭 구성, 검출 필터링·군집화 개선. 지금 가장 중요한 곳.</div></div>
+        <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
+        <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">착수</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 한다. 그러면 보는 것(카메라 직하점)과 찍는 것(도구 팁)이 각도 몇 도에 cm씩 밀리는데, IMU 자세와 깊이를 융합해 그만큼 되짚어 보정한다. Tier 1 준정적 기울기(사면 충돌) → Tier 2 동적 요철(고랑 흙덩이). 센서엔 실측 노이즈를 넣고, 보정 켠 것과 끈 것을 같은 시드에서 A/B로 단언한다.</div></div>
+        <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">예정</span></div><div class="muted">재현율 0.25–0.5를 끌어올린다. 잡초를 이랑 빈틈에 두는 현실적 밭 배치(지금은 일부러 겹쳐 심어 최악), 깊이로 잡초 키에서 오는 시차 보정, 검출 군집화 개선.</div></div>
         <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 지그재그 커버리지 경로. 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
         <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
         <div class="node plan"><div class="lab">대시보드 <span class="st">설계됨</span></div><div class="muted">로봇이 처리·보고를 SQLite에 기록 → 정적 HTML 리포트(“이번 주말 뽑을 것” 목록, 처리한 잡초, 키 넘은 작물).</div></div>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">Stage 5에서 미리 짚어 둔 기술 리스크</span>
+        두둑 충돌을 상자에서 사면·요철로 바꾸면 물리 엔진(DART)이 튈 수 있다 — 상자를 쓴 이유가 원래 안정성이었다. 소규모로 선검증한다. 로봇은 강체라 서스펜션이 없어 요철 충격이 실물보다 거칠다(각주로 명시). 기울고 미끄러지면 휠 오도메트리가 더 나빠져, 이때부터 IMU를 섞는 위치추정(EKF)이 비로소 의미를 갖는다.
       </div>
       <div class="callout open reveal">
         <span class="lb">사람이 정해야 할 것</span>
@@ -505,6 +515,7 @@ flowchart TB
             <tr><td>흙 관입력</td><td>강체만 다룸</td><td>로드셀 실측 (170–340N)</td></tr>
             <tr><td>실사진 판별</td><td>맞는 실데이터 없음</td><td>top-down 실촬영 확보</td></tr>
             <tr><td>옥외 조명·젖은 잎</td><td>렌더와 실촬영의 간극</td><td>도메인 랜덤화 + 소량 실사진</td></tr>
+            <tr><td>요철 충격·진동</td><td>강체, 서스펜션 없음</td><td>실물 완충·컴플라이언스로 메움 (Stage 5는 실측 센서 노이즈까지만)</td></tr>
           </tbody>
         </table>
       </div>
@@ -552,10 +563,11 @@ flowchart TB
             <tr><td class="val">015–017</td><td>잡초 밀도·손실·4클래스, 학습 결과 검증</td></tr>
             <tr><td class="val">019–021</td><td>정밀 타격, 무정차 멀티툴, 3툴 X엇갈림</td></tr>
             <tr><td class="val">022–023</td><td>정적/주행 라이브 인식 = 카메라만으로 자율 타격</td></tr>
+            <tr><td class="val">024–025</td><td>정책 비교 철회, 지형·흔들림 대응 자율 타격(IMU·깊이 융합)</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(23건)와 <code>REFERENCES.md</code>에.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(25건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 
