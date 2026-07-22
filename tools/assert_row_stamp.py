@@ -189,10 +189,12 @@ def tool_tip(base, i, carriage_i, tool_i):
 
 # ── 주행 + 폐루프 제어 (헤드리스 채점·GUI watch 공용) ────────────────────────
 
-def build_plans():
-    """각 잡초의 이벤트 x(odom 기준) 스케줄 + 완주거리. 정답 좌표 + 인과공개(카메라 통과 시 드러남)."""
+def build_plans(weeds=None):
+    """각 잡초의 이벤트 x(odom 기준) 스케줄 + 완주거리. 정답 좌표 + 인과공개(카메라 통과 시 드러남).
+    weeds=None 이면 모듈 WEEDS(robot_row). 필드(오라클 잡초)는 목록을 넘긴다."""
+    weeds = WEEDS if weeds is None else weeds
     plans = []
-    for wx, wy in WEEDS:
+    for wx, wy in weeds:
         i = weed_tool(wy)
         strike_x = wx - TOOL_XS[i]                     # base_x 가 이 값이면 tip_x = wx
         plans.append({
@@ -203,7 +205,7 @@ def build_plans():
             "retract_x": strike_x + 0.06,              # 지나간 뒤 접기
             "phase": 0,                                # 0 대기 1 정렬 2 하강 3 접힘
         })
-    drive_dist = max(wx - TOOL_XS[weed_tool(wy)] for wx, wy in WEEDS) + 0.30
+    drive_dist = max(wx - TOOL_XS[weed_tool(wy)] for wx, wy in weeds) + 0.30
     return plans, drive_dist
 
 

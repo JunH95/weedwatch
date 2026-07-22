@@ -285,8 +285,15 @@ README 에 그렇게 적을 것. 한국 작물 메시 추가는 나중.
     시차+콩가림이 안 상쇄됨(정직 플래그, stamp_targets 가 미뤄둔 절대좌표). 정밀 타격은 Phase2(오라클
     좌표 <0.15cm)·카메라-상대 제어(4b)가 담당 — 4a 는 인식 다리 검증. `perception/{detect_server,
     assert_percept,calibrate_camera}.py`·`worlds/{robot_percept,robot_calib}.sdf`.
-  - [ ] **Phase 4b: 주행 라이브 온-루프** (CropCraft 정원을 주행 월드에 + assert_row_stamp --live +
-    row-live). 카메라-상대 제어로 정밀 타격 + detect_server 상주(--watch) 스트림.
+  - [~] **Phase 4b: 주행 라이브 온-루프 (진행)**.
+    - [x] **4b-1 사실적 주행 월드**. `worlds/robot_field.sdf`: 사면 사다리꼴 두둑(`make_ridge`, 윗변90·
+      아랫변110·높이25cm, 시각=사면메시/충돌=상자) + 양옆 고랑 + CropCraft 사실적 식물(충돌 제거한
+      `make_garden_field`, 주행 중 잎에 안 부딪힘) + 렌더. 검증: `make field-render` 2게이트 통과,
+      카메라가 두둑 위 실식물을 학습 스케일로 봄(눈 확인), 헤드리스 주행 물리 OK(전진 1.578m·안 빠짐).
+      관람: `make view WORLD=worlds/robot_field.sdf`(정지 실사 밭) / `make watch-field`(주행+스탬핑 재생,
+      오라클 좌표). watch-field 는 센서 플러그인 뺀 임시 월드로 GUI(GLX/EGL 충돌 회피).
+    - [ ] **4b-2 검출 필터링** (best.pt 스트림 → 진짜 잡초 인스턴스, 노이즈 제거).
+    - [ ] **4b-3 카메라-상대 제어 + `make row-live`** (best.pt 검출만으로 무정차 타격 <2cm, 2게이트).
 
 ## 2026-07-20 — 사용자 대화로 계획 정련 (`docs/DECISIONS.md` 013)
 

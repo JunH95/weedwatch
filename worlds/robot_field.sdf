@@ -1,0 +1,71 @@
+<?xml version="1.0" ?>
+<!--
+  실사 주행 월드 (Tier 3 — GPU 렌더링 필요, Stage 4-3 Phase 4b).
+
+  robot_percept(사실적 식물, 정지)와 robot_row(주행+타격, 마커 두둑)를 합친다: 사면 있는 사다리꼴
+  두둑(model://ridge) 위에 CropCraft 사실적 식물(model://oracle_test)을 얹고, 로봇이 두둑을 걸터탄
+  채 +x 로 주행하며 **제 카메라로 진짜 잡초를 보고**(detect_server) 무정차 타격한다. 양옆은 고랑(로봇
+  바퀴가 달리는 낮은 골). 카메라 렌더 필요라 sensors-system(ogre2, EGL) 포함.
+
+  ── 좌표 정합 ──────────────────────────────────────────────────────────────
+  두둑 윗면 z=0.25(사면 메시 + 상자 충돌). CropCraft 식물을 z=0.25 로 올려 얹는다 → 카메라(world
+  z≈0.58)가 식물 위 0.33m(학습 스케일 정합, Phase 3). 식물 y 중심(≈0.43)→두둑 중심(0.6) 로 +0.17.
+  식물은 x 로 자연 분포(0.13~2.82)라 주행하며 훑는다. 잡초 정답 좌표는 models/oracle_test.json + 오프셋.
+
+  실행: make field-render(렌더 2게이트) / make watch-field(GUI 관람) / [Phase4b] make row-live
+-->
+<sdf version="1.9">
+  <world name="robot_field">
+    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+
+    <!-- 자연광 (학습 자연광 HDRI 정합). 그림자 켬. -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows><pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.4 -0.85</direction>
+    </light>
+
+    <!-- 고랑 바닥 (평지, z=0). 바퀴가 여기 달린다. 두둑이 0.25 솟아 양옆이 고랑이 된다. -->
+    <model name="furrow_floor">
+      <static>true</static>
+      <link name="link">
+        <collision name="c">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material><ambient>0.28 0.20 0.13 1</ambient><diffuse>0.46 0.34 0.22 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 사면 있는 사다리꼴 두둑 (tools/make_ridge.py). 시각=사면 메시, 충돌=상자(도구가 윗면서 멈춤). -->
+    <include>
+      <uri>model://ridge</uri>
+      <name>ridge</name>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+
+    <!-- CropCraft 사실적 식물 (콩·옥수수 + target_ 잡초 + clutter). 두둑 윗면(z=0.25)에 얹고 y 중심 정렬.
+         잡초 world = 오라클(x,y) + (0, 0.17). 주행하며 카메라가 이 잡초들을 훑는다. -->
+    <include>
+      <uri>model://garden_field</uri>
+      <name>garden</name>
+      <pose>0 0.17 0.25 0 0 0</pose>
+    </include>
+
+    <!-- 로봇: 두둑 걸터타고 x=0 에서 시작해 +x 주행. 카메라가 두둑 위 식물을 내려다본다. -->
+    <include>
+      <uri>model://weedwatch_robot</uri>
+      <name>weedwatch</name>
+      <pose>0 0.600 0.01 0 0 0</pose>
+    </include>
+  </world>
+</sdf>

@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -34,6 +34,8 @@ help:
 	@echo "make stamp     - Stage4 스탬핑: 두둑 위 잡초에 도구 끝 얹기 |도구-잡초|<2cm 단언 (물리)"
 	@echo "make row       - Stage4-3 무정차 행 스윕: 주행하며 임의(x,y) 잡초 타격 <2cm + 작물무접촉 (물리)"
 	@echo "make watch-row - (데스크톱) make row 를 GUI 창으로 재생 — 주행+스탬핑을 눈으로 봄"
+	@echo "make field-render - Stage4-3 P4b: 사실적 밭(사면두둑+고랑+CropCraft) 카메라 렌더 2게이트 (GPU)"
+	@echo "make watch-field - (데스크톱) 사실적 밭 위 주행+스탬핑을 GUI 로 재생"
 	@echo "make percept-render - Stage4-3 P4a: 로봇 카메라가 CropCraft 사실적 두둑 렌더 2게이트 (GPU)"
 	@echo "make percept   - Stage4-3 P4a: 로봇 카메라 렌더에 best.pt 라이브 추론 → 오라클 대조 검출률 (GPU)"
 	@echo "make overlay   - 인식 결과를 눈으로: 원본|예측+타격점 오버레이 PNG (사람 검증용)"
@@ -150,6 +152,23 @@ percept: clean-sim
 # 픽셀→world 매핑 재캘리브 (detect_server MPP 상수 검증. 색 마커 월드).
 percept-calib: clean-sim
 	@perception/env.sh python perception/calibrate_camera.py
+
+# Stage 4-3 Phase 4b 필드 에셋 (models/ 는 gitignore 산출물 — 재생성). 사면 사다리꼴 두둑 +
+# 충돌 제거한 CropCraft 정원(주행 중 잎에 안 부딪히게). garden_field 는 oracle_test(make cropcraft) 필요.
+models/ridge/model.sdf: tools/make_ridge.py tools/garden_geometry.py
+	@$(ENV) python3 tools/make_ridge.py
+models/garden_field/model.sdf: tools/make_garden_field.py
+	@$(ENV) python3 tools/make_garden_field.py
+
+# Stage 4-3 Phase 4b-1: 사실적 주행 월드(사면 두둑+고랑+CropCraft 식물)에서 로봇 카메라 렌더 2게이트.
+field-render: models/ridge/model.sdf models/garden_field/model.sdf clean-sim
+	@rm -rf artifacts/camera && mkdir -p artifacts/camera
+	@tools/run_headless.sh worlds/robot_field.sdf /robot/camera $(SMOKE_ITERS)
+	@$(ENV) python3 tools/assert_render.py artifacts/camera
+
+# 사람 눈 관람용(데스크톱): 사실적 밭 위를 로봇이 주행하며 스탬핑(오라클 좌표). watch-row 의 실사 버전.
+watch-field: build/ww_cmd models/ridge/model.sdf models/garden_field/model.sdf
+	@scripts/watch_field.sh
 
 # 사람 검증용: held-out 정원에 모델을 돌려 [원본 | 예측+타격점] 오버레이 PNG 생성.
 # 단언이 아니라 눈으로 보는 용도 → artifacts/perception_overlay.png 를 열어 본다.
