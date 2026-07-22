@@ -24,6 +24,9 @@
     <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
     <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
 
+    <!-- 씬 앰비언트(하늘 산란광 근사) — 사면 그림자쪽이 새까맣게 안 되게 필. -->
+    <scene><ambient>0.5 0.5 0.5 1</ambient><background>0.7 0.8 0.9 1</background></scene>
+
     <!-- 자연광 (학습 자연광 HDRI 정합). 그림자 켬. -->
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows><pose>0 0 10 0 0 0</pose>
@@ -41,7 +44,8 @@
         </collision>
         <visual name="v">
           <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
-          <material><ambient>0.28 0.20 0.13 1</ambient><diffuse>0.46 0.34 0.22 1</diffuse></material>
+          <!-- 고랑 흙색을 두둑(dry_mud) 톤에 맞춤 — 밝은 탄색이면 두둑만 어둡게 떠 보인다. -->
+          <material><ambient>0.20 0.15 0.10 1</ambient><diffuse>0.30 0.22 0.15 1</diffuse></material>
         </visual>
       </link>
     </model>

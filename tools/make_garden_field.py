@@ -37,13 +37,16 @@ def main():
     src = SRC.read_text()
     # <collision ...>...</collision> 블록 제거 (여러 줄, 비탐욕)
     stripped = re.sub(r"[ \t]*<collision\b.*?</collision>\s*", "", src, flags=re.DOTALL)
+    n_col = src.count("<collision") - stripped.count("<collision")
+    # ground 링크 통째 제거 — CropCraft 평지 흙(4.8×2.9m)이 z=0.25 에 깔려 사면 두둑을 가린다.
+    # 흙은 이제 model://ridge 가 제공(사면 있는 텍스처 두둑). 식물만 남겨 두둑 위에 얹는다.
+    stripped = re.sub(r'[ \t]*<link name="ground">.*?</link>\s*', "", stripped, flags=re.DOTALL)
     stripped = stripped.replace('name="oracle_test"', 'name="garden_field"')
-    n_removed = src.count("<collision") - stripped.count("<collision")
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "model.sdf").write_text(stripped)
     (OUT / "model.config").write_text(CONFIG)
-    print(f"생성: {OUT}/model.sdf — 충돌 {n_removed}개 제거(시각 전용), 메시는 oracle_test 참조")
-    assert "<collision" not in stripped, "충돌이 남았다"
+    print(f"생성: {OUT}/model.sdf — 충돌 {n_col}개 + ground 링크 제거(식물만, 시각 전용). 메시는 oracle_test 참조")
+    assert "<collision" not in stripped and 'name="ground"' not in stripped, "충돌/ground 가 남았다"
 
 
 if __name__ == "__main__":
