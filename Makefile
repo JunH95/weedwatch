@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -237,6 +237,14 @@ worlds/robot_tilt.sdf: tools/make_tilt_world.py
 	@$(ENV) python3 tools/make_tilt_world.py > worlds/robot_tilt.sdf
 tilt: worlds/robot_tilt.sdf clean-sim
 	@$(ENV) python3 tools/assert_tilt.py
+
+# Stage 5 기울기 보정 스탬핑 A/B (Tier 2 — 물리만). 로봇이 8° 기운 채 잡초를 찍는다:
+# 무보정(수평 가정)이면 도구가 기운 축으로 하강해 옆으로 빗나가고(>2cm), IMU 자세로 보정하면
+# 잡초 위 2cm 안(히트). 제어=IMU(센서, 실물 잔차 얹음), 채점=지상진실 FK. "흔들려도 맞춘다"의 증명.
+worlds/robot_tilt_stamp.sdf: tools/make_tilt_world.py
+	@$(ENV) python3 tools/make_tilt_world.py stamp > worlds/robot_tilt_stamp.sdf
+tilt-stamp: worlds/robot_tilt_stamp.sdf clean-sim
+	@$(ENV) python3 tools/assert_tilt_stamp.py
 
 # 로봇 하방 카메라 검증 (Tier 3 — GPU 렌더링 필요). 카리지에 강체 고정된 카메라가
 # 두둑을 내려다보고 프레임을 발행하는가. smoke 와 같은 2게이트(검지 않음 AND NVIDIA).
