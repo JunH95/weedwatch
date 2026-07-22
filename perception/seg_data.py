@@ -68,14 +68,14 @@ class SegDataset(Dataset):
         return len(self.pairs)
 
     def _aug(self, img: np.ndarray, lbl: np.ndarray):
-        # 기하: 좌우/상하 뒤집기 + 90도 회전 (top-down 이라 회전 대칭이 자연스럽다)
+        # 기하: 좌우/상하 뒤집기만. 90도 회전은 뺐다 — 로봇 down_cam 은 고정 landscape(1280×720,
+        # DECISIONS 021-5 정합)라 portrait 방향을 실제로 보지 않고(비현실적 증강), 게다가 비정사각
+        # 이라 90°/270° 회전이 H/W 를 뒤바꿔 배치 collate 가 깨진다. h·v 플립의 조합이 180°를 이미
+        # 커버하므로 회전 대칭 이득도 유지된다. (정사각 640² 때는 회전이 무해했다.)
         if random.random() < 0.5:
             img, lbl = img[:, ::-1, :], lbl[:, ::-1]
         if random.random() < 0.5:
             img, lbl = img[::-1, :, :], lbl[::-1, :]
-        k = random.randint(0, 3)
-        if k:
-            img, lbl = np.rot90(img, k, (0, 1)), np.rot90(lbl, k, (0, 1))
         # 광도: 밝기 스케일 (자연광 변동을 흉내)
         if random.random() < 0.5:
             img = np.clip(img * random.uniform(0.8, 1.2), 0, 255)
