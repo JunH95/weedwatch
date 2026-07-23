@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row strike-marks watch-strikes percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -145,6 +145,16 @@ row: build/ww_cmd clean-sim
 # 헤드리스 단언이 아니라 "움직이는 걸 눈으로 본다". CLAUDE(에이전트)는 못 씀 — DISPLAY 필요.
 watch-row: build/ww_cmd
 	@scripts/watch_row.sh
+
+# 타격 자국 시각화 (사용자 요청 — 눈으로 확인). 찍은 자리에 자국 원판(초록=명중/빨강=빗나감)을
+# 남기고, 명중한 잡초는 월드에서 지운다. 런타임 create/remove 서비스 + 개별 잡초 모델이라 가능
+# (CropCraft 사실적 밭은 종별 통메시라 개별 제거 불가 — 거기선 자국만).
+# strike-marks = 헤드리스 단언(에이전트), watch-strikes = GUI(사람, 데스크톱 전용).
+strike-marks: build/ww_cmd clean-sim
+	@$(ENV) python3 tools/strike_marks.py
+
+watch-strikes: build/ww_cmd clean-sim
+	@$(ENV) python3 tools/strike_marks.py --gui
 
 # Stage 4-3 Phase 4a 기반: 로봇 카메라가 CropCraft 사실적 두둑(model://oracle_test)을 GPU 렌더하는가.
 # 학습 카메라와 정합(Phase 3)된 위에서만 라이브 인식이 정직하다. 2게이트(검지않음+NVIDIA, assert_render).
