@@ -149,7 +149,6 @@
 
   .diagram{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:1.1rem; margin:1.1rem 0; overflow-x:auto; box-shadow:var(--shadow)}
   .diagram .cap{font-family:var(--mono); font-size:.74rem; color:var(--ink-muted); margin-bottom:.5rem}
-  .diagram pre.mermaid{margin:0; background:transparent; min-width:480px; text-align:center; line-height:1.4}
 
   .divider{display:flex; justify-content:center; padding:2rem 0 0}
   .divider span{width:7px; height:7px; background:var(--accent); border-radius:1px; transform:rotate(45deg)}
@@ -254,8 +253,14 @@
         </table>
       </div>
       <div class="callout open reveal">
-        <span class="lb">정직하게 — 자율 성능은 아직 낮다</span>
-        좌표를 주면 밀리미터로 찍지만, 로봇이 <strong>제 카메라로 직접 보고</strong> 찍으면 재현율 0.25–0.5에 오차 3–5cm다. 이 프로젝트가 실제로 증명하려던 게 바로 이 자율 성능인데, 지금 수치가 낮다. 원인은 빽빽한 겹침 밭에서 위에서 본 잎이 줄기 밑동을 가리는 것, 그리고 검출 노이즈다. <strong>다음에 올릴 곳이 여기다.</strong> 무정차 주행 자체는 잘 되고, 3개 툴이 나뉜 밴드를 맡아 x-근접·y-원거리 최악 배치까지 처리한다(단일 툴로는 불가). 밭 밀도가 높을 때 3개로 처리량이 충분한지는 아직 안 쟀다.
+        <span class="lb">정직하게 — 자율 성능은 아직 낮다, 그리고 원인은 예상과 달랐다</span>
+        좌표를 주면 밀리미터로 찍지만, 로봇이 제 카메라로 보고 찍으면 재현율 0.25~0.5다. 계측해보니 원인이 인식이 아니었다.
+        <div class="kv" style="margin:.5rem 0 .4rem">
+          <dt>검출</dt><dd>표적 12개에 검출 13개 — 충분하다</dd>
+          <dt>실제 타격</dt><dd>8회 중 <strong>7회가 채점 안 되는 잡초</strong>로 갔다</dd>
+          <dt>결론</dt><dd>못 본 게 아니라, 정원이 좌표 없는 잡초를 같이 심어 툴 시간을 먹는다</dd>
+        </div>
+        즉 상당 부분이 로봇 성능이 아니라 <strong>측정 계약의 문제</strong>다. 재현율을 올리기 전에 무엇을 성공으로 셀지부터 고쳐야 한다.
       </div>
     </div>
   </section>
@@ -268,28 +273,45 @@
       <p class="lead col reveal">제어와 채점을 프로세스로 분리한다. 로봇은 오도메트리(바퀴 회전에서 뽑은 위치)로 제어하고, 채점은 시뮬의 지상진실 좌표로만 한다. 제어기가 정답을 물리적으로 못 보게 해서 “명령대로 갔다고 가정” 대신 “실제로 그 위치에 갔나”를 재게 만든다.</p>
 
       <div class="diagram reveal">
-        <div class="cap">구성 — 제어는 odom, 채점은 지상진실(GT). 인식(ML)과 로봇 제어(ROS)는 디스크 파일로 잇는다.</div>
-        <pre class="mermaid">
-flowchart TB
-  subgraph SIM["Gazebo Fortress (헤드리스, GPU 렌더)"]
-    W["robot_field 월드<br/>두둑·고랑·CropCraft 식물"]
-    R["로봇 (URDF, 툴 3개)"]
-    CAMS["down_cam / depth / IMU"]
-  end
-  subgraph CTRL["로봇 제어"]
-    WW["ww_cmd (상주)<br/>제어=odom · 3.6us/명령"]
-    GT["지상진실 구독<br/>(채점 전용)"]
-  end
-  subgraph ML["인식"]
-    DS["detect_server<br/>best.pt · 프레임 폴링"]
-  end
-  CAMS -->|"저장 PNG"| DS
-  DS -->|"검출 좌표 파일"| WW
-  WW -->|"odom_x 파일"| DS
-  WW -->|"/cmd_vel /carriage_i /tool_i"| R
-  R -->|"/odometry /joint_state"| WW
-  R -->|"dynamic_pose"| GT
-        </pre>
+        <div class="cap">제어는 오도메트리, 채점은 지상진실. 둘을 프로세스로 분리해 제어기가 정답을 못 보게 한다.</div>
+        <svg viewBox="0 0 760 250" width="100%" style="max-width:760px;display:block;margin:0 auto" role="img" aria-label="시스템 파이프라인">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+  <style>
+    .bx{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5;rx:8}
+    .hd{font:600 12px var(--mono);fill:var(--accent)}
+    .tx{font:12.5px var(--sans);fill:var(--ink)}
+    .sm{font:11px var(--mono);fill:var(--ink-muted)}
+    .ln{stroke:var(--accent);stroke-width:1.6;fill:none;marker-end:url(#ar)}
+  </style>
+  <rect class="bx" x="8" y="20" width="215" height="120"/>
+  <text class="hd" x="20" y="40">시뮬 · Gazebo Fortress</text>
+  <text class="tx" x="20" y="62">두둑·고랑·CropCraft 식물</text>
+  <text class="tx" x="20" y="82">로봇 (URDF, 툴 3)</text>
+  <text class="sm" x="20" y="104">카메라 2 · 깊이 2 · IMU</text>
+  <text class="sm" x="20" y="124">헤드리스 GPU 렌더</text>
+
+  <rect class="bx" x="272" y="20" width="200" height="80"/>
+  <text class="hd" x="284" y="40">인식</text>
+  <text class="tx" x="284" y="62">detect_server</text>
+  <text class="sm" x="284" y="84">best.pt · 2대 융합</text>
+
+  <rect class="bx" x="521" y="20" width="200" height="80"/>
+  <text class="hd" x="533" y="40">제어</text>
+  <text class="tx" x="533" y="62">ww_cmd (상주)</text>
+  <text class="sm" x="533" y="84">odom 기반 · 3.6us/명령</text>
+
+  <rect class="bx" x="521" y="150" width="200" height="72"/>
+  <text class="hd" x="533" y="170">채점 (분리)</text>
+  <text class="tx" x="533" y="192">지상진실 구독</text>
+  <text class="sm" x="533" y="212">제어기가 못 보게 격리</text>
+
+  <path class="ln" d="M223,60 L268,60"/><text class="sm" x="228" y="52">PNG·깊이</text>
+  <path class="ln" d="M472,60 L517,60"/><text class="sm" x="476" y="52">검출 좌표</text>
+  <path class="ln" d="M621,100 L621,146"/>
+  <path class="ln" d="M521,186 L232,186 L232,144"/><text class="sm" x="300" y="200">dynamic_pose</text>
+  <path class="ln" d="M600,100 L600,120 L115,120 L115,144"/><text class="sm" x="330" y="134">/cmd_vel · /carriage_i · /tool_i</text>
+</svg>
       </div>
 
       <h3 class="reveal">인터페이스 <span class="tag t-ok">검증</span></h3>
@@ -320,16 +342,38 @@ flowchart TB
       <p class="lead col reveal">치수는 <code>garden_geometry.py</code>의 데이터클래스 하나에만 적는다. 로봇 메시 생성기와 URDF·충돌·관성이 전부 그 숫자를 읽어간다. 숫자 하나를 바꾸면 메시와 물리가 같이 움직인다.</p>
 
       <div class="diagram reveal">
-        <div class="cap">관절 구조 — 캐리지 3개가 X로 엇갈려 독립적으로 Y를 훑고, 각자 Z 축으로 도구를 내린다.</div>
-        <pre class="mermaid">
-flowchart TB
-  BASE["차체 (base, 39.5kg)"] --> W1["바퀴 4 (연속회전, diff-drive)"]
-  BASE --> C0["캐리지0 (Y, x=−0.09)"] --> T0["도구0 (Z)"]
-  BASE --> C1["캐리지1 (Y, x=−0.27)"] --> T1["도구1 (Z)"]
-  BASE --> C2["캐리지2 (Y, x=−0.45)"] --> T2["도구2 (Z)"]
-  BASE --> CAM["카메라·깊이 (전방 x=0.22, 정하방)"]
-  BASE --> IMU["IMU (차체 중심)"]
-        </pre>
+        <div class="cap">캐리지 3개가 X로 엇갈려 독립적으로 Y를 훑고, 각자 Z축으로 도구를 내린다.</div>
+        <svg viewBox="0 0 760 230" width="100%" style="max-width:760px;display:block;margin:0 auto" role="img" aria-label="관절 구조">
+  <style>
+    .b2{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5;rx:7}
+    .bb{fill:color-mix(in srgb,var(--accent) 14%,var(--surface-2));stroke:var(--accent);stroke-width:1.5;rx:7}
+    .t2{font:12.5px var(--sans);fill:var(--ink)}
+    .s2{font:10.5px var(--mono);fill:var(--ink-muted)}
+    .l2{stroke:var(--line);stroke-width:1.5;fill:none}
+  </style>
+  <rect class="bb" x="300" y="10" width="160" height="42"/>
+  <text class="t2" x="322" y="30">차체 base_link</text><text class="s2" x="322" y="45">39.5 kg</text>
+
+  <path class="l2" d="M380,52 L380,72 M90,72 L680,72 M90,72 L90,92 M240,72 L240,92 M520,72 L520,92 M680,72 L680,92"/>
+
+  <rect class="b2" x="20" y="92" width="140" height="44"/>
+  <text class="t2" x="34" y="112">바퀴 ×4</text><text class="s2" x="34" y="127">continuous · diff-drive</text>
+
+  <rect class="b2" x="172" y="92" width="270" height="44"/>
+  <text class="t2" x="186" y="112">캐리지 ×3  (prismatic Y, ±15cm)</text>
+  <text class="s2" x="186" y="127">x = −0.09 / −0.27 / −0.45  · X로 엇갈림</text>
+
+  <rect class="b2" x="452" y="92" width="136" height="44"/>
+  <text class="t2" x="466" y="112">카메라 ×2</text><text class="s2" x="466" y="127">RGB+깊이 · y=±0.225</text>
+
+  <rect class="b2" x="600" y="92" width="140" height="44"/>
+  <text class="t2" x="614" y="112">IMU</text><text class="s2" x="614" y="127">차체 중심</text>
+
+  <path class="l2" d="M307,136 L307,158"/>
+  <rect class="b2" x="172" y="158" width="270" height="44"/>
+  <text class="t2" x="186" y="178">도구 ×3  (prismatic Z, 행정 35cm)</text>
+  <text class="s2" x="186" y="193">Ø12mm 점 타격 막대 · 두둑 위에서 정지</text>
+</svg>
       </div>
 
       <div class="grid g2 reveal">
@@ -383,11 +427,16 @@ flowchart TB
       </div>
       <div class="callout reveal">
         <span class="lb">눈이 닿는 곳까지만 칠 수 있다 — 카메라가 두 대인 이유</span>
-        카메라 한 대를 두둑 위 0.33m에 정하방으로 달면 가로로 0.585m를 본다. 그런데 도구는 두둑 폭 0.90m 전체에 닿는다. 차이인 35%(양쪽 각 15.8cm)는 도구가 닿지만 눈이 닿지 않는 땅이었고, 주행은 진행 방향만 메우므로 이 폭 방향 공백은 영원히 안 채워진다. 아무리 좋은 검출기를 써도 재현율이 0.65를 못 넘는 구조였다는 뜻이다. 카메라를 한 대 더 달아(y=±0.225, 가운데 0.135m 겹침) 전폭을 덮었다. 한 대로 덮으려면 두둑 위 0.474m가 필요한데 빔이 0.60m라 물리적으로 불가능하다. 이건 시뮬레이션으로는 영영 안 잡힌다 — 안 보이는 잡초는 시뮬에서도 안 보여서 통과처럼 보인다. 산수로만 잡히고, 그래서 산수로 단언한다.
+        <div class="kv" style="margin:.5rem 0 .6rem">
+          <dt>카메라 한 대가 보는 폭</dt><dd>0.585 m</dd>
+          <dt>도구가 닿는 두둑 폭</dt><dd>0.90 m</dd>
+          <dt>차이</dt><dd><strong>35%가 사각</strong> — 검출기가 아무리 좋아도 재현율 상한 0.65</dd>
+        </div>
+        주행은 진행 방향만 메우므로 폭 방향 공백은 영영 안 채워진다. 한 대로 덮으려면 두둑 위 0.474m가 필요한데 빔이 0.60m라 불가능하다. 그래서 두 대(y=±0.225, 가운데 0.135m 겹침)로 전폭을 덮었다. 시뮬레이션으로는 영영 안 잡히는 종류다 — 안 보이는 잡초는 시뮬에서도 안 보여서 통과처럼 보인다. 산수로만 잡히고, 그래서 산수로 단언한다.
       </div>
       <div class="callout open reveal">
-        <span class="lb">다만, 지금 쓰는 밭에서는 이게 병목이 아니었다</span>
-        고친 뒤 자율 주행을 다시 돌렸더니 재현율이 0.25로 그대로였다. 재보니 이 밭의 주행 구간 잡초 15개가 전부 두둑 중심에서 22.5cm 안에 있었다. 카메라 한 대의 반폭(29cm)에 이미 다 들어가 있었으므로, 두 번째 카메라가 새로 본 잡초는 하나도 없었다. 위의 산수는 여전히 맞고 두둑 전폭에 잡초가 퍼진 밭에서는 실제로 병목이 되지만, 지금 정원 생성기는 두둑 폭의 절반에만 잡초를 심는다. 그러니 이 밭의 낮은 재현율은 다른 데서 온다. 검출은 충분했고(표적 12개에 검출 13개), 못 맞힌 표적들은 도구가 9~42cm 떨어져 지나갔다. 즉 못 본 게 아니라 <strong>보고도 도구를 갖다 대지 못한 것</strong>이다. 다음은 그 사슬을 계측한다. 구조적 상한을 산수로 찾는 것과, 그게 지금 보이는 숫자의 원인인지는 별개다 — 원인 귀속도 재봐야 한다.
+        <span class="lb">다만 지금 쓰는 밭에서는 이게 병목이 아니었다</span>
+        고치고 다시 재보니 재현율이 그대로였다. 이 밭의 잡초 15개가 전부 두둑 중심 22.5cm 안에 있어서, 두 번째 카메라가 새로 본 잡초가 하나도 없었다. 위 산수는 여전히 맞지만 이 정원에는 해당되지 않는다. <strong>구조적 상한을 찾는 것과, 그게 지금 보이는 숫자의 원인인지는 별개다.</strong>
       </div>
       <div class="callout reveal">
         <span class="lb">게이트는 희소 표적을 직접 겨눈다</span>
@@ -418,16 +467,39 @@ flowchart TB
         <div class="card"><div class="n">make row-live</div><h4>카메라로 직접 보면 (완전 자율) <span class="tag t-ok">검증</span> <span class="tag t-open">성능 개선 예정</span></h4><p class="muted" style="margin:0">정답 좌표 없이 로봇이 제 카메라로 본 것만으로 주행하며 찍는다. 재현율 0.25–0.5, 오차 중앙 3–5cm, 작물 물리 무접촉. 작물에 너무 가까운 잡초는 건드리지 않고 넘긴다.</p></div>
       </div>
       <div class="callout reveal">
-        <span class="lb">큰 잡초·작물 근처 잡초는 사람에게 넘긴다</span>
-        점 타격이 잡을 수 있는 건 <strong>본잎 두 장까지의 모종</strong>뿐이다. 원 기구 논문(Langsenkamp 2014)이 그 범위를 명시한다. 죽는 원리가 뿌리를 뽑는 게 아니라 생장점을 흙에 묻어 광합성을 막는 것이라, 저장양분이 생기기 전에만 통한다. 그 이후로는 어떤 기계 제초도 잘 듣지 않는다(레이저 치사량은 떡잎에서 4엽 사이에 약 1000배 오른다). 분야 전체의 한계이지 우리 한계가 아니다. 로봇은 잡초를 세 갈래로 나눈다. 자율 처리(찍는다), 사람에게 넘김(위치·사진 기록), 놓침(탐지 실패, 유일한 진짜 실패). 로봇은 항상 있지만 약하고, 사람은 강하지만 주말에만 온다. 이 상보성이 주말농장에 맞는다.
+        <span class="lb">칠 수 있는 건 본잎 두 장까지의 모종뿐이다</span>
+        원 기구 논문(Langsenkamp 2014)이 그 범위를 명시한다. 죽는 원리가 뿌리를 뽑는 게 아니라 생장점을 흙에 묻는 것이라, 저장양분이 생기기 전에만 통한다. 그 뒤로는 어떤 기계 제초도 잘 듣지 않는다 — 레이저 치사량도 떡잎에서 4엽 사이에 약 1000배 오른다. 분야 전체의 한계이지 우리 한계가 아니다.
+      </div>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>그래서 잡초를 세 갈래로 나눈다 — 로봇은 항상 있지만 약하고, 사람은 강하지만 주말에만 온다</caption>
+          <thead><tr><th>갈래</th><th>동작</th><th>판정</th></tr></thead>
+          <tbody>
+            <tr><td>자율 처리</td><td>찍는다</td><td>성공</td></tr>
+            <tr><td>사람에게 넘김</td><td>위치·사진을 기록해 주말에 넘긴다</td><td>성공 (실패가 아니다)</td></tr>
+            <tr><td>놓침</td><td>탐지 실패</td><td><strong>유일한 진짜 실패</strong></td></tr>
+          </tbody>
+        </table>
       </div>
       <div class="callout reveal">
         <span class="lb">왜 호미가 아니고, 왜 레이저도 전기도 아닌가</span>
-        솔직히 적자면 처음에 점 타격을 고른 이유에는 “강체라 시뮬하기 쉽다”가 섞여 있었다. 그건 약한 이유였고, 실제로도 틀렸다. 우리는 어떤 방식이든 잡초가 죽는 것 자체는 시뮬하지 않고 문헌으로 인용하므로, 호미질도 “날이 잡초 자리를 쓸고 지나갔나”로 똑같이 시뮬할 수 있다. 진짜 이유는 따로 있다. 호미는 흙을 쓸어 교란하고, 교란된 흙에서는 묻혀 있던 씨앗이 빛을 받아 발아가 70~400% 늘어난다. 잡초를 없애면서 다음 세대를 깨우는 셈이다. 반면 지름 11~12mm짜리 점은 흙을 거의 건드리지 않고, 그래서 작물이 빽빽한 이랑 사이에서도 쓸 수 있다. 원 기구 논문이 개발 동기로 든 것이 정확히 그것이다. 당근처럼 빽빽한 작물에는 개체별 제초 수단이 아예 없었다. 레이저와 전기는 열등해서 뺀 게 아니라 규모가 다르다. 레이저 제초기는 상용이지만 한 대에 50만 달러이고 크고 평평한 밭이라야 수지가 맞는다. 우리 부품값은 3천 달러 남짓이고, 평균 65W로 도는 태양광 로봇에 수백 W짜리 레이저를 얹을 수 없다. 텃밭에서의 눈 안전과 젖은 흙에서의 고전압도 마찬가지 이유로 걸린다.
+        호미는 흙을 쓴다. 교란된 흙에서는 묻혀 있던 씨앗이 빛을 받아 발아가 70~400% 늘어난다. 잡초를 없애면서 다음 세대를 깨우는 셈이다. 지름 12mm짜리 점은 흙을 거의 건드리지 않고, 그래서 작물이 빽빽한 이랑 사이에서도 쓸 수 있다.
+      </div>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>제거 방식 비교 — 열등해서가 아니라 규모가 안 맞아 뺀 것들</caption>
+          <thead><tr><th>방식</th><th>쓰는 곳</th><th>우리에게 안 맞는 이유</th></tr></thead>
+          <tbody>
+            <tr><td><strong>점 타격</strong> (채택)</td><td>Andela ARW-912 수직 탐침</td><td>—</td></tr>
+            <tr><td>호미날 스윕</td><td>Aigen · Farming Revolution</td><td>흙 교란이 새 발아를 부르고, 빽빽한 이랑에서 작물을 상한다</td></tr>
+            <tr><td>레이저</td><td>Carbon Robotics</td><td>한 대 <span class="val">$500k</span>. 우리 부품값은 $2,900, 평균 65W</td></tr>
+            <tr><td>전기</td><td>RootWave (과수원)</td><td>젖은 텃밭 고전압 · 트랙터 규모</td></tr>
+          </tbody>
+        </table>
       </div>
       <div class="callout reveal">
-        <span class="lb">다음: 흔들리면 보는 것과 찍는 것이 같이 밀린다</span>
-        깊이·IMU 센서는 이미 로봇에 달려 발행되지만, 지금 자율 루프는 RGB 한 장만 쓴다. 게다가 로봇은 평평한 바닥을 달려 몸이 수평을 유지한다. 밭에 요철을 넣어 실제로 기울게 하면, 카메라 직하점은 두둑 위 0.33m에서 기울기 3도에 약 1.7cm, 도구 팁은 매달린 팔 길이만큼 그 이상 밀린다 — 허용오차 2cm를 넘는다. 그래서 다음 스테이지에서 IMU 자세와 깊이를 픽셀→월드 역투영과 도구 정기구학 양쪽에, 그리고 프레임 시각과 타격 시각 각각에서 처음으로 융합한다. 보정을 켠 것과 끈 것을 같은 시드에서 비교해, 켜면 허용오차 안·끄면 초과임을 지상진실로 단언한다.
+        <span class="lb">흔들리면 보는 것과 찍는 것이 같이 밀린다</span>
+        몸이 기울면 카메라가 내려다보는 지점과 도구 끝이 함께 밀린다. 두둑 위 0.33m에서 3도만 기울어도 1.7cm, 도구는 매달린 팔 길이만큼 더. 허용오차가 2cm이니 그냥 넘길 수 없다. 그래서 IMU 자세를 픽셀→월드 변환과 도구 기구학 양쪽에 넣는다. 결과는 아래 로드맵의 Stage 5 표에.
       </div>
     </div>
   </section>
@@ -463,16 +535,44 @@ flowchart TB
         <div class="node done"><div class="lab">Stage 2 · 로봇 몸체 <span class="st">대부분 완료</span></div><div class="muted">파라메트릭 생성 → URDF. 주행·관절 mm 정밀·걸터타기·카메라 전부 단언 통과.</div></div>
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
-        <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">착수</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 한다. 그러면 보는 것(카메라 직하점)과 찍는 것(도구 팁)이 각도 몇 도에 cm씩 밀리는데, IMU 자세와 깊이를 융합해 그만큼 되짚어 보정한다. Tier 1 준정적 기울기(사면 충돌) → Tier 2 동적 요철(고랑 흙덩이). 센서엔 실측 노이즈를 넣고, 보정 켠 것과 끈 것을 같은 시드에서 A/B로 단언한다. 첫 단추(로봇이 크로스슬로프에서 5° 기울고 IMU가 그 기울기를 정확히 읽는가, 그리고 물리가 안 터지는가)는 <code>make tilt</code>로 확인했고, 그 위에서 8° 기운 채 IMU 보정으로 잡초 위에 서는 것(무보정이면 4.3cm 빗나가는 걸 보정이 0.1cm로, 실물 IMU 잔차까지 견디며)을 <code>make tilt-stamp</code>로 단언했다. 동적 단계로 넘어가 <code>make shake</code>로 절차적 흙덩이 밭을 주행하며 5.8° 흔들려도 물리가 안 터지고(DART 안정) IMU가 그 시변 자세를 0.01°로 추적함을 확인했다. 그다음 경사와 흙덩이를 합쳐 주행 타격을 재보니, 예상과 다른 것이 나왔다. 타격 오차가 44cm에서 181cm까지 거리에 비례해 커졌는데, 원인은 기울기가 아니라 <strong>바퀴 미끄러짐</strong>이었다. 로봇은 실제로 0.84m를 갔는데 오도메트리는 2.6m를 갔다고 보고했다. 경사와 요철이 겹치면 견인이 무너지고, 그러면 몸이 어디 있는지부터 틀린다. 도구를 센티미터로 보정하는 일은 그 뒤의 문제다. 그래서 다음은 위치추정이다.</div></div>
-        <div class="node now"><div class="lab">자율 재현율 올리기 <span class="st">진행</span><span class="badge">현재</span></div><div class="muted">카메라가 두둑 폭의 65%만 보던 구조적 상한(0.65)은 카메라 두 대로 없앴고, 인식 융합까지 붙였다. 프레임률을 15Hz에서 5Hz로 내려 카메라를 두 배로 늘리고도 시뮬이 예전보다 1.7배 빨라졌다. 다만 지금 정원은 두둑 폭 절반에만 잡초를 심어 그 이득이 드러나지 않았고, 재현율 0.25의 실제 원인은 <strong>보고도 도구를 갖다 대지 못하는 것</strong>이었다. 다음은 검출에서 타격까지의 사슬을 계측한다. 그 뒤 현실적 밭 배치, 깊이로 잡초 키 시차 보정.</div></div>
+        <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">진행 중</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 하고, IMU로 그만큼 되짚어 보정한다. 아래 표가 현재까지의 결과다.</div></div>
+        <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">원인 재귀속됨</span></div><div class="muted">카메라 커버리지도 깊이 시차도 원인이 아니었다. 실제 원인은 정원이 좌표 없는 잡초를 같이 심어 툴 시간을 먹는 것 — 측정 계약부터 고친다.</div></div>
         <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 보스트로페돈(지그재그) 커버리지 경로(Nav2 RPP 컨트롤러 · 강화학습 아님). 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
         <div class="node plan"><div class="lab">바퀴 접촉 모델 · 지형 하이트필드 <span class="st">부채</span></div><div class="muted">지금 바퀴는 보기에만 러그가 있고 물리에는 마찰 설정이 하나도 없다. 충돌 형상을 단순하게 두는 것은 표준이지만, 그 대가는 마찰과 슬립 파라미터로 갚아야 하는데 그걸 안 했다. 그래서 경사에서 잰 미끄러짐 수치를 믿을 수 없다. 마찰 방향과 슬립 모델을 문헌 값으로 넣고, 흙덩이 상자를 연속 지형으로 바꾼다.</div></div>
         <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
         <div class="node plan"><div class="lab">대시보드 <span class="st">설계됨</span></div><div class="muted">로봇이 처리·보고를 SQLite에 기록 → 정적 HTML 리포트(“이번 주말 뽑을 것” 목록, 처리한 잡초, 키 넘은 작물).</div></div>
       </div>
+      <h3 class="reveal">Stage 5 진행 — 무엇이 통과했고 어디서 막혔나</h3>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>전부 명령 한 줄로 재현된다. 수치는 실측.</caption>
+          <thead><tr><th>단계</th><th>명령</th><th>결과</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td>기울기·IMU 물리 기반</td><td><code>make tilt</code></td><td>지상진실 5.00° = IMU 5.00°, 물리 안정</td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>기운 채 보정 타격</td><td><code>make tilt-stamp</code></td><td>무보정 <span class="val">4.26cm</span> 빗나감 → 보정 <span class="val">0.10cm</span> 명중</td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>동적 요철 주행</td><td><code>make shake</code></td><td>2.46m 완주 · 5.8° 흔들림 · IMU가 0.01°로 추적</td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>경사+요철 주행 타격</td><td><code>make strike-terrain</code></td><td>오차 44→181cm. 원인은 기울기가 아니라 <strong>바퀴 미끄러짐</strong></td><td><span class="tag t-open">막힘</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout open reveal">
+        <span class="lb">막힌 지점 — 경사와 요철이 겹치면 바퀴가 밀린다</span>
+        <div class="kv" style="margin:.5rem 0 .6rem">
+          <dt>실제 이동</dt><dd>0.844 m</dd>
+          <dt>오도메트리 보고</dt><dd>2.6 m</dd>
+          <dt>차이</dt><dd><strong>1.8 m 미끄러짐</strong> · yaw 5.3° 틀어짐</dd>
+        </div>
+        제어는 바퀴 회전으로 위치를 재고 채점은 지상진실로 하니, 이 차이가 그대로 타격 오차가 된다. 몸이 1m 틀린 자리에 있는데 도구를 센티미터로 보정하는 일은 의미가 없다. 그래서 다음은 위치추정이다.
+      </div>
       <div class="callout reveal">
         <span class="lb">자율주행은 왜 강화학습이 아닌가</span>
-        경로는 보스트로페돈(밭을 지그재그로 왕복) 약 50줄과 Nav2 RPP 컨트롤러로 충분하다. 5×5m 두둑에 MPPI나 학습 정책은 과잉이고, 무엇보다 이 프로젝트는 모든 걸 결정적으로 명령줄에서 단언하는데 확률적 정책은 단언이 어렵다. 위치추정은 사다리로 올린다. L0 지상진실(기준선) → L1 휠 엔코더 오도메트리 → L2 +IMU/EKF → L3 두둑 네 귀퉁이 AprilTag 말뚝. “고랑이 곧 레일”이라 X 위치추정은 기하에서 거의 공짜다. 앞에서 보고 뒤에서 찍는다 — 시각 서보는 안 한다(마지막 20cm는 데드레커닝 1–2mm).
+        경로는 지그재그 왕복 약 50줄과 Nav2 기본 컨트롤러로 충분하다. 5×5m 텃밭에 학습 정책은 과잉이고, 무엇보다 이 프로젝트는 모든 걸 결정적으로 단언하는데 확률적 정책은 단언이 어렵다. 위치추정은 사다리로 올린다.
+        <ul class="clean" style="margin:.5rem 0 0">
+          <li><b>L0</b> 지상진실 — 기준선(치팅, 비교용)</li>
+          <li><b>L1</b> 휠 엔코더 오도메트리 — <span class="tag t-open">경사+요철에서 무너짐</span></li>
+          <li><b>L2</b> 시각 오도메트리 — 하방 카메라로 지면 이동을 직접 잰다 <span class="tag t-plan">다음</span></li>
+          <li><b>L3</b> 두둑 네 귀퉁이 AprilTag 말뚝 — 절대 기준</li>
+        </ul>
       </div>
       <div class="callout reveal">
         <span class="lb">Stage 5에서 미리 짚어 둔 기술 리스크</span>
