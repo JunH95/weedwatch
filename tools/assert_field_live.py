@@ -129,6 +129,7 @@ def parse_gt_series():
 
 
 def run():
+    funnel = {"밭 밖(툴 도달 밖)": 0, "늦은 공개(하강시점 지남)": 0, "큐잉됨": 0}
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     time.sleep(0.5)
     for _d in CAMDIRS:
@@ -184,6 +185,11 @@ def run():
         pool = {i: [] for i in range(N)}      # 툴별 잡초 plan 리스트
         seen = set()                          # dedup 격자 키
         active = [None] * N                    # 툴별 현재 처리 잡초
+        # ── 계측(DECISIONS 026 후속): 검출이 타격까지 가는 깔때기에서 어디서 새는지 센다.
+        # "검출은 충분한데 8cm 안 타격은 3/12" 의 원인을 추측이 아니라 수치로 귀속하기 위해.
+        late_by: list[float] = []              # 늦은 공개가 얼마나 늦었나 [m]
+        all_p: list[dict] = []                 # 큐잉된 전 항목(최종 phase 로 운명 추적)
+        # 최종 phase 의 뜻: 0=착수도 못 함(툴 점유로 시점 놓침) · 1=캐리지만 정렬 · 2=하강함 · 3=완료
         ww.send(f"v {V:.3f} 0")
         # 카메라 렌더+best.pt GPU 경합으로 sim 이 ~0.1x. 벽시계 데드라인 크게 + sim-end 는 **sim-time
         # (odom O[0]) 정지**로 판정(로봇 출발 전 오검출 방지 — ox 정지가 아니라 sim 이 안 도는 걸 봄).
@@ -203,19 +209,25 @@ def run():
                 break
 
             for wx, wy, _a in read_dets():
+                key = (round(wx / DEDUP), round(wy / DEDUP))
+                if key in seen:
+                    continue
                 if abs(wy - BASE_Y) > 0.45:
+                    seen.add(key); funnel["밭 밖(툴 도달 밖)"] += 1
                     continue
                 i = weed_tool(wy)
                 strike_x = wx - TOOL_XS[i]
                 if ox >= strike_x - V * Z_SETTLE:       # 이미 하강 시점 지남 → 못 잡음
-                    continue
-                key = (round(wx / DEDUP), round(wy / DEDUP))
-                if key in seen:
+                    seen.add(key); funnel["늦은 공개(하강시점 지남)"] += 1
+                    late_by.append(ox - (strike_x - V * Z_SETTLE))
                     continue
                 seen.add(key)
-                pool[i].append({"wx": wx, "wy": wy, "i": i, "strike_x": strike_x,
-                                "descend_x": strike_x - V * Z_SETTLE, "retract_x": strike_x + 0.06,
-                                "phase": 0})
+                p = {"wx": wx, "wy": wy, "i": i, "strike_x": strike_x,
+                     "descend_x": strike_x - V * Z_SETTLE, "retract_x": strike_x + 0.06,
+                     "phase": 0}
+                pool[i].append(p)
+                all_p.append(p)
+                funnel["큐잉됨"] += 1
 
             for i in range(N):
                 if active[i] is None:
@@ -246,6 +258,14 @@ def run():
         joints = list(ww.joints)
         odom_final = ww.odom
         n_detected = len(seen)
+        # 큐잉된 항목의 최종 운명 집계 (phase: 0 착수못함 · 1 정렬만 · 2 하강 · 3 완료)
+        funnel["착수 못 함(툴 점유)"] = sum(1 for p in all_p if p["phase"] == 0)
+        funnel["정렬만 하고 못 내림"] = sum(1 for p in all_p if p["phase"] == 1)
+        funnel["하강함(타격 시도)"] = sum(1 for p in all_p if p["phase"] >= 2)
+        funnel["_late_by"] = late_by
+        funnel["_per_band"] = [sum(1 for p in all_p if p["i"] == i) for i in range(N)]
+        funnel["_struck"] = [(p["wx"], p["wy"], p["i"]) for p in all_p if p["phase"] >= 2]
+        funnel["_queued"] = [(p["wx"], p["wy"], p["i"], p["phase"]) for p in all_p]
     finally:
         if det is not None:
             stop(det)
@@ -266,12 +286,12 @@ def run():
         except subprocess.TimeoutExpired:
             os.killpg(os.getpgid(sim.pid), signal.SIGKILL)
         log.close()
-    return joints, odom_final, completed, n_detected
+    return joints, odom_final, completed, n_detected, funnel
 
 
 def main():
     print("=== 주행 라이브 온-루프 단언 (카메라만으로 주행 타격, GPU) ===\n")
-    joints, odom_final, completed, n_detected = run()
+    joints, odom_final, completed, n_detected, funnel = run()
     gt = parse_gt_series()
     weeds, crops = oracle_targets()
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
@@ -310,6 +330,30 @@ def main():
         return best
 
     print(f"\n카메라 검출 잡초(dedup): {n_detected}개 · 주행 구간 오라클 target: {len(inrange)}개")
+
+    # ── 계측: 검출 → 타격 깔때기 (어디서 새는가) ────────────────────────────
+    print("\n[계측] 검출이 타격까지 가는 길에서 어디서 새나")
+    for k in ("밭 밖(툴 도달 밖)", "늦은 공개(하강시점 지남)", "큐잉됨",
+              "착수 못 함(툴 점유)", "정렬만 하고 못 내림", "하강함(타격 시도)"):
+        if k in funnel:
+            print(f"    {k:<22}: {funnel[k]}")
+    lb = funnel.get("_late_by") or []
+    if lb:
+        lb = sorted(lb)
+        print(f"    └ 늦은 공개는 평균 {sum(lb)/len(lb)*100:.1f}cm · 최대 {lb[-1]*100:.1f}cm 늦었다")
+    # 툴 시간이 어디로 갔나 — 큐잉/타격이 오라클 표적인가 clutter 잡초(진짜 잡초지만 미채점)인가
+    q = funnel.get("_queued") or []
+    if q:
+        def is_target(wx, wy):
+            return any(math.hypot(wx - tx, wy - ty) <= TOL_XY for tx, ty in inrange)
+        qt = sum(1 for wx, wy, _i, _ph in q if is_target(wx, wy))
+        st = sum(1 for wx, wy, _i, ph in q if ph >= 2 and is_target(wx, wy))
+        sc = sum(1 for wx, wy, _i, ph in q if ph >= 2 and not is_target(wx, wy))
+        print(f"    큐잉 {len(q)}개 중 오라클 표적 {qt}개 · clutter(미채점 잡초) {len(q)-qt}개")
+        print(f"    실제 하강 {st+sc}회 중 표적 {st}회 · clutter {sc}회  ← 툴 시간이 어디로 갔나")
+    pb = funnel.get("_per_band")
+    if pb:
+        print(f"    툴별 큐잉 부하: {pb}  (툴은 자기 밴드 ±{ (0.90/(2*N))*100:.0f}cm 에 갇혀 서로 못 돕는다)")
     detected = 0
     errors = []
     for tx, ty in inrange:
