@@ -219,7 +219,7 @@
 
       <div class="grid g3 reveal" style="margin-top:1.6rem">
         <div class="card"><div class="n">형태</div><h4>포탈형 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">두둑 하나를 걸터타고 양쪽 고랑을 달린다. 바퀴는 고랑, 도구는 두둑 위. 잡초 위에 물리적으로 설 수 있는 유일한 형태다.</p></div>
-        <div class="card"><div class="n">제거</div><h4>점 타격 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">수직 막대로 잡초를 찍어 누른다. 강체 물리라 시뮬로 정직하게 다룰 수 있다(연성체 자르기는 시뮬 불가).</p></div>
+        <div class="card"><div class="n">제거</div><h4>점 타격 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">지름 12mm 막대로 잡초를 흙 속으로 눌러 묻는다. 호미처럼 흙을 쓸지 않는 것이 핵심이다. 흙을 교란하면 묻혀 있던 씨앗이 빛을 받아 발아가 70~400% 늘어난다. 점으로 누르면 그걸 안 깨우고, 작물 바로 옆에서도 쓸 수 있다.</p></div>
         <div class="card"><div class="n">인식</div><h4>4클래스 분할 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">흙·콩·옥수수·잡초를 픽셀 단위로 가른다. 키 규칙이 아니라 학습된 의미분할(<code>best.pt</code>).</p></div>
       </div>
 
@@ -419,7 +419,11 @@ flowchart TB
       </div>
       <div class="callout reveal">
         <span class="lb">큰 잡초·작물 근처 잡초는 사람에게 넘긴다</span>
-        점 타격이 잡을 수 있는 건 어리고 작은 잡초뿐이다(분야 전체의 한계). 로봇은 잡초를 세 갈래로 나눈다. 자율 처리(찍는다), 사람에게 넘김(위치·사진 기록), 놓침(탐지 실패, 유일한 진짜 실패). 로봇은 항상 있지만 약하고, 사람은 강하지만 주말에만 온다. 이 상보성이 주말농장에 맞는다.
+        점 타격이 잡을 수 있는 건 <strong>본잎 두 장까지의 모종</strong>뿐이다. 원 기구 논문(Langsenkamp 2014)이 그 범위를 명시한다. 죽는 원리가 뿌리를 뽑는 게 아니라 생장점을 흙에 묻어 광합성을 막는 것이라, 저장양분이 생기기 전에만 통한다. 그 이후로는 어떤 기계 제초도 잘 듣지 않는다(레이저 치사량은 떡잎에서 4엽 사이에 약 1000배 오른다). 분야 전체의 한계이지 우리 한계가 아니다. 로봇은 잡초를 세 갈래로 나눈다. 자율 처리(찍는다), 사람에게 넘김(위치·사진 기록), 놓침(탐지 실패, 유일한 진짜 실패). 로봇은 항상 있지만 약하고, 사람은 강하지만 주말에만 온다. 이 상보성이 주말농장에 맞는다.
+      </div>
+      <div class="callout reveal">
+        <span class="lb">왜 호미가 아니고, 왜 레이저도 전기도 아닌가</span>
+        솔직히 적자면 처음에 점 타격을 고른 이유에는 “강체라 시뮬하기 쉽다”가 섞여 있었다. 그건 약한 이유였고, 실제로도 틀렸다. 우리는 어떤 방식이든 잡초가 죽는 것 자체는 시뮬하지 않고 문헌으로 인용하므로, 호미질도 “날이 잡초 자리를 쓸고 지나갔나”로 똑같이 시뮬할 수 있다. 진짜 이유는 따로 있다. 호미는 흙을 쓸어 교란하고, 교란된 흙에서는 묻혀 있던 씨앗이 빛을 받아 발아가 70~400% 늘어난다. 잡초를 없애면서 다음 세대를 깨우는 셈이다. 반면 지름 11~12mm짜리 점은 흙을 거의 건드리지 않고, 그래서 작물이 빽빽한 이랑 사이에서도 쓸 수 있다. 원 기구 논문이 개발 동기로 든 것이 정확히 그것이다. 당근처럼 빽빽한 작물에는 개체별 제초 수단이 아예 없었다. 레이저와 전기는 열등해서 뺀 게 아니라 규모가 다르다. 레이저 제초기는 상용이지만 한 대에 50만 달러이고 크고 평평한 밭이라야 수지가 맞는다. 우리 부품값은 3천 달러 남짓이고, 평균 65W로 도는 태양광 로봇에 수백 W짜리 레이저를 얹을 수 없다. 텃밭에서의 눈 안전과 젖은 흙에서의 고전압도 마찬가지 이유로 걸린다.
       </div>
       <div class="callout reveal">
         <span class="lb">다음: 흔들리면 보는 것과 찍는 것이 같이 밀린다</span>
@@ -525,7 +529,7 @@ flowchart TB
           <caption>실물에서만 메워지는 간극 (DESIGN §7, 9개 중 발췌)</caption>
           <thead><tr><th>간극</th><th>왜 시뮬 불가</th><th>실물에서 메우는 법</th></tr></thead>
           <tbody>
-            <tr><td>잡초가 죽는가</td><td>연성체 물리 없음</td><td>문헌 인용 (3cm 깊이면 사멸)</td></tr>
+            <tr><td>잡초가 죽는가</td><td>연성체 물리 없음</td><td>문헌 인용 (Langsenkamp 2014: 본잎 2장까지 유효)</td></tr>
             <tr><td>흙 관입력</td><td>강체만 다룸</td><td>로드셀 실측 (170–340N)</td></tr>
             <tr><td>실사진 판별</td><td>맞는 실데이터 없음</td><td>top-down 실촬영 확보</td></tr>
             <tr><td>옥외 조명·젖은 잎</td><td>렌더와 실촬영의 간극</td><td>도메인 랜덤화 + 소량 실사진</td></tr>
@@ -579,10 +583,11 @@ flowchart TB
             <tr><td class="val">019–021</td><td>정밀 타격, 무정차 멀티툴, 3툴 X엇갈림</td></tr>
             <tr><td class="val">022–023</td><td>정적/주행 라이브 인식 = 카메라만으로 자율 타격</td></tr>
             <tr><td class="val">024–025</td><td>정책 비교 철회, 지형·흔들림 대응 자율 타격(IMU·깊이 융합)</td></tr>
+            <tr><td class="val">026–027</td><td>카메라 2대(한 대는 두둑의 65%만 봄), 점 타격 근거 정정(흙 교란·선택성, 본잎 2장까지)</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(25건)와 <code>REFERENCES.md</code>에.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(27건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 

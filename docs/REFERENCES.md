@@ -74,6 +74,27 @@
 
 ---
 
+## 제거 방식: 점 타격(튜브 스탬프)의 근거 — DECISIONS 002·007·009·027
+
+- **[Tube Stamp for mechanical intra-row individual Plant Weed Control — Langsenkamp et al., CIGR 2014 (오스나브뤼크 응용과학대)](https://www.hs-osnabrueck.de/fileadmin/HSOS/Homepages/COALA/Veroeffentlichungen/2014-CIGR_2014_Tube_Stamp_for_mechanical_intra-row_individual_Plant_Weed_Control.pdf)**
+  — BoniRob 스탬프의 **원 기구 논문**. 스탬프 지름 **11mm**, 흙 속 **약 47mm 관입**, 70W BLDC.
+  효과 범위 **"BBCH 12 까지는 남는 식생이 없거나 극히 적다"**(= 본잎 2장까지). 개발 동기: *"당근처럼
+  빽빽한 줄작물은 작물 손상 위험 때문에 개체별 제초 방법이 아예 없었다."* 결정적 장점으로 **"흙에
+  절단면을 내지 않고 넓은 흙 교란도 없다 — 그런 교란은 새 잡초 발아를 자극한다"** 를 명시.
+  → 점 타격을 고르는 **진짜 근거**(시뮬 편의가 아니라 흙 교란 회피 + 11mm 선택성). *(high)*
+  · [Semantic Scholar](https://www.semanticscholar.org/paper/Tube-Stamp-for-mechanical-intra-row-individual-Weed-Langsenkamp-Sellmann/7a4ffc5f151d4697c52abe78f51e003212ca9bbd)
+- **[Farm Robot Learns What Weeds Look Like, Smashes Them — Popular Science](https://www.popsci.com/meet-bonirob-plant-breeding-weed-smashing-robot/)**
+  — 우리가 쓰던 **"당근밭 ~90%"** 수치의 출처. Deepfield 홍보담당 Birgit Schulz 발언으로 *"당근 재배
+  시험에서 90% 이상"*, 2cm 간격 당근에 잡초 ~20포기/m, 초당 약 2포기, 큰 잡초는 여러 번 내리침.
+  **주의: 사내 홍보 발언을 언론이 옮긴 것이지 동료심사 시험이 아니다.** *(medium-low — 아래 주의 참고)*
+  · [Digital Trends](https://www.digitaltrends.com/cool-tech/weed-picking-robot/)
+- **[Carbon Robotics LaserWeeder](https://carbonrobotics.com/laserweeder)**
+  — 레이저 제초 **상용**. 시간당 20만 포기. 다만 **약 $500,000** 이고 크고 평평한 밭이라야 수지가 맞는다.
+  → 대농 규모 기술. 우리 BOM(~$2,900)·평균 65W·640Wh 배터리·텃밭 눈안전과 안 맞음. *(medium)*
+- **[RootWave — 고주파 전기 제초](https://rootwave.com/)**
+  — 전기 제초 **상용**(과수원·포도밭, 트랙터 구동). 고주파로 잡초를 안에서부터 끓인다.
+  → 방식은 유효하나 젖은 텃밭 고전압 안전·비용에서 취미 규모와 안 맞음. *(medium)*
+
 ## 신뢰도 주의 (인용 시 조심)
 
 - **CropAndWeed (WACV 2023)** — 명시적 흙/작물/잡초 픽셀비율 **미공개**. 픽셀밸런스 수치 인용 금지;
@@ -83,3 +104,6 @@
   — **재배** 밀도(야생 잡초 아님), 저신뢰. 대략 order-of-magnitude 로만.
 - **KOCW 잡초방제 강의자료** (종자은행 6만–10만 seeds/m², 출현 1천–5천/m²) — 강의자료, **배경**용
   (1차 정량 앵커 아님). <http://kocw-n.xcache.kinxcdn.com/data/document/2021/wonkwang/limjongok0113/03.pdf>
+- **BoniRob "당근밭 90%"** — 동료심사 시험이 아니라 **Deepfield 홍보담당 발언**을 언론이 옮긴 것.
+  기구·효과범위는 Langsenkamp 2014(동료심사)를 1차 근거로 쓰고, 90% 는 **보조 인용**으로만.
+  게다가 그 팀은 이후 스탬핑을 버리고 호미날로 갔다(Farming Revolution, DECISIONS 009).
