@@ -59,6 +59,22 @@ MIN_AREA_PX = 400           # 이보다 작은 잡초 blob 제외 (≈2.5cm, sta
 # 완전히 같은 좌표로 안 떨어진다. 너무 키우면 진짜로 가까운 별개 잡초를 합쳐버린다 — 그 균형점.
 DEDUP_R = 0.05
 
+# ── 깊이 (Stage 5) ────────────────────────────────────────────────────────────
+# 카메라에서 캘리브 평면(두둑 윗면)까지 거리. MPP 는 이 평면에서 잰 값이라, 다른 높이의 픽셀은
+# 오프셋을 depth/H 로 스케일해야 한다 — 그게 시차 보정의 전부다.
+CAL_H = _P.camera_height_above_bed(_G)     # ≈0.33 m
+# 실물 D405 열화 파라미터 (데이터시트 337029-017 Table 4-14: D401/D405, ≤0.5m, Z-accuracy ±2%).
+DEPTH_RMS_FRAC = 0.02      # 거리 비례 노이즈 (0.33m 에서 6.6mm)
+DEPTH_FLYING_FRAC = 0.25   # 잎 경계 픽셀 중 flying pixel 비율 (스펙 밖, 스테레오 고질)
+DEPTH_DROPOUT_FRAC = 0.02  # 무효 픽셀 비율. 실험실 fill rate ≥99% 지만 야외는 더 나쁘다
+# 타격 가능한 잡초의 높이 상한 [m]. 이보다 높은 픽셀은 잡초 blob 안에 있어도 **칠 수 있는 잡초가
+# 아니다** — 실측: 콩 캐노피 22.9cm, 마스크에 섞여 들어온 픽셀 13.9~20.8cm vs 진짜 납작한 잡초
+# 0.8~1.1cm. 근거: 점 타격이 듣는 건 BBCH ≤12(본잎 2장, Langsenkamp 2014)이고 우리 종은 쇠비름
+# 1.0~2.6cm · 마디풀 2.3~8.0cm. 5cm 면 그 위를 넉넉히 덮으면서 작물 캐노피는 확실히 배제한다.
+# 주의: 이건 "키로 잡초를 판별"하는 Tertill 규칙이 아니다. 잡초 판별은 세그멘테이션(종·형태)이
+# 하고, 높이는 **이미 잡초로 판정된 것이 칠 수 있는 단계인가**만 가른다 (DECISIONS 007·027).
+MAX_STRIKE_H = 0.05
+
 
 def load_model(ckpt: str = None, device: str = None):
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -89,7 +105,7 @@ def filter_weed_mask(mask: np.ndarray, k: int = 5) -> np.ndarray:
 
 def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
                  min_area: int = MIN_AREA_PX, filter_noise: bool = True,
-                 safe_dist: float = 0.0, cam_dy: float = 0.0):
+                 safe_dist: float = 0.0, cam_dy: float = 0.0, depth=None):
     """프레임 → [(world_x, world_y, area_px)]. base_pose=(x,y,z,yaw) 지상진실.
 
     잡초 클래스 연결요소 중심을 카메라 기하로 world 좌표화. yaw 로 base 전방/좌 오프셋을 회전.
@@ -98,6 +114,8 @@ def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
     작물을 칠 위험. DECISIONS 007 safe-remove(작물 코앞 잡초는 사람 몫). 오라클 아닌 로봇 제 인식으로.
     **cam_dy**: 이 프레임을 찍은 카메라의 base 기준 Y 오프셋(DECISIONS 026, n=2 → ∓0.225). 카메라마다
     직하점이 달라서 이걸 안 넣으면 바깥 카메라 검출이 통째로 0.225m 밀린다.
+    **depth**: (H,W) 미터 배열(ww_depth). 주면 시차 보정을 한다 — 잎이 높이 h 에 떠 있어 생기는
+    투영 밀림(화면 가장자리에서 최대 ~4cm)을 실측 거리로 되짚는다. None 이면 기존 평지 가정.
     """
     bx, by, _bz, byaw = base_pose
     c, s = math.cos(byaw), math.sin(byaw)
@@ -121,12 +139,72 @@ def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
         col, row = xs.mean(), ys.mean()
         if dist_crop is not None and dist_crop[int(round(row)), int(round(col))] < safe_px:
             continue                                        # 작물 코앞 → safe-remove (007)
-        dx_base = -MPP * (row - CV)      # base 전방(+x)
-        dy_base = -MPP * (col - CU)      # base 좌(+y)
+        if depth is None:
+            # 평지 가정: 모든 픽셀이 캘리브 평면(두둑 윗면)에 있다고 본다. 잎이 높이 h 에 떠 있으면
+            # 직하점에서 멀수록 밀려 보인다(가장자리에서 최대 ~4cm) — 그게 지금 오차의 주범이다.
+            dx_base = -MPP * (row - CV)
+            dy_base = -MPP * (col - CU)
+        else:
+            # 시차 보정: 픽셀 오프셋을 실제 거리로 스케일한다. MPP 는 거리 CAL_H 에서 잰 값이라
+            # 거리 d 인 픽셀의 참 오프셋 = MPP·Δpx·(d/CAL_H). 잎이 높으면 d<CAL_H → 오프셋이 줄어든다.
+            dd = depth[ys, xs]
+            ok = np.isfinite(dd) & (dd > 0)                 # 무효 픽셀(구멍) 제외
+            # 높이 게이트: 지면에서 MAX_STRIKE_H 위 픽셀은 뺀다. 세그가 작물 캐노피를 잡초로
+            # 흘린 픽셀(실측 14~21cm)이 중심을 끌고 가는 걸 막는다 — 깊이만이 할 수 있는 일.
+            ok &= (CAL_H - dd) <= MAX_STRIKE_H
+            if ok.sum() < max(8, 0.05 * len(xs)):
+                continue                                    # 지면 높이 픽셀이 거의 없음 = 칠 대상 아님
+            scale = (dd[ok] / CAL_H).astype(np.float64)
+            dx_base = float(np.mean(-MPP * (ys[ok] - CV) * scale))
+            dy_base = float(np.mean(-MPP * (xs[ok] - CU) * scale))
         wx = cam_x + c * dx_base - s * dy_base
         wy = cam_y + s * dx_base + c * dy_base
         out.append((wx, wy, int(len(xs))))
     return out
+
+
+def load_depth(path):
+    """ww_depth 가 내린 원본 깊이 프레임 → (H,W) float32 미터. 형식 [u32 w][u32 h][f32...]."""
+    hdr = np.fromfile(path, np.uint32, 2)
+    w, h = int(hdr[0]), int(hdr[1])
+    d = np.fromfile(path, np.float32, offset=8)
+    if d.size != w * h:
+        raise ValueError(f"깊이 크기 불일치: {d.size} != {w}x{h}")
+    return d.reshape(h, w)
+
+
+def degrade_depth(depth, rng, edge_mask=None):
+    """시뮬 깊이를 실물 D405 답게 망가뜨린다 (전처리로 되돌릴 수 없는 잔차를 남긴다).
+
+    왜 필요한가: gz 깊이는 렌더 기하에서 나온 값이라 거의 완벽하다. 완벽한 센서로 좋은 결과를 내면
+    실물에서 무너지는 걸 못 잡는다(IMU orientation 에서 똑같은 함정을 밟았다 — DECISIONS 025 보정).
+
+    근거 (Intel D400 시리즈 데이터시트 337029-017, Table 4-14 — D401/D405, ≤0.5m, 80% ROI):
+      · Z-accuracy(절대오차) **±2%** → 0.33m 에서 ±6.6mm. **거리 비례**(우리 sim 은 거리 무관 3mm 고정)
+      · Fill rate ≥99% — 단 **실험실 조건**이다. 야외 직사광은 IR 패턴을 씻어 구멍이 훨씬 많다.
+    스펙에 없지만 스테레오의 고질인 것:
+      · **flying pixel** — 얇은 잎 경계에서 깊이가 잎과 뒤 지면 사이 엉뚱한 값으로 튄다.
+        잡초 잎이 얇아서 우리한테 특히 아프다.
+    """
+    d = depth.astype(np.float32, copy=True)
+    valid = np.isfinite(d) & (d > 0)
+    # ① 거리 비례 노이즈 (스펙 2%)
+    d[valid] += rng.normal(0.0, DEPTH_RMS_FRAC * d[valid]).astype(np.float32)
+    # ② 잎 경계 flying pixel — 경계 픽셀 일부를 잎과 배경 사이 값으로 대체
+    if edge_mask is not None and DEPTH_FLYING_FRAC > 0:
+        idx = np.flatnonzero(edge_mask.ravel() & valid.ravel())
+        if idx.size:
+            pick = idx[rng.random(idx.size) < DEPTH_FLYING_FRAC]
+            if pick.size:
+                far = float(np.nanmedian(d[valid])) if valid.any() else 0.0
+                t = rng.random(pick.size).astype(np.float32)      # 잎↔배경 사이 아무 데나
+                flat = d.ravel()
+                flat[pick] = flat[pick] * (1 - t) + far * t
+    # ③ 무효 픽셀(구멍) — 야외 IR 씻김. 실험실 fill rate 는 ≥99% 지만 밭은 더 나쁘다.
+    if DEPTH_DROPOUT_FRAC > 0:
+        holes = rng.random(d.shape) < DEPTH_DROPOUT_FRAC
+        d[holes] = np.nan
+    return d
 
 
 def merge_detections(dets, radius: float = DEDUP_R):
@@ -150,7 +228,7 @@ def merge_detections(dets, radius: float = DEDUP_R):
     return [(x, y, int(a)) for x, y, a in out]
 
 
-def detect_fused(model, frames, base_pose, device: str = "cuda", **kw):
+def detect_fused(model, frames, base_pose, device: str = "cuda", depths=None, **kw):
     """카메라 여러 대의 프레임을 한 번에 → 융합된 [(wx, wy, area)].
 
     frames: [(cam_index, png_path)]. 각 프레임을 그 카메라의 Y 오프셋(CAM_DYS)으로 world 화한 뒤
@@ -159,7 +237,8 @@ def detect_fused(model, frames, base_pose, device: str = "cuda", **kw):
     alld = []
     for ci, path in frames:
         cam_dy = CAM_DYS[ci] if ci < len(CAM_DYS) else 0.0
-        alld += detect_frame(model, str(path), base_pose, device, cam_dy=cam_dy, **kw)
+        dep = (depths or {}).get(ci)
+        alld += detect_frame(model, str(path), base_pose, device, cam_dy=cam_dy, depth=dep, **kw)
     return merge_detections(alld)
 
 

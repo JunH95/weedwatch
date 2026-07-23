@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 import os
 import signal
 import subprocess
@@ -23,11 +24,14 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 HERE = Path(__file__).resolve().parent
 WW = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(WW / "tools"))
 from detect_server import (load_model, detect_frame, detect_fused,  # noqa: E402
+                           load_depth, degrade_depth,
                            MPP, CU, CV, CAM_DX, CAM_DYS)
 from oracle import load as oracle_load  # noqa: E402
 from assert_drive import parse_messages, g, quat_to_rpy  # noqa: E402
@@ -72,6 +76,11 @@ def render_and_capture():
         d.mkdir(parents=True, exist_ok=True)
         for f in d.glob("*.png"):
             f.unlink()
+    for i in range(len(CAM_DYS)):
+        dd = WW / "artifacts" / f"depth{i}"
+        dd.mkdir(parents=True, exist_ok=True)
+        for f in dd.glob("*.bin"):
+            f.unlink()
     log = open("/tmp/ww_percept.log", "w")
     sim = subprocess.Popen([ENVSH, "ign", "gazebo", "-s", "-r", "--headless-rendering",
                             "--iterations", "15000", WORLD],
@@ -86,6 +95,12 @@ def render_and_capture():
         csubs = [subprocess.Popen([ENVSH, "ign", "topic", "-e", "-t", t],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                   start_new_session=True) for t in CAM_TOPICS]
+        # 깊이 원본 수집(Stage 5). <save> 는 8비트 시각화라 못 쓴다 → ign-transport 직결 상주 구독자.
+        dtopics = ",".join("/robot/depth" if i == 0 else f"/robot/depth{i}" for i in range(len(CAM_DYS)))
+        csubs.append(subprocess.Popen([str(WW / "build" / "ww_depth"), "--topics", dtopics,
+                                       "--out", str(WW / "artifacts")],
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                      start_new_session=True))
         time.sleep(14)
     finally:
         for p in [gsub, *csubs]:
@@ -150,8 +165,26 @@ def main():
     if not latest:
         raise Fail("어느 카메라도 프레임을 안 냄 — 구독자/렌더 실패")
     model, device = load_model()
-    dets = detect_fused(model, latest, base, device)
-    print(f"검출: 카메라 {len(latest)}대 융합 → {len(dets)}개")
+
+    # RGB 프레임 seq → 같은 seq 의 깊이 프레임 (시각 정합은 5Hz 에서 4cm 어긋나 못 씀)
+    def depth_for(ci, png):
+        m = re.search(r"_(\d+)\.png$", png.name)
+        if not m:
+            return None
+        f = WW / "artifacts" / f"depth{ci}" / f"{m.group(1)}.bin"
+        return load_depth(f) if f.exists() else None
+
+    depths = {ci: depth_for(ci, png) for ci, png in latest}
+    have = sum(1 for v in depths.values() if v is not None)
+    rng = np.random.default_rng(7)
+    degraded = {ci: (degrade_depth(v, rng) if v is not None else None) for ci, v in depths.items()}
+
+    dets_flat = detect_fused(model, latest, base, device)                      # A: 평지 가정(기존)
+    dets_deep = detect_fused(model, latest, base, device, depths=depths)       # B: 깨끗한 깊이
+    dets_real = detect_fused(model, latest, base, device, depths=degraded)     # C: 실물다운 깊이
+    dets = dets_deep
+    print(f"검출: 카메라 {len(latest)}대 융합 → 평지 {len(dets_flat)} · 깊이 {len(dets_deep)} · 실물깊이 {len(dets_real)}개 "
+          f"(깊이 프레임 {have}/{len(latest)})")
 
     # 시야 안 오라클 target (footprint 반폭: x=v축 CV·MPP, y=u축 CU·MPP)
     HX, HY = CV * MPP, CU * MPP
@@ -190,6 +223,25 @@ def main():
     errors.sort()
     med = errors[len(errors) // 2] if errors else float("nan")
     p90 = errors[min(len(errors) - 1, int(0.9 * len(errors)))] if errors else float("nan")
+
+    # ── Stage 5 A/B: 깊이 시차 보정이 위치오차를 실제로 줄이나 ──────────────
+    def err_stats(dd):
+        es = []
+        for tx, ty in inview:
+            if not dd:
+                continue
+            m = min(math.hypot(wx - tx, wy - ty) for wx, wy, _ in dd)
+            if m <= MATCH_RADIUS:
+                es.append(m)
+        es.sort()
+        if not es:
+            return float("nan"), float("nan"), 0
+        return es[len(es) // 2], es[-1], len(es)
+
+    print("\n[Stage 5 A/B] 깊이 시차 보정 — 매칭된 target 위치오차")
+    for lab, dd in (("평지 가정(기존)", dets_flat), ("깊이 보정", dets_deep), ("깊이 보정 + 실물 열화", dets_real)):
+        med, mx, k = err_stats(dd)
+        print(f"    {lab:<22}: 중앙 {med*100:5.2f}cm · 최대 {mx*100:5.2f}cm · 매칭 {k}/{len(inview)}")
 
     print(f"\n검출률(<= {MATCH_RADIUS*100:.0f}cm): {detected}/{len(inview)} = {recall:.2f} (게이트 {GATES['recall']})")
     print(f"[보고] 매칭된 target 위치오차: 중앙 {med*100:.2f}cm · p90 {p90*100:.2f}cm "
