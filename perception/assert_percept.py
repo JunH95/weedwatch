@@ -27,7 +27,8 @@ HERE = Path(__file__).resolve().parent
 WW = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(WW / "tools"))
-from detect_server import load_model, detect_frame, MPP, CU, CV, CAM_DX  # noqa: E402
+from detect_server import (load_model, detect_frame, detect_fused,  # noqa: E402
+                           MPP, CU, CV, CAM_DX, CAM_DYS)
 from oracle import load as oracle_load  # noqa: E402
 from assert_drive import parse_messages, g, quat_to_rpy  # noqa: E402
 import assert_render  # noqa: E402  (렌더 2게이트 재사용)
@@ -36,7 +37,9 @@ ENVSH = str(WW / "scripts" / "env.sh")
 WORLD = str(WW / "worlds" / "robot_percept.sdf")
 GT_TOPIC = "/world/robot_percept/dynamic_pose/info"
 GT_FILE = "/tmp/ww_percept_gt.log"
-CAMDIR = WW / "artifacts" / "camera"
+CAMDIR = WW / "artifacts" / "camera"                      # 카메라 0 (기존 이름 유지, DECISIONS 026)
+CAMDIRS = [CAMDIR] + [WW / "artifacts" / f"camera{i}" for i in range(1, len(CAM_DYS))]
+CAM_TOPICS = ["/robot/camera"] + [f"/robot/camera{i}" for i in range(1, len(CAM_DYS))]
 ORACLE = str(WW / "models" / "oracle_test.json")
 INCLUDE_OFF = (-1.12, 0.10)   # robot_percept.sdf 의 oracle_test include (dx,dy). 잡초 world = 오라클+이것.
 
@@ -65,24 +68,27 @@ def render_and_capture():
     """percept 월드 렌더 + GT 캡처 + 카메라 프레임 저장. base pose 반환."""
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     time.sleep(0.5)
-    for f in CAMDIR.glob("*.png"):
-        f.unlink()
-    CAMDIR.mkdir(parents=True, exist_ok=True)
+    for d in CAMDIRS:
+        d.mkdir(parents=True, exist_ok=True)
+        for f in d.glob("*.png"):
+            f.unlink()
     log = open("/tmp/ww_percept.log", "w")
     sim = subprocess.Popen([ENVSH, "ign", "gazebo", "-s", "-r", "--headless-rendering",
                             "--iterations", "15000", WORLD],
                            stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-    gsub = csub = None
+    gsub, csubs = None, []
     try:
         time.sleep(6)
         gf = open(GT_FILE, "w")
         gsub = subprocess.Popen([ENVSH, "ign", "topic", "-e", "-t", GT_TOPIC],
                                 stdout=gf, stderr=subprocess.DEVNULL, start_new_session=True)
-        csub = subprocess.Popen([ENVSH, "ign", "topic", "-e", "-t", "/robot/camera"],
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        # 카메라는 구독자가 있을 때만 렌더한다(CLAUDE.md) → 대수만큼 구독자를 붙여야 둘 다 찍힌다.
+        csubs = [subprocess.Popen([ENVSH, "ign", "topic", "-e", "-t", t],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                  start_new_session=True) for t in CAM_TOPICS]
         time.sleep(14)
     finally:
-        for p in (gsub, csub):
+        for p in [gsub, *csubs]:
             _stop(p)
         try:
             gf.close()
@@ -133,22 +139,35 @@ def main():
     except Exception as e:
         errs.append(f"렌더 게이트 예외: {e}")
 
-    # 검출
-    frames = sorted(CAMDIR.glob("*.png"))
-    if not frames:
-        raise Fail("카메라 프레임이 없음 — 구독자/렌더 실패")
+    # 검출 — 카메라 전부의 최신 프레임을 융합 (DECISIONS 026)
+    latest = []
+    for ci, d in enumerate(CAMDIRS):
+        fs = sorted(d.glob("*.png"))
+        if not fs:
+            errs.append(f"카메라{ci} 프레임 없음 ({d.name}) — 구독자/렌더 실패")
+            continue
+        latest.append((ci, fs[-1]))
+    if not latest:
+        raise Fail("어느 카메라도 프레임을 안 냄 — 구독자/렌더 실패")
     model, device = load_model()
-    dets = detect_frame(model, str(frames[-1]), base, device)
-    cam_x = base[0] + CAM_DX
-    cam_y = base[1]
-    print(f"검출 blob(>= {int(0.0)}...): {len(dets)}개 (카메라 {frames[-1].name})")
+    dets = detect_fused(model, latest, base, device)
+    print(f"검출: 카메라 {len(latest)}대 융합 → {len(dets)}개")
 
     # 시야 안 오라클 target (footprint 반폭: x=v축 CV·MPP, y=u축 CU·MPP)
     HX, HY = CV * MPP, CU * MPP
     og = oracle_load(ORACLE)
     targets = [(w.x + INCLUDE_OFF[0], w.y + INCLUDE_OFF[1]) for w in og.weeds]
-    inview = [(tx, ty) for tx, ty in targets if abs(tx - cam_x) < HX and abs(ty - cam_y) < HY]
-    print(f"시야({HX*2*100:.0f}×{HY*2*100:.0f}cm) 안 오라클 target: {len(inview)}개")
+
+    def in_cam(tx, ty, cam_dy):
+        """이 카메라 한 대의 발자국 안인가 (yaw≈0 인 정적 검증이라 회전 무시)."""
+        return abs(tx - (base[0] + CAM_DX)) < HX and abs(ty - (base[1] + cam_dy)) < HY
+
+    # A/B: 한 대만 썼을 때 vs 전부 (커버리지 이득을 수치로 — 이게 2대를 단 이유다)
+    inview_one = [t for t in targets if in_cam(t[0], t[1], CAM_DYS[0])]
+    inview = [t for t in targets if any(in_cam(t[0], t[1], dy) for dy in CAM_DYS)]
+    gain = len(inview) - len(inview_one)
+    print(f"시야 안 오라클 target: 카메라1대 {len(inview_one)}개 → {len(CAM_DYS)}대 {len(inview)}개 "
+          f"(+{gain}개, 한 대당 발자국 {HY*2*100:.0f}cm 폭)")
 
     # 매칭: 각 target 마다 가장 가까운 검출
     errors = []
@@ -182,6 +201,9 @@ def main():
             errs.append("시야 안 target 이 0 — 두둑 오프셋(INCLUDE_OFF) 확인")
         if recall < GATES["recall"]:
             errs.append(f"검출률 {recall:.2f} < {GATES['recall']} (<= {MATCH_RADIUS*100:.0f}cm)")
+        # 카메라를 늘린 값을 실제로 받고 있는가 — 대수만큼 프레임이 나와야 한다.
+        if len(latest) != len(CAM_DYS):
+            errs.append(f"카메라 {len(CAM_DYS)}대 중 {len(latest)}대만 프레임을 냄 — 구독자/렌더 확인")
 
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     if errs:

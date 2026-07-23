@@ -38,11 +38,26 @@ from seg_data import _MEAN, _STD, NUM_CLASSES, WEED, MAIZE  # noqa: E402
 WW = HERE.parent
 BEAN = 1  # seg_data 클래스: 0 흙 · 1 콩 · 2 옥수수(MAIZE) · 3 잡초(WEED)
 
-# ── 카메라 기하 (worlds/robot_calib.sdf 캘리브 결과. 바꾸려면 재캘리브) ──
-MPP = 0.000457              # m/px (두둑 z=0.25 위 0.33m). calibrate_camera 로 유도.
-CU, CV = 640.0, 360.0       # 이미지 중심 (1280×720)
-CAM_DX, CAM_DZ = 0.22, 0.58  # base 기준 카메라 X/Z 오프셋 (links.json camera_world)
+# 기하는 tools/garden_geometry 단일 출처에서 읽는다. ROS↔ML 경계 규율(공유 import 금지)은 **rclpy 등
+# ROS 의존**을 안 섞는다는 뜻이고, garden_geometry 는 math+dataclass 뿐인 순수 모듈이라 안전하다.
+# 하드코딩했다가 "카메라가 두둑 전체를 본다"는 틀린 상수가 굳어 재현율 상한 0.65 를 만든 적이 있다
+# (DECISIONS 026) — 그래서 이제 읽어온다. assert_percept 도 이미 tools/ 를 import 한다.
+sys.path.insert(0, str(WW / "tools"))
+from garden_geometry import Garden, Portal  # noqa: E402
+
+_G, _P = Garden(), Portal()
+
+# ── 카메라 기하 (worlds/robot_calib.sdf 캘리브 + garden_geometry) ──
+MPP = _P.camera_mpp                       # m/px (두둑 위 0.33m). calibrate_camera 로 유도.
+CU, CV = _P.camera_w / 2, _P.camera_h / 2  # 이미지 중심 (1280×720)
+CAM_DX, CAM_DZ = _P.camera_x, _P.camera_z()   # base 기준 카메라 X/Z 오프셋
+CAM_DYS = _P.camera_ys(_G)                # 카메라별 base 기준 Y 오프셋. n=2 → [-0.225, +0.225]
 MIN_AREA_PX = 400           # 이보다 작은 잡초 blob 제외 (≈2.5cm, stamp_targets 와 동일 규율)
+
+# 두 카메라 겹침 구간(0.135m)에서 같은 잡초를 두 번 잡는다. 이 반경 안이면 하나로 합친다.
+# 5cm 인 이유: 겹침 안 잡초는 두 카메라에서 서로 반대쪽으로 시차가 생겨(캐노피 높이×off-nadir 거리)
+# 완전히 같은 좌표로 안 떨어진다. 너무 키우면 진짜로 가까운 별개 잡초를 합쳐버린다 — 그 균형점.
+DEDUP_R = 0.05
 
 
 def load_model(ckpt: str = None, device: str = None):
@@ -74,18 +89,20 @@ def filter_weed_mask(mask: np.ndarray, k: int = 5) -> np.ndarray:
 
 def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
                  min_area: int = MIN_AREA_PX, filter_noise: bool = True,
-                 safe_dist: float = 0.0):
+                 safe_dist: float = 0.0, cam_dy: float = 0.0):
     """프레임 → [(world_x, world_y, area_px)]. base_pose=(x,y,z,yaw) 지상진실.
 
     잡초 클래스 연결요소 중심을 카메라 기하로 world 좌표화. yaw 로 base 전방/좌 오프셋을 회전.
     filter_noise=True 면 형태학 필터(4b-2)로 노이즈·과분할을 정리.
     **작물 회피(safe_dist)**: 콩·옥수수(best.pt 작물 클래스)에서 이 거리 안의 잡초는 뺀다 — 점타격이
     작물을 칠 위험. DECISIONS 007 safe-remove(작물 코앞 잡초는 사람 몫). 오라클 아닌 로봇 제 인식으로.
+    **cam_dy**: 이 프레임을 찍은 카메라의 base 기준 Y 오프셋(DECISIONS 026, n=2 → ∓0.225). 카메라마다
+    직하점이 달라서 이걸 안 넣으면 바깥 카메라 검출이 통째로 0.225m 밀린다.
     """
     bx, by, _bz, byaw = base_pose
-    cam_x = bx + math.cos(byaw) * CAM_DX
-    cam_y = by + math.sin(byaw) * CAM_DX
     c, s = math.cos(byaw), math.sin(byaw)
+    cam_x = bx + c * CAM_DX - s * cam_dy      # 카메라 직하점 (body→world 회전)
+    cam_y = by + s * CAM_DX + c * cam_dy
     pred = _predict(model, img_path, device)
     mask = pred == WEED
     if filter_noise:
@@ -112,6 +129,40 @@ def detect_frame(model, img_path: str, base_pose, device: str = "cuda",
     return out
 
 
+def merge_detections(dets, radius: float = DEDUP_R):
+    """겹침 구간에서 두 카메라가 같은 잡초를 두 번 잡은 걸 하나로 (순수 함수 — Tier 1 단언 대상).
+
+    면적 큰 것부터 잡고 radius 안의 검출을 흡수한다. 위치는 면적 가중 평균(큰 blob 이 신뢰도 높음),
+    면적은 max — 같은 잡초를 두 번 본 것이지 두 개가 아니므로 더하지 않는다.
+    입력 [(wx, wy, area)] → 출력 [(wx, wy, area)] (면적 내림차순).
+    """
+    out: list[list[float]] = []
+    for wx, wy, a in sorted(dets, key=lambda d: -d[2]):
+        for o in out:
+            if math.hypot(wx - o[0], wy - o[1]) <= radius:
+                tot = o[2] + a
+                o[0] = (o[0] * o[2] + wx * a) / tot
+                o[1] = (o[1] * o[2] + wy * a) / tot
+                o[2] = max(o[2], a)
+                break
+        else:
+            out.append([wx, wy, float(a)])
+    return [(x, y, int(a)) for x, y, a in out]
+
+
+def detect_fused(model, frames, base_pose, device: str = "cuda", **kw):
+    """카메라 여러 대의 프레임을 한 번에 → 융합된 [(wx, wy, area)].
+
+    frames: [(cam_index, png_path)]. 각 프레임을 그 카메라의 Y 오프셋(CAM_DYS)으로 world 화한 뒤
+    겹침 중복을 합친다. 한 대로는 두둑 폭의 65% 밖에 못 봤다(DECISIONS 026) — 이 함수가 나머지를 준다.
+    """
+    alld = []
+    for ci, path in frames:
+        cam_dy = CAM_DYS[ci] if ci < len(CAM_DYS) else 0.0
+        alld += detect_frame(model, str(path), base_pose, device, cam_dy=cam_dy, **kw)
+    return merge_detections(alld)
+
+
 def _latest_png(d: Path):
     # 두 번째 최신 반환 — 가장 최신 PNG 는 sim 이 지금 쓰는 중일 수 있어(반쯤 쓰인 파일 → PIL 크래시).
     pngs = sorted(d.glob("*.png"), key=lambda p: p.stat().st_mtime)
@@ -122,7 +173,8 @@ def _latest_png(d: Path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--watch", help="폴링할 프레임 디렉토리 (상주 모드, 4b)")
+    ap.add_argument("--watch", help="폴링할 프레임 디렉토리. 카메라 여러 대면 쉼표로 "
+                    "인덱스 순서대로 (예: artifacts/camera,artifacts/camera1). 상주 모드(4b)")
     ap.add_argument("--out", help="검출 world 좌표를 쓸 파일 (라인당 'x y area')")
     ap.add_argument("--base", nargs=4, type=float, metavar=("X", "Y", "Z", "YAW"),
                     default=[0.0, 0.6, 0.0, 0.0], help="지상진실 base pose (정지 4a 는 고정)")
@@ -148,29 +200,32 @@ def main():
             return None
 
     if args.watch:
-        wd = Path(args.watch)
+        wds = [Path(p.strip()) for p in args.watch.split(",") if p.strip()]
         last = None
-        print("R detect_server ready", flush=True)  # 핸드셰이크
+        print(f"R detect_server ready ({len(wds)} cam)", flush=True)  # 핸드셰이크
         while True:
-            f = _latest_png(wd)
-            if f and f != last:
-                last = f
-                if args.odom_file:                      # 주행: odom 으로 base_x 앵커링
-                    ox = read_odom_x()
-                    if ox is None:
-                        time.sleep(0.02); continue
-                    base = (ox, base_y, 0.0, 0.0)
-                else:
-                    base = tuple(args.base)
-                try:
-                    dets = detect_frame(model, str(f), base, device, safe_dist=args.safe_dist)
-                except Exception as e:                  # 반쯤 쓰인 PNG 등 → 스킵(다음 프레임)
-                    print(f"E skip {f.name}: {e}", flush=True)
+            # 카메라별 최신 프레임을 모은다. 대표(0번) 프레임이 바뀔 때만 한 사이클 돈다 —
+            # 두 카메라가 같은 15Hz 라 프레임이 거의 동시에 떨어진다(정합 오차 무시 가능).
+            frames = [(i, f) for i, wd in enumerate(wds) if (f := _latest_png(wd)) is not None]
+            if not frames or frames[0][1] == last:
+                time.sleep(0.03); continue
+            last = frames[0][1]
+            if args.odom_file:                      # 주행: odom 으로 base_x 앵커링
+                ox = read_odom_x()
+                if ox is None:
                     time.sleep(0.02); continue
-                if args.out:                            # 이 프레임의 world 검출 (하네스가 dedup)
-                    Path(args.out).write_text(
-                        f"# {base[0]:.4f}\n" + "\n".join(f"{x:.4f} {y:.4f} {a}" for x, y, a in dets))
-                print(f"D {len(dets)} @x={base[0]:.2f} {f.name}", flush=True)
+                base = (ox, base_y, 0.0, 0.0)
+            else:
+                base = tuple(args.base)
+            try:
+                dets = detect_fused(model, frames, base, device, safe_dist=args.safe_dist)
+            except Exception as e:                  # 반쯤 쓰인 PNG 등 → 스킵(다음 프레임)
+                print(f"E skip {frames[0][1].name}: {e}", flush=True)
+                time.sleep(0.02); continue
+            if args.out:                            # 융합된 world 검출 (하네스가 소비)
+                Path(args.out).write_text(
+                    f"# {base[0]:.4f}\n" + "\n".join(f"{x:.4f} {y:.4f} {a}" for x, y, a in dets))
+            print(f"D {len(dets)} @x={base[0]:.2f} cam{len(frames)} {frames[0][1].name}", flush=True)
             time.sleep(0.03)
 
 
