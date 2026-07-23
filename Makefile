@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row percept-render percept percept-calib field-render watch-field row-live overlay ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -123,6 +123,16 @@ build/ww_cmd: tools/ww_cmd/ww_cmd.cc
 	@echo "build/ww_cmd 빌드됨"
 
 ww-cmd: build/ww_cmd
+
+# Stage 5 깊이 융합: 깊이 원본(float32 미터)을 디스크로 내리는 상주 구독자.
+# 깊이는 <save> 가 8비트 시각화 PNG 만 떨궈(실측, 고유값 192개) 3~5cm 오차 보정에 못 쓴다.
+# ww_cmd 와 같은 이유로 ign-transport 직결 C++ 이다(텍스트 덤프는 1280x720 실수라 비현실적).
+build/ww_depth: tools/ww_depth/ww_depth.cc
+	@mkdir -p build
+	@$(ENV) sh -c 'g++ -O2 -o $@ $< $$(pkg-config --cflags --libs ignition-transport11 ignition-msgs8)'
+	@echo "build/ww_depth 빌드됨"
+
+ww-depth: build/ww_depth
 
 # Stage 4-3 Phase 2 무정차 행 스윕: 로봇이 두둑을 걸터탄 채 +x 무정차 주행하며 임의 (x,y) 잡초를
 # 타격. 카메라가 먼저 보고(인과공개) 담당 툴(엇갈린 X)이 지나갈 때 예측 하강. 제어=odom(ww_cmd),
