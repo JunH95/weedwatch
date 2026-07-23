@@ -31,19 +31,34 @@ from pathlib import Path
 
 WW = Path(__file__).resolve().parents[1]
 ENV = str(WW / "scripts" / "env.sh")
-WORLD_FILE = str(WW / "worlds" / "robot_row.sdf")
-WORLD = "robot_row"
 WW_CMD = str(WW / "build" / "ww_cmd")
+WORLD = "robot_row"                       # main() 에서 --world 로 바뀐다
+WORLD_FILE = str(WW / "worlds" / "robot_row.sdf")
 
 sys.path.insert(0, str(WW / "tools"))
 from assert_row_stamp import (  # noqa: E402
     WwCmd, stop, weed_tool, tool_tip, nearest_joints, parse_gt_series,
     TOOL_XS, BAND_CENTERS, BASE_Y, V, STRIKE, RAISE, Z_SETTLE, N,
 )
+from assert_tilt import imu_samples  # noqa: E402
 GT_TOPIC = "/world/robot_row/dynamic_pose/info"
 
-# robot_row.sdf 의 weed_* 마커와 일치해야 한다 (월드가 정본).
-WEEDS = [(0.70, 0.30), (0.95, 0.85), (1.25, 0.55), (1.60, 0.35), (1.90, 0.75), (2.20, 0.50)]
+# 월드가 정본 — 여기 좌표는 월드 파일과 일치해야 한다.
+ROW_WEEDS = [(0.70, 0.30), (0.95, 0.85), (1.25, 0.55), (1.60, 0.35), (1.90, 0.75), (2.20, 0.50)]
+WEEDS = ROW_WEEDS
+
+
+def configure(which: str):
+    """평지 마커 월드(row) vs 경사+흙덩이 월드(strike) 전환."""
+    global WORLD, WORLD_FILE, GT_TOPIC, WEEDS
+    if which == "strike":
+        import make_strike_world as msw
+        WORLD, WEEDS = "robot_strike", list(msw.WEEDS)
+        WORLD_FILE = str(WW / "worlds" / "robot_strike.sdf")
+    else:
+        WORLD, WEEDS = "robot_row", list(ROW_WEEDS)
+        WORLD_FILE = str(WW / "worlds" / "robot_row.sdf")
+    GT_TOPIC = f"/world/{WORLD}/dynamic_pose/info"
 HIT_TOL = 0.02          # 명중 판정 반경 = 성공 기준 2cm (DECISIONS 002)
 BED_TOP = 0.25
 TIP_DZ = 0.3075
@@ -58,15 +73,27 @@ def svc(service: str, reqtype: str, req: str, timeout_ms: int = 3000) -> bool:
     return "data: true" in r.stdout
 
 
-def mark_sdf(name: str, hit: bool) -> str:
-    """자국 원판. 얇은 실린더 — 흙 위에 스탬프 자국처럼 보이게."""
-    rgb = "0.15 0.85 0.25" if hit else "0.9 0.15 0.15"
+def disc_sdf(name: str, rgb: str, radius: float, length: float = 0.004) -> str:
+    """얇은 원판. 색은 호출자가 준다 — 잡초(빨강)·작물(초록)과 안 겹치게 골라야 한다."""
     return (f'<?xml version="1.0"?><sdf version="1.9"><model name="{name}"><static>true</static>'
             f'<link name="l"><visual name="v">'
-            f'<geometry><cylinder><radius>0.018</radius><length>0.004</length></cylinder></geometry>'
+            f'<geometry><cylinder><radius>{radius}</radius><length>{length}</length></cylinder></geometry>'
             f'<material><ambient>{rgb} 1</ambient><diffuse>{rgb} 1</diffuse>'
             f'<emissive>{rgb} 1</emissive></material>'
             f'</visual></link></model></sdf>')
+
+
+# 색 규약 (섞이면 눈으로 검증이 안 된다 — 실제로 초록 자국이 작물처럼 보이는 실수를 했다):
+#   잡초=빨강 · 작물=초록  |  표적 링=노랑 · 명중 자국=파랑 · 빗나감 자국=주황
+TARGET_RGB = "0.95 0.85 0.10"
+HIT_RGB = "0.15 0.45 0.95"
+MISS_RGB = "0.95 0.45 0.05"
+
+
+def mark_sdf(name: str, hit: bool) -> str:
+    """타격 자국. 실제 도구 끝이 내려앉은 자리."""
+    rgb = HIT_RGB if hit else MISS_RGB
+    return disc_sdf(name, rgb, 0.012)
 
 
 class Painter(threading.Thread):
@@ -84,23 +111,32 @@ class Painter(threading.Thread):
     def remove_weed(self, wi):
         self.q.put(("remove", wi, 0, 0, False))
 
+    def target(self, i, x, y):
+        """잡초가 원래 있던 자리에 노란 표적 링. 잡초를 지워도 남아서 오차를 눈으로 보게 한다."""
+        self.q.put(("target", i, x, y, False))
+
     def run(self):
         while True:
             kind, a, x, y, hit = self.q.get()
             if kind == "stop":
                 return
-            if kind == "mark":
-                sdf = mark_sdf(f"mark_{a}", hit).replace('"', '\\"')
-                req = (f'sdf: "{sdf}", name: "mark_{a}", allow_renaming: true, '
-                       f'pose: {{position: {{x: {x:.4f}, y: {y:.4f}, z: {BED_TOP + 0.003:.4f}}}}}')
+            if kind in ("mark", "target"):
+                if kind == "mark":
+                    nm, body, z = f"mark_{a}", mark_sdf(f"mark_{a}", hit), BED_TOP + 0.006
+                else:
+                    nm, body, z = f"target_{a}", disc_sdf(f"target_{a}", TARGET_RGB, 0.030, 0.002), BED_TOP + 0.002
+                sdf = body.replace('"', '\\"')
+                req = (f'sdf: "{sdf}", name: "{nm}", allow_renaming: true, '
+                       f'pose: {{position: {{x: {x:.4f}, y: {y:.4f}, z: {z:.4f}}}}}')
                 if svc("create", "ignition.msgs.EntityFactory", req):
-                    self.marks += 1
+                    if kind == "mark":
+                        self.marks += 1
             else:
                 if svc("remove", "ignition.msgs.Entity", f'name: "weed_{a}", type: MODEL'):
                     self.removed += 1
 
 
-def run(gui: bool):
+def run(gui: bool, correct: bool = False):
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     time.sleep(0.5)
     args = [ENV, "ign", "gazebo", "-r", "--iterations", str(int((10 + DRIVE_X / V + 8) * 1000)),
@@ -135,12 +171,29 @@ def run(gui: bool):
             raise RuntimeError("ww_cmd 준비 안 됨")
         time.sleep(2.0)
 
+        # 보정용 IMU roll (안착 뒤 정적 성분). 크로스슬로프가 지배적이고 흙덩이는 그 위 변동이라,
+        # 정적 roll 만으로도 1차 항을 잡는다. 남는 동적 성분은 보고로 드러난다.
+        roll_ctrl = 0.0
+        if correct:
+            imf = open("/tmp/ww_marks_imu.log", "w")
+            isub = subprocess.Popen([ENV, "ign", "topic", "-e", "-t", "/robot/imu"],
+                                    stdout=imf, stderr=subprocess.DEVNULL, start_new_session=True)
+            time.sleep(2.0)
+            stop(isub); imf.close()
+            ss = imu_samples(open("/tmp/ww_marks_imu.log").read())
+            if ss:
+                rolls = sorted(x[1] for x in ss)
+                roll_ctrl = rolls[len(rolls) // 2]
+            print(f"  IMU 로 잰 기울기: {math.degrees(roll_ctrl):+.2f}° → 보정에 사용")
+
         # 잡초를 툴별로 나눠 x 순서대로 처리 (make row 와 같은 스케줄)
         plans = []
         for wi, (wx, wy) in enumerate(WEEDS):
             i = weed_tool(wy)
             plans.append({"wi": wi, "wx": wx, "wy": wy, "i": i,
                           "strike_x": wx - TOOL_XS[i], "phase": 0})
+        for wi, (wx, wy) in enumerate(WEEDS):
+            painter.target(wi, wx, wy)      # 잡초 원위치에 노란 링 (제거돼도 남는다)
         active = [None] * N
         ww.send(f"v {V:.3f} 0")
         t_end = time.time() + DRIVE_X / V + 40
@@ -157,7 +210,14 @@ def run(gui: bool):
                         p = min(cand, key=lambda z: z["strike_x"])
                         active[i] = p
                         p["phase"] = 1
-                        ww.send(f"carriage {i} {(p['wy'] - BASE_Y) - BAND_CENTERS[i]:.4f}")
+                        if correct:
+                            # 기운 몸통에서 도구가 기운 축으로 하강해 생기는 옆밀림을 미리 상쇄.
+                            # assert_tilt_stamp 와 같은 식 (base_z≈0, base_y≈BASE_Y 로 근사).
+                            oy = math.cos(roll_ctrl) * ((p["wy"] - BASE_Y)
+                                                        + math.tan(roll_ctrl) * BED_TOP)
+                        else:
+                            oy = p["wy"] - BASE_Y
+                        ww.send(f"carriage {i} {oy - BAND_CENTERS[i]:.4f}")
                 else:
                     p = active[i]
                     if p["phase"] == 1 and ox >= p["strike_x"] - V * Z_SETTLE:
@@ -230,9 +290,14 @@ def run(gui: bool):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gui", action="store_true", help="GUI 로 띄운다 (데스크톱 전용, 사람이 봄)")
+    ap.add_argument("--world", default="row", choices=("row", "strike"),
+                    help="row=평지 마커밭 · strike=경사6°+흙덩이 (Stage 5 Step B)")
+    ap.add_argument("--correct", action="store_true", help="IMU 기울기 보정을 켠다")
     a = ap.parse_args()
-    print("=== 타격 자국 시각화 — 찍은 자리에 자국, 명중한 잡초는 사라짐 ===\n")
-    struck, marks, removed = run(a.gui)
+    configure(a.world)
+    print(f"=== 타격 자국 시각화 — 월드 {a.world} · 보정 {'ON' if a.correct else 'OFF'} ===")
+    print("    노란 링=잡초 원위치 · 파랑 자국=명중 · 주황 자국=빗나감 (잡초=빨강, 작물=초록)\n")
+    struck, marks, removed = run(a.gui, a.correct)
     for st in struck:
         print(f"  잡초{st['wi']} {WEEDS[st['wi']]}: 실측오차 {st['d']*100:5.2f}cm  "
               f"{'명중(제거)' if st['hit'] else '빗나감'}")

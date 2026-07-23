@@ -1,0 +1,107 @@
+<?xml version="1.0" ?>
+<!-- 생성물: tools/make_strike_world.py (Stage 5 Step B: 경사 6.0° + 흙덩이 위 타격). 손대지 말 것. -->
+<sdf version="1.9">
+  <world name="robot_strike">
+    <physics name="1ms" type="ignored"><max_step_size>0.001</max_step_size><real_time_factor>1.0</real_time_factor></physics>
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+    <light type="directional" name="sun"><cast_shadows>true</cast_shadows><pose>0 0 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular><direction>-0.4 0.4 -0.85</direction></light>
+
+    <!-- 크로스슬로프 고랑 바닥: y=0.6 축으로 roll 6.0°. 그 위에 흙덩이가 얹힌다. -->
+    <model name="furrow_floor"><static>true</static><pose>0 0.6 0 0.104720 0 0</pose>
+      <link name="link">
+      <collision name="c"><geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+      <visual name="v"><geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+        <material><ambient>0.30 0.22 0.14 1</ambient><diffuse>0.50 0.37 0.24 1</diffuse></material></visual></link></model>
+
+    <!-- 두둑: 윗면 수평 z=0.25. 도구가 여기서 멈추고 잡초가 여기 선다. -->
+    <model name="bed"><static>true</static><pose>0 0.6 0.125 0 0 0</pose>
+      <link name="link">
+      <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
+      <visual name="v"><geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+        <material><ambient>0.25 0.17 0.10 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_0"><static>true</static><pose>0.437 0.059 0.022 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.105 0.109 0.044</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.105 0.109 0.044</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_1"><static>true</static><pose>0.646 0.018 0.027 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.085 0.095 0.054</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.085 0.095 0.054</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_2"><static>true</static><pose>0.872 0.027 0.016 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.129 0.128 0.031</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.129 0.128 0.031</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_3"><static>true</static><pose>1.150 -0.048 0.015 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.106 0.083 0.030</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.106 0.083 0.030</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_4"><static>true</static><pose>1.327 -0.066 0.022 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.102 0.122 0.044</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.102 0.122 0.044</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_5"><static>true</static><pose>1.640 -0.000 0.025 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.103 0.094 0.050</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.103 0.094 0.050</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_6"><static>true</static><pose>2.036 0.048 0.026 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.096 0.091 0.051</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.096 0.091 0.051</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_7"><static>true</static><pose>2.175 0.037 0.021 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.122 0.099 0.042</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.122 0.099 0.042</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_8"><static>true</static><pose>2.605 -0.070 0.018 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.126 0.103 0.036</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.126 0.103 0.036</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_9"><static>true</static><pose>0.379 1.218 0.027 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.093 0.084 0.053</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.093 0.084 0.053</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_10"><static>true</static><pose>0.708 1.236 0.017 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.092 0.085 0.034</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.092 0.085 0.034</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_11"><static>true</static><pose>0.882 1.155 0.023 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.102 0.090 0.047</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.102 0.090 0.047</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_12"><static>true</static><pose>1.127 1.220 0.017 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.101 0.091 0.033</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.101 0.091 0.033</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_13"><static>true</static><pose>1.440 1.242 0.020 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.124 0.091 0.039</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.124 0.091 0.039</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_14"><static>true</static><pose>1.679 1.220 0.017 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.129 0.091 0.033</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.129 0.091 0.033</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_15"><static>true</static><pose>1.897 1.176 0.019 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.084 0.085 0.039</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.084 0.085 0.039</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_16"><static>true</static><pose>2.129 1.214 0.021 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.103 0.128 0.041</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.103 0.128 0.041</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="clod_17"><static>true</static><pose>2.429 1.251 0.018 0 0 0</pose>
+      <link name="l"><collision name="c"><geometry><box><size>0.088 0.125 0.035</size></box></geometry><surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.088 0.125 0.035</size></box></geometry><material><ambient>0.28 0.20 0.12 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+    <model name="weed_0"><static>true</static><pose>0.700 0.450 0.280 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.55 0.10 0.10 1</ambient><diffuse>0.77 0.14 0.14 1</diffuse></material></visual></link></model>
+    <model name="weed_1"><static>true</static><pose>1.000 0.750 0.280 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.55 0.10 0.10 1</ambient><diffuse>0.77 0.14 0.14 1</diffuse></material></visual></link></model>
+    <model name="weed_2"><static>true</static><pose>1.350 0.550 0.280 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.55 0.10 0.10 1</ambient><diffuse>0.77 0.14 0.14 1</diffuse></material></visual></link></model>
+    <model name="weed_3"><static>true</static><pose>1.700 0.400 0.280 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.55 0.10 0.10 1</ambient><diffuse>0.77 0.14 0.14 1</diffuse></material></visual></link></model>
+    <model name="weed_4"><static>true</static><pose>2.050 0.720 0.280 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.015</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.55 0.10 0.10 1</ambient><diffuse>0.77 0.14 0.14 1</diffuse></material></visual></link></model>
+    <model name="crop_0"><static>true</static><pose>0.880 0.600 0.300 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.1</length></cylinder></geometry>
+        <material><ambient>0.10 0.50 0.10 1</ambient><diffuse>0.14 0.70 0.14 1</diffuse></material></visual></link></model>
+    <model name="crop_1"><static>true</static><pose>1.500 0.620 0.300 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.1</length></cylinder></geometry>
+        <material><ambient>0.10 0.50 0.10 1</ambient><diffuse>0.14 0.70 0.14 1</diffuse></material></visual></link></model>
+    <model name="crop_2"><static>true</static><pose>1.900 0.550 0.300 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.1</length></cylinder></geometry>
+        <material><ambient>0.10 0.50 0.10 1</ambient><diffuse>0.14 0.70 0.14 1</diffuse></material></visual></link></model>
+    <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 0.6 0.16 0 0 0</pose></include>
+  </world>
+</sdf>
