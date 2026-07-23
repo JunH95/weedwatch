@@ -273,6 +273,7 @@ def camera_sensor_gazebo(o: dict) -> str:
     rpy=(0,π/2,0) → 광축 +X 를 -Z(정하방)로. 인트린식은 D405(1280×720, HFOV 87°).
     """
     HFOV, W, H = P.camera_hfov, P.camera_w, P.camera_h   # D405 인트린식 단일 출처(geometry)
+    RATE = P.camera_rate   # 프레임률도 단일 출처 — 대수를 늘리면 렌더 비용이 곱해진다(아래 주석)
     sensors = []
     for ci, cam_y in enumerate(P.camera_ys(G)):
         cam = o.get(f"camera{ci}_world", [P.camera_x, cam_y, P.camera_z()])
@@ -285,7 +286,7 @@ def camera_sensor_gazebo(o: dict) -> str:
         sensors.append(f"""    <sensor name="down_cam{ci}" type="camera">
       <pose>{off} 0 1.5708 0</pose>
       <topic>{topic}</topic>
-      <update_rate>15</update_rate>
+      <update_rate>{RATE}</update_rate>
       <always_on>1</always_on>
       <camera>
         <horizontal_fov>{HFOV}</horizontal_fov>
@@ -302,7 +303,7 @@ def camera_sensor_gazebo(o: dict) -> str:
     <sensor name="down_depth{ci}" type="depth_camera">
       <pose>{off} 0 1.5708 0</pose>
       <topic>{dtopic}</topic>
-      <update_rate>15</update_rate>
+      <update_rate>{RATE}</update_rate>
       <always_on>1</always_on>
       <camera>
         <horizontal_fov>{HFOV}</horizontal_fov>

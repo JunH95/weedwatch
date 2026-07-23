@@ -36,7 +36,13 @@ GT_TOPIC = "/world/robot_field/dynamic_pose/info"
 GT_FILE = "/tmp/ww_field_gt.log"
 ODOM_FILE = "/tmp/ww_field_odom.txt"
 DETS_FILE = "/tmp/ww_field_dets.txt"
-CAMDIR = WW / "artifacts" / "camera"
+CAMDIR = WW / "artifacts" / "camera"      # 카메라 0 (기존 이름 유지, DECISIONS 026)
+# 카메라 N대: 한 대는 두둑 폭의 65%만 봐 재현율 상한이 0.65 였다. 대수만큼 구독·폴링해야 이득이 난다.
+sys.path.insert(0, str(WW / "tools"))
+from garden_geometry import Garden as _Gd, Portal as _Pt  # noqa: E402
+_NCAM = len(_Pt().camera_ys(_Gd()))
+CAMDIRS = [CAMDIR] + [WW / "artifacts" / f"camera{i}" for i in range(1, _NCAM)]
+CAM_TOPICS = ["/robot/camera"] + [f"/robot/camera{i}" for i in range(1, _NCAM)]
 
 sys.path.insert(0, str(WW / "tools"))
 from assert_drive import parse_messages, g, quat_to_rpy  # noqa: E402
@@ -125,9 +131,10 @@ def parse_gt_series():
 def run():
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     time.sleep(0.5)
-    for f in CAMDIR.glob("*.png"):
-        f.unlink()
-    CAMDIR.mkdir(parents=True, exist_ok=True)
+    for _d in CAMDIRS:
+        _d.mkdir(parents=True, exist_ok=True)
+        for f in _d.glob("*.png"):
+            f.unlink()
     for fp in (ODOM_FILE, DETS_FILE):
         Path(fp).write_text("")
     drive_dist = FIELD_WEED_XMAX + 0.6
@@ -152,7 +159,8 @@ def run():
 
         # 카메라 구독자(렌더 깨움 — Fortress 는 구독자 있어야 렌더+<save>) + GT 구독자(채점)
         cf = open("/tmp/ww_field_cam.devnull", "w")
-        subs.append(subprocess.Popen([ENV, "ign", "topic", "-e", "-t", "/robot/camera"],
+        for _t in CAM_TOPICS:
+            subs.append(subprocess.Popen([ENV, "ign", "topic", "-e", "-t", _t],
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True))
         gf = open(GT_FILE, "w")
         subs.append(subprocess.Popen([ENV, "ign", "topic", "-e", "-t", GT_TOPIC],
@@ -167,7 +175,7 @@ def run():
         # detect_server (ML venv): PNG + odom → world 검출. 로그 저장(디버그).
         detlog = open("/tmp/ww_field_det.log", "w")
         det = subprocess.Popen([PENV, "python", str(WW / "perception" / "detect_server.py"),
-                                "--watch", str(CAMDIR), "--out", DETS_FILE, "--odom-file", ODOM_FILE,
+                                "--watch", ",".join(str(d) for d in CAMDIRS), "--out", DETS_FILE, "--odom-file", ODOM_FILE,
                                 "--base", "0", str(BASE_Y), "0", "0", "--safe-dist", str(SAFE_DIST)],
                                stdout=detlog, stderr=subprocess.STDOUT, start_new_session=True)
         time.sleep(5.0)  # 로봇 안착 + detect_server 모델 로드(수초) + 첫 프레임
