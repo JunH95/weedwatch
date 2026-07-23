@@ -353,7 +353,7 @@ flowchart TB
             <tr><td>구동</td><td>ZLTECH 8″ 인휠 BLDC 모터 4개</td><td>24V IP65, 정격 4 · 피크 12 N·m</td><td class="val">600</td></tr>
             <tr><td>Y 캐리지</td><td>NEMA23 스텝 + GT3 벨트</td><td>±0.1mm 클로즈드루프, IP65</td><td class="val">195</td></tr>
             <tr><td>Z 도구</td><td>NEMA23 스텝 + Tr8×8 리드스크류</td><td>추력 ~628N (관입력 170–340N)</td><td class="val">150</td></tr>
-            <tr><td>카메라</td><td>Intel RealSense D405</td><td>1280×720, 작동 7–50cm, 87° 화각</td><td class="val">—</td></tr>
+            <tr><td>카메라</td><td>Intel RealSense D405 <strong>×2</strong></td><td>1280×720, 작동 7–50cm, 87° 화각 · 한 대로는 두둑 폭의 65%만 보여 2대</td><td class="val">—</td></tr>
             <tr><td>자세 (IMU)</td><td>Bosch BNO085</td><td>온보드 센서퓨전, 쿼터니언 직출 · 흔들림 보정·EKF</td><td class="val">~30</td></tr>
             <tr><td>위치추정</td><td>휠 엔코더(모터 내장) + AprilTag 말뚝 4</td><td>휠오도 → +IMU/EKF → 코너 태그 (L1·L2·L3)</td><td class="val">~40</td></tr>
             <tr><td>컴퓨트</td><td>Jetson Orin Nano Super 8GB</td><td>67 TOPS, 7–25W · Teensy 4.1/micro-ROS 프론트엔드</td><td class="val">249</td></tr>
@@ -380,6 +380,10 @@ flowchart TB
         <div class="card"><div class="n">데이터</div><h4>합성 정원 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">CropCraft로 콩·옥수수 + 잡초 3종을 자연광에서 렌더. 잡초 픽셀 비율 4.55%는 문헌(실밭 잡초 바이오매스 중앙값 4%)에 맞춘 값이다. 시드를 분리해 학습이 한 번도 안 본 정원으로 평가한다.</p></div>
         <div class="card"><div class="n">손실</div><h4>가중 + Dice <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">0.6·가중CE(inverse-sqrt) + 0.4·Dice. 흙이 75%라 그냥 두면 “전부 흙”으로 수렴하는데, 이 레시피가 희소 클래스(옥수수 2.5%·잡초)를 전부 IoU 0.9 위로 끌어올린다.</p></div>
         <div class="card"><div class="n">카메라 정합</div><h4>학습=실사용 <span class="tag t-ok">검증</span></h4><p class="muted" style="margin:0">학습 카메라를 로봇 카메라 스펙(1280×720, 87°, 0.33m)으로 다시 렌더해 재학습했다. 로봇이 실제로 볼 화면과 학습 분포가 같아야 자율 인식이 정직하다.</p></div>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">눈이 닿는 곳까지만 칠 수 있다 — 카메라가 두 대인 이유</span>
+        카메라 한 대를 두둑 위 0.33m에 정하방으로 달면 가로로 0.585m를 본다. 그런데 도구는 두둑 폭 0.90m 전체에 닿는다. 차이인 35%(양쪽 각 15.8cm)는 도구가 닿지만 눈이 닿지 않는 땅이었고, 주행은 진행 방향만 메우므로 이 폭 방향 공백은 영원히 안 채워진다. 아무리 좋은 검출기를 써도 재현율이 0.65를 못 넘는 구조였다는 뜻이다. 카메라를 한 대 더 달아(y=±0.225, 가운데 0.135m 겹침) 전폭을 덮었다. 한 대로 덮으려면 두둑 위 0.474m가 필요한데 빔이 0.60m라 물리적으로 불가능하다. 이건 시뮬레이션으로는 영영 안 잡힌다 — 안 보이는 잡초는 시뮬에서도 안 보여서 통과처럼 보인다. 산수로만 잡히고, 그래서 산수로 단언한다.
       </div>
       <div class="callout reveal">
         <span class="lb">게이트는 희소 표적을 직접 겨눈다</span>
@@ -452,7 +456,7 @@ flowchart TB
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
         <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">착수</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 한다. 그러면 보는 것(카메라 직하점)과 찍는 것(도구 팁)이 각도 몇 도에 cm씩 밀리는데, IMU 자세와 깊이를 융합해 그만큼 되짚어 보정한다. Tier 1 준정적 기울기(사면 충돌) → Tier 2 동적 요철(고랑 흙덩이). 센서엔 실측 노이즈를 넣고, 보정 켠 것과 끈 것을 같은 시드에서 A/B로 단언한다. 첫 단추(로봇이 크로스슬로프에서 5° 기울고 IMU가 그 기울기를 정확히 읽는가, 그리고 물리가 안 터지는가)는 <code>make tilt</code>로 확인했고, 그 위에서 8° 기운 채 IMU 보정으로 잡초 위에 서는 것(무보정이면 4.3cm 빗나가는 걸 보정이 0.1cm로, 실물 IMU 잔차까지 견디며)을 <code>make tilt-stamp</code>로 단언했다. 동적 단계로 넘어가 <code>make shake</code>로 절차적 흙덩이 밭을 주행하며 5.8° 흔들려도 물리가 안 터지고(DART 안정) IMU가 그 시변 자세를 0.01°로 추적함을 확인했다 — 다음은 주행하며 흔들리는 중에 타격을 맞추는 것.</div></div>
-        <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">예정</span></div><div class="muted">재현율 0.25–0.5를 끌어올린다. 잡초를 이랑 빈틈에 두는 현실적 밭 배치(지금은 일부러 겹쳐 심어 최악), 깊이로 잡초 키에서 오는 시차 보정, 검출 군집화 개선.</div></div>
+        <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">진행</span></div><div class="muted">재현율 0.25–0.5를 끌어올린다. 가장 큰 원인은 카메라가 두둑 폭의 65%만 봤다는 것이었고(재현율 상한 0.65), 카메라를 두 대로 늘려 전폭을 덮었다. 남은 것: 두 대 인식 융합, 잡초를 이랑 빈틈에 두는 현실적 밭 배치, 깊이로 잡초 키에서 오는 시차 보정.</div></div>
         <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 보스트로페돈(지그재그) 커버리지 경로(Nav2 RPP 컨트롤러 · 강화학습 아님). 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
         <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
         <div class="node plan"><div class="lab">대시보드 <span class="st">설계됨</span></div><div class="muted">로봇이 처리·보고를 SQLite에 기록 → 정적 HTML 리포트(“이번 주말 뽑을 것” 목록, 처리한 잡초, 키 넘은 작물).</div></div>

@@ -264,24 +264,34 @@ def camera_sensor_gazebo(o: dict) -> str:
     잡는다(고정 카메라 + 다중 툴 = Andela/ecoRobotix). 툴 팁은 FK 로 구하므로 픽셀 고정 불변식이
     없어도 단언 성립. 두둑 위 ~0.33m 에서 정하방.
 
+    **N대다 (DECISIONS 026).** 한 대(87°)로는 두둑 위 0.33m 에서 가로 0.585m 밖에 못 봐 툴이 닿는
+    0.90m 의 35% 가 사각이었다(재현율 상한 0.65). 두둑 폭 균등분할 위치(±0.225)에 두 대를 달아
+    겹침 0.135m 로 전폭을 덮는다. 커버리지는 tests/test_camera_coverage.py 가 산수로 단언한다.
+
     센서 위치 = robot_body 가 export 한 카메라 시각 박스의 월드좌표(camera_world). base 원점이
     (0,0,0)이라 그대로 센서 pose 다 — 센서와 시각 카메라가 어긋나지 않는다.
     rpy=(0,π/2,0) → 광축 +X 를 -Z(정하방)로. 인트린식은 D405(1280×720, HFOV 87°).
     """
-    cam = o.get("camera_world", [P.camera_x, 0.0, P.camera_z()])
-    off = f"{cam[0]:.4f} {cam[1]:.4f} {cam[2]:.4f}"
-    HFOV, W, H = 1.5184, 1280, 720   # D405: 87° / 1280×720
-    return f"""  <gazebo reference="base_link">
-    <sensor name="down_cam" type="camera">
+    HFOV, W, H = P.camera_hfov, P.camera_w, P.camera_h   # D405 인트린식 단일 출처(geometry)
+    sensors = []
+    for ci, cam_y in enumerate(P.camera_ys(G)):
+        cam = o.get(f"camera{ci}_world", [P.camera_x, cam_y, P.camera_z()])
+        off = f"{cam[0]:.4f} {cam[1]:.4f} {cam[2]:.4f}"
+        # 카메라 0 은 기존 토픽·저장경로를 그대로 쓴다 — 인식 스택(percept/row-live/field-render)이
+        # 아직 단일 카메라로 돌고 있어서다. 융합이 들어가면 이름을 정규화한다(DECISIONS 026).
+        topic = "robot/camera" if ci == 0 else f"robot/camera{ci}"
+        save = "artifacts/camera" if ci == 0 else f"artifacts/camera{ci}"
+        dtopic = "robot/depth" if ci == 0 else f"robot/depth{ci}"
+        sensors.append(f"""    <sensor name="down_cam{ci}" type="camera">
       <pose>{off} 0 1.5708 0</pose>
-      <topic>robot/camera</topic>
+      <topic>{topic}</topic>
       <update_rate>15</update_rate>
       <always_on>1</always_on>
       <camera>
         <horizontal_fov>{HFOV}</horizontal_fov>
         <image><width>{W}</width><height>{H}</height><format>R8G8B8</format></image>
         <clip><near>0.02</near><far>10</far></clip>
-        <save enabled="true"><path>artifacts/camera</path></save>
+        <save enabled="true"><path>{save}</path></save>
         <!-- 센서 노이즈. 0 이면 실제보다 낙관적이라(심-리얼 원장) 가우시안 픽셀 노이즈를 넣는다.
              실 옥외 조명·젖은 잎 반사는 여기 넘어 학습때 도메인 랜덤화로 보완. -->
         <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
@@ -289,9 +299,9 @@ def camera_sensor_gazebo(o: dict) -> str:
     </sensor>
     <!-- 깊이 카메라 (RGB 와 같은 자리·방향). 높이를 비전으로 → "작물이 클리어런스 넘었나"
          를 오라클 없이(Aigen gen2 방식). 주의: 시뮬 깊이 노이즈는 근사(실 D405 는 거리의존·IR). -->
-    <sensor name="down_depth" type="depth_camera">
+    <sensor name="down_depth{ci}" type="depth_camera">
       <pose>{off} 0 1.5708 0</pose>
-      <topic>robot/depth</topic>
+      <topic>{dtopic}</topic>
       <update_rate>15</update_rate>
       <always_on>1</always_on>
       <camera>
@@ -300,7 +310,10 @@ def camera_sensor_gazebo(o: dict) -> str:
         <clip><near>0.02</near><far>10</far></clip>
         <noise><type>gaussian</type><mean>0.0</mean><stddev>0.003</stddev></noise>
       </camera>
-    </sensor>
+    </sensor>""")
+    body = "\n".join(sensors)
+    return f"""  <gazebo reference="base_link">
+{body}
   </gazebo>
 """
 

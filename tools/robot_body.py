@@ -409,14 +409,17 @@ def build():
     # base 전방 팔에 올려 두둑 폭 전체를 내려다본다(고정 카메라 + 다중 툴 = 실제 다중툴 기계,
     # Andela/ecoRobotix). 툴 팁은 FK(base GT + carriage_i + tool_i)로 구하므로 픽셀 고정 없이도
     # 단언이 성립한다. 높이·X 는 garden_geometry 단일 출처(camera_x, camera_z). LED 는 렌즈 둘레 링.
+    # 카메라는 N대다 (DECISIONS 026). 한 대(87°)로는 두둑 위 0.33m 에서 0.585m 밖에 못 봐
+    # 툴이 닿는 0.90m 의 35% 가 사각이었다. 두둑 폭 균등분할 위치(±0.225)에 두 대를 단다.
     cam_x = P.camera_x
     cam_z = P.camera_z()                 # ≈0.58 = 빔 바로 아래, 두둑(0.25) 위 ~0.33m
     arm_x0 = beam_cx + beam_lx / 2       # 빔 앞면에서 팔이 앞으로 뻗어나감
-    parts.append(box("cam_arm", (cam_x - arm_x0, 0.03, 0.03),
-                     ((arm_x0 + cam_x) / 2, 0.0, cam_z + 0.012), mats["frame"]))
-    parts.append(box("camera", (0.05, 0.05, 0.035), (cam_x, 0.0, cam_z),
-                     mats["camera"], bevel=0.006))
-    parts.append(ring("led", 0.045, 0.007, (cam_x, 0.0, cam_z - 0.022), mats["led"]))
+    for ci, cam_y in enumerate(P.camera_ys(G)):
+        parts.append(box(f"cam_arm{ci}", (cam_x - arm_x0, 0.03, 0.03),
+                         ((arm_x0 + cam_x) / 2, cam_y, cam_z + 0.012), mats["frame"]))
+        parts.append(box(f"camera{ci}", (0.05, 0.05, 0.035), (cam_x, cam_y, cam_z),
+                         mats["camera"], bevel=0.006))
+        parts.append(ring(f"led{ci}", 0.045, 0.007, (cam_x, cam_y, cam_z - 0.022), mats["led"]))
 
     # ── 6. N개 Y 캐리지 + Z 점타격 툴 (독립 액추에이터. DECISIONS 020) ─────────
     # 각 툴: 자기 밴드(90/N cm) 중심에 서서 짧게 ±tool_band_half Y 훑고, Z 리드스크류로 내려찍는다.
@@ -635,11 +638,13 @@ def export_obj(outdir: Path):
 
     # 카메라 시각 박스의 월드 위치 → make_urdf 가 down_cam 센서를 여기 정확히 배치한다
     # (센서와 시각 카메라가 어긋나지 않게). export 루프가 위치를 바꾸기 전에 잡는다.
-    cam_obj = next((o for o in bpy.data.objects if o.name == "camera"), None)
-    if cam_obj is not None:
+    for ci in range(P.n_cameras):
+        cam_obj = next((o for o in bpy.data.objects if o.name == f"camera{ci}"), None)
+        if cam_obj is None:
+            continue
         cpts = [cam_obj.matrix_world @ Vector(c) for c in cam_obj.bound_box]
-        origins["camera_world"] = [sum(p.x for p in cpts) / 8, sum(p.y for p in cpts) / 8,
-                                   sum(p.z for p in cpts) / 8]
+        origins[f"camera{ci}_world"] = [sum(p.x for p in cpts) / 8, sum(p.y for p in cpts) / 8,
+                                        sum(p.z for p in cpts) / 8]
 
     # 링크별로 export. 메시를 그 링크 원점만큼 빼서 원점 기준으로 만든다.
     for link, objs in groups.items():

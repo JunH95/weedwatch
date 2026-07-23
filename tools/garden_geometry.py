@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 # ── 농촌진흥청 농사로 기준 ────────────────────────────────────────────────
@@ -108,7 +109,18 @@ class Portal:
     tool_x0: float = -0.09  # 맨 앞 툴의 X (카메라 뒤). 기존 단일툴 값.
     tool_stagger_x: float = 0.18  # 툴 간 X 간격. 캐리지 X-길이(carriage_size·1.4=0.14)보다
                                   # 넓어야 Y 범위가 겹치는 순간에도 캐리지끼리 안 부딪힌다.
-    camera_x: float = 0.22  # 하방 카메라 X (base 고정 전방 팔, 두둑 전체를 봄). DECISIONS 006.
+    camera_x: float = 0.22  # 하방 카메라 X (base 고정 전방 팔). DECISIONS 006.
+
+    # ── 카메라 대수 (DECISIONS 026) ─────────────────────────────────────
+    # D405 한 대(87°)로는 두둑 폭 90cm 를 못 덮는다: 두둑 위 0.33m 에서 가로 발자국이 0.585m 라
+    # 35%(양쪽 각 15.8cm)가 사각이었다 — 툴은 ±0.45 까지 닿는데 눈이 안 닿아 완벽한 검출기라도
+    # 재현율 상한이 0.65 였다. 한 대로 덮으려면 두둑 위 0.474m 가 필요한데 빔이 0.60m 라 불가능.
+    # 두 대를 툴 밴드와 같은 균등분할 위치(±bed_width/4)에 두면 겹침 0.135m 로 전폭을 덮는다.
+    n_cameras: int = 2
+    camera_hfov: float = 1.5184   # D405 87°. make_urdf 가 이 단일 출처를 읽는다.
+    camera_w: int = 1280
+    camera_h: int = 720
+    camera_mpp: float = 0.000457  # 캘리브 실측 m/px (perception/detect_server). 기하값보다 보수적.
 
     # ── Z 축 (막대가 아래로 = 점 타격 + 카메라 하강) ────────────────────
     # docs/DECISIONS.md 009: 점 타격, 로봇팔 아님. 직선 레일 하나.
@@ -163,6 +175,38 @@ class Portal:
         """두둑 윗면에서 카메라까지 높이 (파생). n=3 기준 ≈0.33m — 스펙 0.35 근접.
         학습 카메라(train_garden.yaml)를 이 값에 정합해야 온-루프 인식이 정직하다(Phase 3)."""
         return self.camera_z() - g.bed_height
+
+    # ── 카메라 커버리지 (DECISIONS 026) ─────────────────────────────────
+
+    def camera_ys(self, g: Garden) -> list[float]:
+        """카메라 N대의 Y 중심 (로봇 중심 기준). 툴 밴드와 같은 균등분할 공식.
+        n=2, bed_width=0.90 → [-0.225, +0.225]."""
+        step = g.bed_width / self.n_cameras
+        return [-g.bed_width / 2 + step / 2 + i * step for i in range(self.n_cameras)]
+
+    def camera_footprint_w(self, g: Garden) -> float:
+        """한 대가 지면에서 덮는 가로(두둑 폭 방향) 길이 [m]. 캘리브 MPP 기준 — 기하값(화각)보다
+        작아서 보수적이다. 인식이 실제로 쓰는 스케일이므로 커버리지 판단은 이쪽이 정직하다."""
+        return self.camera_w * self.camera_mpp
+
+    def camera_footprint_h(self, g: Garden) -> float:
+        """한 대가 덮는 세로(주행 방향) 길이 [m]. 주행이 x 를 메우므로 커버리지 제약은 아니다."""
+        return self.camera_h * self.camera_mpp
+
+    def camera_footprint_w_geometric(self, g: Garden) -> float:
+        """화각·높이로 계산한 가로 발자국. 캘리브 MPP 와 교차검증용(둘이 크게 벌어지면 재캘리브)."""
+        return 2 * self.camera_height_above_bed(g) * math.tan(self.camera_hfov / 2)
+
+    def camera_coverage_half(self, g: Garden) -> float:
+        """카메라들이 합쳐 덮는 반폭. 툴이 닿는 bed_width/2 이상이어야 '보는 만큼만 친다'가 성립."""
+        return max(self.camera_ys(g)) + self.camera_footprint_w(g) / 2
+
+    def camera_overlap(self, g: Garden) -> float:
+        """인접 카메라 발자국의 겹침 [m]. 0 이하면 두둑 가운데 사각(blind strip)이 생긴다."""
+        ys = self.camera_ys(g)
+        if len(ys) < 2:
+            return 0.0
+        return self.camera_footprint_w(g) - (ys[1] - ys[0])
 
     # ── 카메라 (멀티툴 이후 base 고정 전방 팔, 두둑 전체를 봄) ────────────
     # 단일툴 때는 캐리지에 붙여 "툴이 항상 같은 픽셀"(DECISIONS 006)을 썼지만, 캐리지가
