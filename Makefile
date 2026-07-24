@@ -214,8 +214,9 @@ row-live: build/ww_cmd models/ridge/model.sdf models/garden_field/model.sdf clea
 # 사람 검증용: held-out 정원에 모델을 돌려 [원본 | 예측+타격점] 오버레이 PNG 생성.
 # 단언이 아니라 눈으로 보는 용도 → artifacts/perception_overlay.png 를 열어 본다.
 species:
+	@blender --background --python tools/render_species.py 2>&1 | grep 렌더: || true
 	@perception/env.sh python tools/species_reference.py
-	@echo "artifacts/species_reference.png — 작물 vs 잡초 눈으로 구분"
+	@echo "artifacts/species_reference.png — 종별 표본 (이름+사진)"
 
 overlay:
 	perception/env.sh python perception/overlay.py

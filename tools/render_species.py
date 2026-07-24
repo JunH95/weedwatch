@@ -34,6 +34,7 @@ def clear():
 
 
 def setup_scene():
+    clear()   # 기본 큐브를 지운다 — 안 지우면 카메라(z=0.6)가 2m 큐브 안에 들어가 검게 찍힌다(실측)
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     try:
