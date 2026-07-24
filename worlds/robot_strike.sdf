@@ -103,6 +103,6 @@
       <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.1</length></cylinder></geometry>
         <material><ambient>0.10 0.50 0.10 1</ambient><diffuse>0.14 0.70 0.14 1</diffuse></material></visual></link></model>
 
-    <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 0.6 0.16 0 0 0</pose></include>
+    <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 0.6 0.103 0 0 0</pose></include>
   </world>
 </sdf>

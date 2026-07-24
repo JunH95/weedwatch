@@ -28,7 +28,7 @@ import os
 import random
 import sys
 
-TILT_DEG = 6.0                  # 크로스슬로프. 8°보다 낮춰 흙덩이와 합해도 안 넘어지게
+TILT_DEG = float(os.environ.get('STRIKE_TILT_DEG', '6.0'))  # 크로스슬로프 각. 데모는 0(평지+흙덩이=현실 동적 흔들림)
 ROLL = math.radians(TILT_DEG)
 # 경사 축: roll=크로스슬로프(옆으로 기욺, 두둑 가로지름) / pitch=종단(오르내림, 두둑 따라감).
 # 실제 밭은 두둑이 경사 방향으로 나 로봇이 따라 달리므로 pitch 가 현실적. roll 은 끼임 시나리오.
@@ -101,6 +101,7 @@ def sdf() -> str:
               for i, (x, y) in enumerate(CROPS)]
     body = "\n".join(parts)
     BED = _BED
+    SPAWN_Z = 0.6 * math.tan(ROLL) + 0.04   # 낮은쪽 바퀴가 기운 바닥에 닿게 (평지=0.04)
     return f'''<?xml version="1.0" ?>
 <!-- 생성물: tools/make_strike_world.py (Stage 5 Step B: 경사 {TILT_DEG}° + 흙덩이 위 타격). 손대지 말 것. -->
 <sdf version="1.9">
@@ -124,7 +125,7 @@ def sdf() -> str:
 {BED}
 {body}
 
-    <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 {ROBOT_Y} 0.16 0 0 0</pose></include>
+    <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 {ROBOT_Y} {SPAWN_Z:.3f} 0 0 0</pose></include>
   </world>
 </sdf>
 '''
