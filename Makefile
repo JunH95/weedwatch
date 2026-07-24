@@ -150,6 +150,10 @@ watch-row: build/ww_cmd
 # 남기고, 명중한 잡초는 월드에서 지운다. 런타임 create/remove 서비스 + 개별 잡초 모델이라 가능
 # (CropCraft 사실적 밭은 종별 통메시라 개별 제거 불가 — 거기선 자국만).
 # strike-marks = 헤드리스 단언(에이전트), watch-strikes = GUI(사람, 데스크톱 전용).
+# 관통 P2: 두둑 여러 줄 밭 (기본 2줄). 기존 ridge·garden 모델을 두둑 중심마다 배치해 재사용.
+worlds/robot_field_multi.sdf: tools/make_field_world.py
+	@$(ENV) python3 tools/make_field_world.py 2 > worlds/robot_field_multi.sdf
+
 strike-marks: build/ww_cmd clean-sim
 	@$(ENV) python3 tools/strike_marks.py
 
