@@ -190,10 +190,10 @@
         <div class="tagline muted">주말농장을 대신 돌보는 <b style="color:var(--ink)">자율 제초 로봇</b>을, <b style="color:var(--ink)">시뮬레이션 안에서</b> 만든다.</div>
         <div class="hook">카메라로 작물과 잡초를 구별해, 잡초 위에 정밀하게 서서 찍어 누른다. 실물은 만들지 않는다. 사람이 화면을 들여다보지 않으므로, 모든 기능은 명령줄에서 수치로 단언(assert)할 수 있어야만 존재로 인정한다.</div>
         <div class="chips">
-          <span class="chip">현재 <b>Stage 4-3 완료</b></span>
+          <span class="chip">현재 <b>관통 완료 · 처리율 개선 중</b></span>
           <span class="chip">잡초 인식 IoU <b>0.959</b></span>
           <span class="chip">정밀 타격 <b>&lt;1.5mm</b></span>
-          <span class="chip">자율 주행 타격 <b>동작</b></span>
+          <span class="chip">여러 두둑 자율 주행 <b>2/2</b></span>
         </div>
         <div class="cover-meta">
           이 문서는 프로젝트 전체를 한눈에 보는 종합본이다. 상세는 각 문서로: 계획 <code>PLAN.md</code> · 결정 기록 <code>DECISIONS.md</code> · 실물 설계 <code>DESIGN.md</code> · 현황 <code>STATUS.md</code> · 근거 <code>REFERENCES.md</code>. &nbsp;최종 갱신 2026-07-22.
@@ -499,7 +499,7 @@
       </div>
       <div class="callout reveal">
         <span class="lb">흔들리면 보는 것과 찍는 것이 같이 밀린다</span>
-        몸이 기울면 카메라가 내려다보는 지점과 도구 끝이 함께 밀린다. 두둑 위 0.33m에서 3도만 기울어도 1.7cm, 도구는 매달린 팔 길이만큼 더. 허용오차가 2cm이니 그냥 넘길 수 없다. 그래서 IMU 자세를 픽셀→월드 변환과 도구 기구학 양쪽에 넣는다. 결과는 아래 로드맵의 Stage 5 표에.
+        몸이 기울면 카메라가 내려다보는 지점과 도구 끝이 함께 밀린다. 두둑 위 0.33m에서 3도만 기울어도 1.7cm, 도구는 매달린 팔 길이만큼 더. 허용오차가 2cm이니 그냥 넘길 수 없다. 그래서 IMU 자세를 픽셀→월드 변환과 도구 기구학 양쪽에 넣는다(<code>make tilt-stamp</code>: 4.26cm→0.10cm).
       </div>
     </div>
   </section>
@@ -535,52 +535,49 @@
         <div class="node done"><div class="lab">Stage 2 · 로봇 몸체 <span class="st">대부분 완료</span></div><div class="muted">파라메트릭 생성 → URDF. 주행·관절 mm 정밀·걸터타기·카메라 전부 단언 통과.</div></div>
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
-        <div class="node now"><div class="lab">Stage 5 · 지형·흔들림에도 정확한 타격 <span class="st">진행 중</span><span class="badge">현재</span></div><div class="muted">밭을 물리적으로 울퉁불퉁하게 만들어 로봇이 실제로 기울고 흔들리게 하고, IMU로 그만큼 되짚어 보정한다. 아래 표가 현재까지의 결과다.</div></div>
-        <div class="node plan"><div class="lab">자율 재현율 올리기 <span class="st">원인 재귀속됨</span></div><div class="muted">카메라 커버리지도 깊이 시차도 원인이 아니었다. 실제 원인은 정원이 좌표 없는 잡초를 같이 심어 툴 시간을 먹는 것 — 측정 계약부터 고친다.</div></div>
-        <div class="node plan"><div class="lab">자율주행 시나리오 · 넓은 밭 <span class="st">설계됨</span></div><div class="muted">지금보다 큰 밭 + 보스트로페돈(지그재그) 커버리지 경로(Nav2 RPP 컨트롤러 · 강화학습 아님). 로봇이 밭 전체를 자율로 훑고, 덮은 면적·처리율·면적당 에너지를 잰다. “한 로봇이 어디까지 관리 가능한가.”</div></div>
-        <div class="node plan"><div class="lab">바퀴 접촉 모델 · 지형 하이트필드 <span class="st">부채</span></div><div class="muted">지금 바퀴는 보기에만 러그가 있고 물리에는 마찰 설정이 하나도 없다. 충돌 형상을 단순하게 두는 것은 표준이지만, 그 대가는 마찰과 슬립 파라미터로 갚아야 하는데 그걸 안 했다. 그래서 경사에서 잰 미끄러짐 수치를 믿을 수 없다. 마찰 방향과 슬립 모델을 문헌 값으로 넣고, 흙덩이 상자를 연속 지형으로 바꾼다.</div></div>
+        <div class="node done"><div class="lab">관통(walking skeleton) · 끝에서 끝까지 <span class="st">완료</span></div><div class="muted">세부 완벽 대신 전 과정을 한 번 돌렸다. 로봇이 여러 두둑 밭을 자율로 훑고 → 카메라로 잡초 검출 → 타격 → 한 일을 JSON으로 남기고 → 대시보드로 본다. 아래 표가 4단계 전부의 재현 명령이다.</div></div>
+        <div class="node now"><div class="lab">자율 처리율 올리기 <span class="st">진행 중</span><span class="badge">현재</span></div><div class="muted">관통은 돌지만 처리율이 낮다(최근 검출 8·처리 0~1·놓침 36). 카메라가 채점 밖 클러터 잡초까지 검출해 툴 시간을 먹고, 잎-밑동 오차가 남는다. 측정 계약부터 고친다 — 커버리지도 깊이 시차도 원인이 아니었다.</div></div>
+        <div class="node plan"><div class="lab">물리 두둑-끝 회전 · 끼임 <span class="st">세부 부채</span></div><div class="muted">스켈레톤은 두둑 사이를 재배치(<code>set_pose</code>)로 건너뛰고 밭을 매끈하게 둬 끼임을 피했다. 실물화하려면 물리 회전과 두둑-포드 4cm 여유(034)를 정면으로 푼다.</div></div>
+        <div class="node plan"><div class="lab">바퀴 접촉 모델 · 지형 하이트필드 <span class="st">부채</span></div><div class="muted">바퀴 마찰은 이제 단일 출처 0.4(젖은 흙 최악 가정)로 넣었다(032). 남은 건 흙덩이 상자를 연속 지형으로 바꾸고 슬립 모델을 문헌 값으로 채우는 것.</div></div>
         <div class="node plan"><div class="lab">배터리 · 에너지 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 넣는다. 태양광이 되므로 도킹은 없앴다.</div></div>
-        <div class="node plan"><div class="lab">대시보드 <span class="st">설계됨</span></div><div class="muted">로봇이 처리·보고를 SQLite에 기록 → 정적 HTML 리포트(“이번 주말 뽑을 것” 목록, 처리한 잡초, 키 넘은 작물).</div></div>
+        <div class="node plan"><div class="lab">실물 텃밭 관리 앱 <span class="st">설계됨 · 최종</span></div><div class="muted">지금 대시보드는 자기완결 HTML(자리표시). 실물 로봇이 나오면 실시간 확인 + 작동 제어가 되는 웹/앱으로. 가장 마지막 단계.</div></div>
       </div>
-      <h3 class="reveal">Stage 5 진행 — 무엇이 통과했고 어디서 막혔나</h3>
+      <h3 class="reveal">관통 — 명령 한 줄로 재현되는 4단계</h3>
       <div class="tbl-wrap reveal">
         <table>
-          <caption>전부 명령 한 줄로 재현된다. 수치는 실측.</caption>
+          <caption>전부 명령 한 줄로 재현된다. 수치는 실측(최근 실행).</caption>
           <thead><tr><th>단계</th><th>명령</th><th>결과</th><th>상태</th></tr></thead>
           <tbody>
-            <tr><td>기울기·IMU 물리 기반</td><td><code>make tilt</code></td><td>지상진실 5.00° = IMU 5.00°, 물리 안정</td><td><span class="tag t-ok">통과</span></td></tr>
-            <tr><td>기운 채 보정 타격</td><td><code>make tilt-stamp</code></td><td>무보정 <span class="val">4.26cm</span> 빗나감 → 보정 <span class="val">0.10cm</span> 명중</td><td><span class="tag t-ok">통과</span></td></tr>
-            <tr><td>동적 요철 주행</td><td><code>make shake</code></td><td>2.46m 완주 · 5.8° 흔들림 · IMU가 0.01°로 추적</td><td><span class="tag t-ok">통과</span></td></tr>
-            <tr><td>경사+요철 주행 타격</td><td><code>make strike-terrain</code></td><td>오차 44→181cm. 원인은 기울기가 아니라 <strong>바퀴 미끄러짐</strong></td><td><span class="tag t-open">막힘</span></td></tr>
+            <tr><td>P1 커버리지 경로</td><td><code>pytest tests/test_coverage.py</code></td><td>보스트로페돈 계획기, 테스트 <span class="val">6/6</span> (두둑 완주·방향 교대·헤드랜드)</td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>P2 여러 줄 밭</td><td><code>make field-multi</code></td><td>두둑 2줄 월드(PITCH 1.20). 로봇이 두둑0 위 <span class="val">y=0.600</span>에 걸터탐</td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>P3 관통 실행 + 로깅</td><td><code>make field-run</code></td><td>두둑 <span class="val">2/2</span> 자율 완주 · 검출 8 · <code>field_run.json</code></td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>P4 대시보드</td><td><code>make dashboard</code></td><td>밭 지도 SVG + 통계 타일 → 자기완결 <code>dashboard.html</code></td><td><span class="tag t-ok">통과</span></td></tr>
           </tbody>
         </table>
       </div>
-      <div class="callout open reveal">
-        <span class="lb">막힌 지점 — 경사와 요철이 겹치면 바퀴가 밀린다</span>
-        <div class="kv" style="margin:.5rem 0 .6rem">
-          <dt>실제 이동</dt><dd>0.844 m</dd>
-          <dt>오도메트리 보고</dt><dd>2.6 m</dd>
-          <dt>차이</dt><dd><strong>1.8 m 미끄러짐</strong> · yaw 5.3° 틀어짐</dd>
-        </div>
-        제어는 바퀴 회전으로 위치를 재고 채점은 지상진실로 하니, 이 차이가 그대로 타격 오차가 된다. 몸이 1m 틀린 자리에 있는데 도구를 센티미터로 보정하는 일은 의미가 없다. 그래서 다음은 위치추정이다.
+      <div class="callout reveal">
+        <span class="lb">관통의 게이트는 재현율이 아니다</span>
+        일부러 처리율로 막지 않았다. 스켈레톤이 물어야 할 건 “전 과정이 끊김 없이 도는가”이지 “몇 % 잡았나”가 아니다. 게이트는 <b>두둑 완주 AND 검출>0</b>. 처리율은 다음 단계(현재)에서 측정 계약을 고쳐 올린다.
+      </div>
+      <h3 class="reveal">관통에 재사용한, 이미 통과한 능력들</h3>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>스켈레톤은 이것들을 다시 만들지 않고 엮었다.</caption>
+          <thead><tr><th>능력</th><th>명령</th><th>결과</th></tr></thead>
+          <tbody>
+            <tr><td>기운 채 보정 타격</td><td><code>make tilt-stamp</code></td><td>무보정 <span class="val">4.26cm</span> → 보정 <span class="val">0.10cm</span></td></tr>
+            <tr><td>동적 요철 주행</td><td><code>make shake</code></td><td>2.46m 완주 · 흔들림 5.8° · IMU 0.01° 추적</td></tr>
+            <tr><td>매끈한 땅 정밀 타격</td><td><code>make row</code></td><td>정지 정밀 <span class="val">&lt;2cm</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">경사+요철 미끄러짐 — 원인 정정(034)</span>
+        한때 “경사에서 1.8m 미끄러진다”고 봤으나, 그건 <b>가로경사 걸터타기</b>라는 비현실 시나리오에서 두둑에 낀 인공물이었다(033 철회). 현실적 피치에서는 슬립 <span class="val">1.2%</span>. 진짜 원인은 마찰이 아니라 두둑-포드 4cm 여유가 3° 기울면 2.2cm 밀려 끼는 <b>기하</b>였다(두둑을 좁히니 슬립 94%→5%로 재현). 스켈레톤 밭을 매끈하게 둔 이유.
       </div>
       <div class="callout reveal">
         <span class="lb">자율주행은 왜 강화학습이 아닌가</span>
-        경로는 지그재그 왕복 약 50줄과 Nav2 기본 컨트롤러로 충분하다. 5×5m 텃밭에 학습 정책은 과잉이고, 무엇보다 이 프로젝트는 모든 걸 결정적으로 단언하는데 확률적 정책은 단언이 어렵다. 위치추정은 사다리로 올린다.
-        <ul class="clean" style="margin:.5rem 0 0">
-          <li><b>L0</b> 지상진실 — 기준선(치팅, 비교용)</li>
-          <li><b>L1</b> 휠 엔코더 오도메트리 — <span class="tag t-open">경사+요철에서 무너짐</span></li>
-          <li><b>L2</b> 시각 오도메트리 — 하방 카메라로 지면 이동을 직접 잰다 <span class="tag t-plan">다음</span></li>
-          <li><b>L3</b> 두둑 네 귀퉁이 AprilTag 말뚝 — 절대 기준</li>
-        </ul>
-      </div>
-      <div class="callout reveal">
-        <span class="lb">Stage 5에서 미리 짚어 둔 기술 리스크</span>
-        두둑 충돌을 상자에서 사면·요철로 바꾸면 물리 엔진(DART)이 튈 수 있다 — 상자를 쓴 이유가 원래 안정성이었다. 소규모로 선검증한다. 로봇은 강체라 서스펜션이 없어 요철 충격이 실물보다 거칠다(각주로 명시). 기울고 미끄러지면 휠 오도메트리가 더 나빠져, 이때부터 IMU를 섞는 위치추정(EKF)이 비로소 의미를 갖는다.
-      </div>
-      <div class="callout open reveal">
-        <span class="lb">아직 안 정한 것 — 대부분은 “재보고 정함”</span>
-        자율주행 방식·위치추정·센서·설계 도구는 이미 확정이다(위·아래 참고). 의도적으로 미룬 건 둘뿐이다. 데모 밭 크기와 배터리 용량은 커버리지 에너지를 실제로 재본 뒤 정한다(측정→결정 규율). 순수하게 열린 선택은 로봇 외형·부품 CAD 조립 방향, 파이썬 환경 정리, 실물 질량 반영 정도다.
+        경로는 지그재그 왕복(보스트로페돈)과 결정적 계획기로 충분하다. 텃밭에 학습 정책은 과잉이고, 무엇보다 이 프로젝트는 모든 걸 결정적으로 단언하는데 확률적 정책은 단언이 어렵다.
       </div>
     </div>
   </section>
