@@ -8,7 +8,7 @@
 
 **문서 지도** — 사람이 읽는 종합본: `docs/spec.html`(엔지니어링 설계 문서, Artifact 발행). 내 작업 정본:
 `docs/PLAN.md`(계획·논지) · `docs/DECISIONS.md`(결정 ADR, append-only) · `docs/DESIGN.md`(실물 BOM·갭) ·
-`STATUS.md`(현재 위치, 코드와 원자 갱신) · `docs/REFERENCES.md`(근거).
+`docs/WORK.md`(**업무 분장·지금 여기** — 길 잃을 때 여기부터) · `STATUS.md`(현재 위치, 코드와 원자 갱신) · `docs/REFERENCES.md`(근거).
 
 **살아있는 문서 규율**: `STATUS.md`·`DECISIONS.md`를 갱신할 때 `docs/spec.html`도 같이 갱신하고
 **같은 URL로 재발행**(Artifact `file_path` 동일). 종합본이 실제 진행과 안 어긋나게.
