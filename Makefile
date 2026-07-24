@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run watch-field-run strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -154,6 +154,10 @@ watch-row: build/ww_cmd
 # 관통 P3: 여러 두둑 자율 주행+타격+로깅 → artifacts/field_run.json (P4 대시보드가 읽음).
 field-run: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
 	@$(ENV) python3 tools/field_run.py
+
+# (데스크톱 전용) 관통 프로토타입을 GUI 창으로 — 로봇이 두 두둑을 자율로 훑고 잡초 찍는 걸 눈으로 봄.
+watch-field-run: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
+	@$(ENV) python3 tools/field_run.py --gui
 
 worlds/robot_field_multi.sdf: tools/make_field_world.py
 	@$(ENV) python3 tools/make_field_world.py 2 > worlds/robot_field_multi.sdf

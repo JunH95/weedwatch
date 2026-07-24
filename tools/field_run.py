@@ -38,6 +38,7 @@ GT_TOPIC = f"/world/{WORLD_NAME}/dynamic_pose/info"
 GT_FILE = "/tmp/ww_fr_gt.log"
 ODOM_FILE = "/tmp/ww_fr_odom.txt"
 DETS_FILE = "/tmp/ww_fr_dets.txt"
+GUI = "--gui" in sys.argv    # 사람이 데스크톱에서 직접 볼 때만. 기본은 헤드리스(에이전트 단언).
 
 sys.path.insert(0, str(WW / "tools"))
 from assert_row_stamp import (  # noqa: E402
@@ -156,7 +157,11 @@ def run():
     # iterations 로 수명을 못박으면 sim-time(헤드리스 렌더는 실시간배속<1)과 벽시계 루프가 어긋나
     # 두둑1 주행 전에 시계가 멈춘다 — 그러면 프레임이 안 나와 두둑1 검출 0 (2026-07-24 실측 원인).
     log = open("/tmp/ww_fr.log", "w")
-    sim = subprocess.Popen([ENV, "ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD],
+    # GUI(--gui): 사람이 데스크톱에서 프로토타입을 눈으로 본다. 서버+GUI 를 함께 띄운다(-s/헤드리스 뺌).
+    # 에이전트는 GUI 금지(CLAUDE.md)라 헤드리스가 기본 — 이 옵션은 오직 사람이 직접 실행할 때.
+    sim_cmd = ["ign", "gazebo", "-r", WORLD] if GUI else \
+              ["ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD]
+    sim = subprocess.Popen([ENV, *sim_cmd],
                            stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     subs = []
     ww = det = None
