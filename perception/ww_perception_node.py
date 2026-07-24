@@ -25,7 +25,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseArray, Pose
+from geometry_msgs.msg import PoseArray, Pose, PoseStamped
 
 WW = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(WW / "perception"))
@@ -58,9 +58,13 @@ class Perception(Node):
         self.base = None
         self.safe = safe_dist
         self.n_pub = 0
+        self.have_ext_pose = False
         for i, t in enumerate(CAM_TOPICS):
             self.create_subscription(Image, t, lambda m, i=i: self._img(m, i), qos_profile_sensor_data)
         self.create_subscription(Odometry, "/odometry", self._odom, 10)
+        # 코디네이터(로컬라이저)가 참 world pose 를 주면 그걸 우선(텔레포트 후 odom 은 두둑 간
+        # 누적이라 world 와 어긋남 — 검출 앵커링은 world 여야 한다).
+        self.create_subscription(PoseStamped, "/ww/base_pose", self._base_pose, 10)
         self.pub = self.create_publisher(PoseArray, WEEDS_TOPIC, 10)
         self.create_timer(1.0 / rate_hz, self._tick)
         self.get_logger().info(f"ww_perception ready (dev={self.device})")
@@ -72,8 +76,17 @@ class Perception(Node):
             self.get_logger().warn(f"img{i} skip: {e}")
 
     def _odom(self, m):
+        if self.have_ext_pose:                        # /ww/base_pose 가 있으면 odom 무시
+            return
         p = m.pose.pose.position
         q = m.pose.pose.orientation
+        yaw = math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
+        self.base = (p.x, p.y, 0.0, yaw)
+
+    def _base_pose(self, m):
+        self.have_ext_pose = True
+        p = m.pose.position
+        q = m.pose.orientation
         yaw = math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
         self.base = (p.x, p.y, 0.0, yaw)
 
