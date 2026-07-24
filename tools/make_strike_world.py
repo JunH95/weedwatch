@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import math
+import os
 import random
 import sys
 
@@ -72,6 +73,14 @@ def _box(name, x, y, z, sx, sy, sz, rgb):
             f'</link></model>')
 
 
+_BED = "" if os.environ.get("STRIKE_NO_BED") else """    <!-- 두둑: 윗면 수평 z=0.25. 도구가 여기서 멈추고 잡초가 여기 선다. -->
+    <model name="bed"><static>true</static><pose>0 %.3f 0.125 0 0 0</pose>
+      <link name="link">
+      <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
+      <visual name="v"><geometry><box><size>4.00 0.90 0.25</size></box></geometry>
+        <material><ambient>0.25 0.17 0.10 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>""" % ROBOT_Y
+
+
 def sdf() -> str:
     parts = [_box(f"clod_{k}", cx, cy, h / 2, fx, fy, h, (0.28, 0.20, 0.12))
              for k, (cx, cy, h, fx, fy) in enumerate(clods())]
@@ -80,6 +89,7 @@ def sdf() -> str:
     parts += [_cyl(f"crop_{i}", x, y, 0.30, 0.020, 0.10, (0.10, 0.50, 0.10))
               for i, (x, y) in enumerate(CROPS)]
     body = "\n".join(parts)
+    BED = _BED
     return f'''<?xml version="1.0" ?>
 <!-- 생성물: tools/make_strike_world.py (Stage 5 Step B: 경사 {TILT_DEG}° + 흙덩이 위 타격). 손대지 말 것. -->
 <sdf version="1.9">
@@ -100,13 +110,9 @@ def sdf() -> str:
       <visual name="v"><geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
         <material><ambient>0.30 0.22 0.14 1</ambient><diffuse>0.50 0.37 0.24 1</diffuse></material></visual></link></model>
 
-    <!-- 두둑: 윗면 수평 z=0.25. 도구가 여기서 멈추고 잡초가 여기 선다. -->
-    <model name="bed"><static>true</static><pose>0 {ROBOT_Y} 0.125 0 0 0</pose>
-      <link name="link">
-      <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
-      <visual name="v"><geometry><box><size>4.00 0.90 0.25</size></box></geometry>
-        <material><ambient>0.25 0.17 0.10 1</ambient><diffuse>0.42 0.30 0.18 1</diffuse></material></visual></link></model>
+{BED}
 {body}
+
     <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 {ROBOT_Y} 0.16 0 0 0</pose></include>
   </world>
 </sdf>
