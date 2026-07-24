@@ -74,8 +74,10 @@ def build():
         ("놓침", f'{s["missed"]}', "탐지 실패", OUTCOME["missed"][0]),
         ("소요 시간", f'{r.get("duration_s","?")}', "초 (시뮬)", "--ink"),
     ]
+    def col(c):  # 토큰(--accent)은 var() 로 감싼다 — 안 그러면 color:--accent 는 무효 CSS.
+        return f"var({c})" if c.startswith("--") else c
     tile_html = "\n".join(
-        f'<div class="tile"><div class="k">{k}</div><div class="v" style="color:{c}">{v}</div>'
+        f'<div class="tile"><div class="k">{k}</div><div class="v" style="color:{col(c)}">{v}</div>'
         f'<div class="u">{u}</div></div>' for k, v, u, c in tiles)
     legend = " ".join(
         f'<span class="lg"><i style="background:{c}"></i>{lab}</span>' for c, lab in OUTCOME.values())
