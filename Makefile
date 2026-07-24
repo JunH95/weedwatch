@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -151,6 +151,10 @@ watch-row: build/ww_cmd
 # (CropCraft 사실적 밭은 종별 통메시라 개별 제거 불가 — 거기선 자국만).
 # strike-marks = 헤드리스 단언(에이전트), watch-strikes = GUI(사람, 데스크톱 전용).
 # 관통 P2: 두둑 여러 줄 밭 (기본 2줄). 기존 ridge·garden 모델을 두둑 중심마다 배치해 재사용.
+# 관통 P3: 여러 두둑 자율 주행+타격+로깅 → artifacts/field_run.json (P4 대시보드가 읽음).
+field-run: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
+	@$(ENV) python3 tools/field_run.py
+
 worlds/robot_field_multi.sdf: tools/make_field_world.py
 	@$(ENV) python3 tools/make_field_world.py 2 > worlds/robot_field_multi.sdf
 

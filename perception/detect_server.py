@@ -272,9 +272,14 @@ def main():
             print(f"{wx:.4f} {wy:.4f} {a}")
         return
 
-    def read_odom_x():
+    def read_odom():
+        """odom 파일에서 base (x, y) 를 읽는다. 'x' 한 값이면 y 는 --base 의 Y(단일 두둑).
+        'x y' 두 값이면 둘 다 쓴다 — 관통(P3)에서 두둑마다 base_y 가 달라서다(DECISIONS 036)."""
         try:
-            return float(Path(args.odom_file).read_text().split()[0])
+            parts = Path(args.odom_file).read_text().split()
+            x = float(parts[0])
+            y = float(parts[1]) if len(parts) > 1 else base_y
+            return x, y
         except (FileNotFoundError, ValueError, IndexError):
             return None
 
@@ -289,11 +294,11 @@ def main():
             if not frames or frames[0][1] == last:
                 time.sleep(0.03); continue
             last = frames[0][1]
-            if args.odom_file:                      # 주행: odom 으로 base_x 앵커링
-                ox = read_odom_x()
-                if ox is None:
+            if args.odom_file:                      # 주행: odom 으로 base_x(,y) 앵커링
+                o = read_odom()
+                if o is None:
                     time.sleep(0.02); continue
-                base = (ox, base_y, 0.0, 0.0)
+                base = (o[0], o[1], 0.0, 0.0)
             else:
                 base = tuple(args.base)
             try:
