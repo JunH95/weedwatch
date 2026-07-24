@@ -87,12 +87,12 @@ bake:
 # torch/torchvision 은 CUDA 휠이라 별도 index(cu124 = 드라이버 595 호환).
 # 파이썬 3.10 = ROS rclpy 와 같은 ABI → 한 프로세스에 torch+rclpy 공존(DECISIONS 038, 경계 소멸).
 perception-venv:
-	conda create -y -p perception/.venv python=3.10 pip
+	conda create -y -p perception/condaenv python=3.10 pip
 	@# PYTHONNOUSERSITE=1 필수: conda 의 pip 은 Blender user-site(~/.local/lib/python3.11 의
 	@# PIL·yaml 등)를 "이미 설치됨"으로 보고 venv 에 안 넣는다. 그러면 env.sh(user-site off)에서
 	@# import 가 깨진다. user-site 를 끄고 설치해야 venv 가 자기완결이 된다.
-	PYTHONNOUSERSITE=1 perception/.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-	PYTHONNOUSERSITE=1 perception/.venv/bin/pip install -r perception/requirements.txt
+	PYTHONNOUSERSITE=1 perception/condaenv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+	PYTHONNOUSERSITE=1 perception/condaenv/bin/pip install -r perception/requirements.txt
 	@perception/env.sh python -c "import torch,segmentation_models_pytorch as smp; print('torch',torch.__version__,'cuda',torch.cuda.is_available(),'smp',smp.__version__)"
 
 # Stage 3-2c 학습: 4클래스 세그 모델(smp U-Net) → models/best.pt (GPU). make bake 먼저.

@@ -9,19 +9,19 @@
 #
 # ── ROS 노드로 쓸 땐 다른 진입점 ─────────────────────────────────────────
 # venv 는 3.10 (rclpy 와 같은 ABI, DECISIONS 038) → 한 프로세스에 torch+rclpy 공존 가능.
-# 그래서 인식을 ROS 노드로 돌릴 땐 ROS 를 씻지 않는다:  scripts/env.sh perception/.venv/bin/python <node>
+# 그래서 인식을 ROS 노드로 돌릴 땐 ROS 를 씻지 않는다:  scripts/env.sh perception/condaenv/bin/python <node>
 # (ROS 경로 유지 + venv 패키지 우선). 여기 env.sh 는 ROS 안 쓰는 학습·평가용.
 #
 # 사용:
 #   perception/env.sh python train.py ...                     # 학습/평가 (ROS 씻김)
-#   scripts/env.sh perception/.venv/bin/python <ros_node>.py  # 인식 ROS 노드 (torch+rclpy)
+#   scripts/env.sh perception/condaenv/bin/python <ros_node>.py  # 인식 ROS 노드 (torch+rclpy)
 set -eo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV="$HERE/.venv"
+VENV="$HERE/condaenv"
 
 if [ ! -x "$VENV/bin/python" ]; then
-  echo "perception venv 가 없습니다. 먼저: make perception-venv" >&2
+  echo "perception conda 환경이 없습니다. 먼저: make perception-venv" >&2
   exit 1
 fi
 

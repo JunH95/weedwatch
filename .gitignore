@@ -12,6 +12,7 @@ artifacts/
 __pycache__/
 *.pyc
 .venv/
+condaenv/
 venv/
 
 # datasets & models are build artifacts — regenerate from (config, seed, SHA)

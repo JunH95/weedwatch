@@ -87,8 +87,12 @@ def load_model(ckpt: str = None, device: str = None):
     return model, device
 
 
-def _predict(model, img_path: str, device: str) -> np.ndarray:
-    arr = np.asarray(Image.open(img_path).convert("RGB"), dtype=np.float32)
+def _predict(model, img, device: str) -> np.ndarray:
+    """img: 파일 경로/Path 또는 이미 로드된 RGB 배열(H,W,3). ROS 노드는 카메라 토픽 배열을 바로 넣는다."""
+    if isinstance(img, np.ndarray):
+        arr = img.astype(np.float32)
+    else:
+        arr = np.asarray(Image.open(img).convert("RGB"), dtype=np.float32)
     x = (arr / 255.0 - _MEAN) / _STD
     x = torch.from_numpy(x.transpose(2, 0, 1).copy()).float().unsqueeze(0).to(device)
     with torch.no_grad():
