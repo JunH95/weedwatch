@@ -152,11 +152,11 @@ def run():
         if w.kind == "pass_start":
             bed_order.append(w.bed)
     # 총 sim 시간 여유: 두둑당 (주행 + 정렬)
-    total_iters = int((10 + N_BEDS * (abs(X_DRIVE1 - X_DRIVE0) / V + 12)) * 1000)
-
+    # 시뮬은 개방형(--iterations 없음)으로 돌리고 루프가 끝나면 finally 가 죽인다.
+    # iterations 로 수명을 못박으면 sim-time(헤드리스 렌더는 실시간배속<1)과 벽시계 루프가 어긋나
+    # 두둑1 주행 전에 시계가 멈춘다 — 그러면 프레임이 안 나와 두둑1 검출 0 (2026-07-24 실측 원인).
     log = open("/tmp/ww_fr.log", "w")
-    sim = subprocess.Popen([ENV, "ign", "gazebo", "-s", "-r", "--headless-rendering",
-                            "--iterations", str(total_iters), WORLD],
+    sim = subprocess.Popen([ENV, "ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD],
                            stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     subs = []
     ww = det = None
@@ -201,18 +201,26 @@ def run():
             cy = centers[bed]
             set_pose(X_DRIVE0 - 0.05, cy, 0.05, 0.0)
             time.sleep(2.5)
-            bed_log = {"bed": bed, "y": round(cy, 3),
+            bed_log = {"bed": bed, "y": round(cy, 3), "reached": False,
                        "detected": [], "struck": [], "oracle_weeds": len(oracle_weeds_for_bed(cy))}
             seen = set()
             active = [None] * N
             pool = [[] for _ in range(N)]
+            ox = X_DRIVE0 - 0.05
+            ox_ref = None                             # 이 두둑 odom 기준(아래)
             ww.send(f"v {V:.3f} 0")
-            drive_deadline = time.time() + (X_DRIVE1 - X_DRIVE0) / V / 0.08 + 40
+            # 안전 데드라인(벽시계) — 정상 종료는 odom 이 X_DRIVE1 도달(아래 break). 개방형 시뮬이라
+            # 실시간배속만큼 넉넉히: 주행 sim-time / 최저 RTF 가정 0.15 + 여유.
+            drive_deadline = time.time() + (X_DRIVE1 - X_DRIVE0) / V / 0.15 + 30
             while time.time() < drive_deadline:
                 O = ww.odom
                 if O is None:
                     time.sleep(0.01); continue
-                ox = O[1]
+                # odom(O[1])은 두둑 간 누적이라 텔레포트로 안 리셋된다 → 두둑 시작을 기준0 으로 상대화.
+                # 이걸 안 하면 두둑1 은 첫 줄에서 ox=이전두둑끝 ≥ X_DRIVE1 로 즉시 종료(주행 0). 2026-07-24.
+                if ox_ref is None:
+                    ox_ref = O[1]
+                ox = (X_DRIVE0 - 0.05) + (O[1] - ox_ref)   # 참 world x
                 write_odom(ox, cy)                    # detect_server 앵커링(두둑별 y)
                 for wx, wy, _a in read_dets():
                     key = (round(wx / 0.06), round(wy / 0.06))
@@ -242,6 +250,7 @@ def run():
                 if ox >= X_DRIVE1:
                     break
                 time.sleep(0.01)
+            bed_log["reached"] = ox >= X_DRIVE1 - 0.05    # 실제 완주 여부(게이트 정직성)
             ww.send("v 0 0"); time.sleep(0.4)
             result["beds"].append(bed_log)
 
@@ -273,7 +282,8 @@ def run():
                 bl["weeds"].append({"x": round(wx, 3), "y": round(wy, 3), "outcome": outcome})
             bl["crops"] = [[round(cx, 3), round(cyp, 3)] for cx, cyp in crops]
         result["summary"] = summ
-        result["coverage"] = {"beds_done": len(result["beds"]), "beds_total": N_BEDS}
+        result["coverage"] = {"beds_done": sum(1 for b in result["beds"] if b.get("reached")),
+                               "beds_total": N_BEDS}
     finally:
         for s in (det, ww.proc if ww else None):
             _stop(s)
