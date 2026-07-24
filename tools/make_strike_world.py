@@ -13,6 +13,12 @@
   표적 링 = 노랑(잡초가 원래 있던 자리) · 타격 자국 = 파랑(명중) / 주황(빗나감)
   자국 색을 초록/빨강으로 하면 작물·잡초와 섞여 아무것도 못 읽는다 — 실제로 그 실수를 했다.
 
+경사 축 (DECISIONS 033): SLOPE_AXIS 로 축을 고른다.
+  pitch(종단, 두둑 따라 오르내림) = **실제 밭 시나리오**. 슬립 1.2%, odom 멀쩡.
+  roll(크로스슬로프, 두둑 가로지름) = **스트레스/끼임 테스트**. 걸터타면 두둑에 끼여 56% — 실제 밭은
+    이렇게 안 달린다(두둑이 경사 방향으로 남). 인위적임을 알고 쓰는 것.
+기본은 roll(끼임 테스트 유지). 현실 주행 성능은 SLOPE_AXIS=pitch.
+
 생성: tools/make_strike_world.py > worlds/robot_strike.sdf   (Makefile 이 자동 생성)
 """
 from __future__ import annotations
@@ -24,6 +30,11 @@ import sys
 
 TILT_DEG = 6.0                  # 크로스슬로프. 8°보다 낮춰 흙덩이와 합해도 안 넘어지게
 ROLL = math.radians(TILT_DEG)
+# 경사 축: roll=크로스슬로프(옆으로 기욺, 두둑 가로지름) / pitch=종단(오르내림, 두둑 따라감).
+# 실제 밭은 두둑이 경사 방향으로 나 로봇이 따라 달리므로 pitch 가 현실적. roll 은 끼임 시나리오.
+SLOPE_AXIS = os.environ.get("SLOPE_AXIS", "roll")
+_FLOOR_RPY = (f"0 0.6 0 {ROLL:.6f} 0 0" if SLOPE_AXIS == "roll"
+              else f"0 0 0 0 {-ROLL:.6f} 0")   # pitch: x 앞으로 갈수록 올라가게(-pitch)
 ROBOT_Y = 0.600                 # 로봇(=두둑) 중심 y
 SEED = 11
 Y_TRACKS = (ROBOT_Y - 0.6, ROBOT_Y + 0.6)   # 좌우 바퀴 경로
@@ -73,7 +84,7 @@ def _box(name, x, y, z, sx, sy, sz, rgb):
             f'</link></model>')
 
 
-_BED = "" if os.environ.get("STRIKE_NO_BED") else """    <!-- 두둑: 윗면 수평 z=0.25. 도구가 여기서 멈추고 잡초가 여기 선다. -->
+_BED = "" if (os.environ.get("STRIKE_NO_BED") or os.environ.get("SLOPE_AXIS")=="pitch") else """    <!-- 두둑: 윗면 수평 z=0.25. 도구가 여기서 멈추고 잡초가 여기 선다. -->
     <model name="bed"><static>true</static><pose>0 %.3f 0.125 0 0 0</pose>
       <link name="link">
       <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
@@ -103,7 +114,7 @@ def sdf() -> str:
       <diffuse>1 1 1 1</diffuse><specular>0.3 0.3 0.3 1</specular><direction>-0.4 0.4 -0.85</direction></light>
 
     <!-- 크로스슬로프 고랑 바닥: y={ROBOT_Y} 축으로 roll {TILT_DEG}°. 그 위에 흙덩이가 얹힌다. -->
-    <model name="furrow_floor"><static>true</static><pose>0 {ROBOT_Y} 0 {ROLL:.6f} 0 0</pose>
+    <model name="furrow_floor"><static>true</static><pose>{_FLOOR_RPY}</pose>
       <link name="link">
       <collision name="c"><geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
         <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
