@@ -239,10 +239,12 @@ def detect_fused(model, frames, base_pose, device: str = "cuda", depths=None, **
     겹침 중복을 합친다. 한 대로는 두둑 폭의 65% 밖에 못 봤다(DECISIONS 026) — 이 함수가 나머지를 준다.
     """
     alld = []
-    for ci, path in frames:
+    for ci, frame in frames:
         cam_dy = CAM_DYS[ci] if ci < len(CAM_DYS) else 0.0
         dep = (depths or {}).get(ci)
-        alld += detect_frame(model, str(path), base_pose, device, cam_dy=cam_dy, depth=dep, **kw)
+        # frame 은 PNG 경로(Path/str) 또는 이미 로드된 RGB 배열(ROS 카메라 토픽). _predict 가 둘 다 받는다.
+        img = frame if isinstance(frame, np.ndarray) else str(frame)
+        alld += detect_frame(model, img, base_pose, device, cam_dy=cam_dy, depth=dep, **kw)
     return merge_detections(alld)
 
 
