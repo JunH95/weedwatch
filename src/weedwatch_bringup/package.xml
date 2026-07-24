@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>weedwatch_bringup</name>
+  <version>0.1.0</version>
+  <description>런치·파라미터 — 관통 전체(Gazebo+브리지+인식+제어+코디네이터)를 한 줄로 켠다.</description>
+  <maintainer email="wol00107@gmail.com">JunH95</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>weedwatch_control</exec_depend>
+  <exec_depend>weedwatch_coordinator</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

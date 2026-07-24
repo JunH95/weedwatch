@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run watch-field-run sim-live field-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-control ros-build ros-percept field-run-ros clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run watch-field-run sim-live field-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-control ros-build ros-skeleton ros-percept field-run-ros clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -46,6 +46,8 @@ help:
 	@echo "make percept   - Stage4-3 P4a: 로봇 카메라 렌더에 best.pt 라이브 추론 → 오라클 대조 검출률 (GPU)"
 	@echo "make overlay   - 인식 결과를 눈으로: 원본|예측+타격점 오버레이 PNG (사람 검증용)"
 	@echo "make ww-cmd    - Stage4-3 주행 중 제어용 상주 명령 프로세스 빌드 (ign topic -p 는 1초라 못 씀)"
+	@echo "make ros-build - ROS 이관 P4: colcon 워크스페이스 빌드 (src/weedwatch_*)"
+	@echo "make ros-skeleton - ROS 이관 P4: 관통 전체를 ros2 launch 한 줄로 (Gazebo+브리지+인식+제어+코디네이터)"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
 	@echo "make aihub AIHUB_KEY=키 - AI Hub 527 쇠비름 검증세트(~3GB) 다운로드 (승인 필요)"
@@ -406,3 +408,8 @@ field-run-ros: worlds/robot_field_multi.sdf clean-sim
 ros-build:
 	@$(ENV) colcon build
 	@echo "빌드됨. 사용: source install/setup.bash 후 ros2 launch/run"
+
+# ROS 이관 Phase 4: 관통 전체를 런치파일 한 줄로 (Gazebo+브리지+인식+제어+코디네이터).
+#   먼저 make ros-build. env.sh 환경 + 워크스페이스 install 을 상속시켜 켠다.
+ros-skeleton: clean-sim
+	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py"

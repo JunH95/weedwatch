@@ -203,7 +203,8 @@ if __name__ == "__main__":
         n = Perception()
         try:
             rclpy.spin(n)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
             pass
         finally:
-            rclpy.shutdown()
+            if rclpy.ok():                            # 런치 SIGINT 로 이미 내려갔으면 중복 호출 금지
+                rclpy.shutdown()
