@@ -142,7 +142,8 @@ def collision_box(size, origin=(0, 0, 0)) -> str:
 
 
 def collision_cyl(radius, length, axis="y") -> str:
-    """실린더 충돌. axis='y'(바퀴, rpy 로 눕힘) 또는 'z'(도구 막대, 기본 세움)."""
+    """실린더 충돌. axis='y'(바퀴, rpy 로 눕힘) 또는 'z'(도구 막대, 기본 세움).
+    바퀴 마찰은 여기 collision 이 아니라 wheel_friction_gazebo()(gazebo reference)에 있다 — 두지 마라."""
     rpy = "1.5708 0 0" if axis == "y" else "0 0 0"
     return f"""    <collision>
       <origin xyz="0 0 0" rpy="{rpy}"/>
@@ -168,7 +169,7 @@ def build_urdf() -> str:
     out.append(link_with_mesh("base_link", "base.obj", base_col, base_inertial()))
 
     # ── 바퀴 4개: continuous, 축 y ──
-    wheel_col = collision_cyl(P.wheel_dia / 2, P.wheel_width)
+    wheel_col = collision_cyl(P.wheel_dia / 2, P.wheel_width)  # 마찰은 wheel_friction_gazebo() 단일 출처
     wm = _mass("wheel_fl")
     wheel_in = inertial_xml(wm, (0, 0, 0),
                             cylinder_inertia(wm, P.wheel_dia / 2, P.wheel_width, axis="y"))
@@ -352,19 +353,24 @@ def joint_controllers_gazebo() -> str:
 
 
 def wheel_friction_gazebo() -> str:
-    """바퀴-지면 접촉의 마찰과 강성 (URDF <gazebo reference> → SDF surface).
+    """바퀴-지면 접촉의 마찰과 강성 (URDF <gazebo reference> → SDF surface). 바퀴 마찰의 **단일 출처**.
 
     이게 없으면 바퀴가 명령대로 회전만 하고 **접지력이 없어 헛돈다** (실측: odom 은
     1.69m 전진을 보고하는데 몸통은 0.001m). 원인 두 가지를 같이 잡는다:
-      mu1/mu2 = 마찰 (헛돎 방지)
+      mu1/mu2 = 마찰 (헛돎 방지). garden_geometry 단일 출처(wheel_mu/mu2).
       kp/kd   = 접촉 강성 (약하면 바퀴가 지면에 살짝 떠 접지력이 0 이 된다)
     sdformat 의 URDF 파서가 이 태그들을 surface/friction/ode 로 번역한다.
+
+    **주의(DECISIONS 031·032)**: 마찰은 collision 의 <surface> 가 아니라 **여기**(gazebo reference)에
+    있다. 예전에 collision 만 보고 "마찰 없음"이라 오판했다 — 두 곳에 두지 마라. 값은 1.2(마른 흙급,
+    임의값)에서 **0.4(작동 가능 최악, 젖은 흙, 실측 근거)** 로 내렸다: 가장 미끄러운 조건에서 되면
+    나머지는 다 된다(사용자 원칙).
     """
     blocks = []
     for link in ("wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr"):
         blocks.append(f"""  <gazebo reference="{link}">
-    <mu1>1.2</mu1>
-    <mu2>1.2</mu2>
+    <mu1>{P.wheel_mu:.3f}</mu1>
+    <mu2>{P.wheel_mu2:.3f}</mu2>
     <kp>1000000.0</kp>
     <kd>100.0</kd>
     <minDepth>0.001</minDepth>

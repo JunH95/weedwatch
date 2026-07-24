@@ -19,7 +19,7 @@
         <material><ambient>0.30 0.22 0.14 1</ambient><diffuse>0.50 0.37 0.24 1</diffuse></material></visual></link></model>
 
     <!-- 두둑: 윗면 수평 z=0.25. 도구가 여기서 멈추고 잡초가 여기 선다. -->
-    <model name="bed"><static>true</static><pose>0 0.6 0.125 0 0 0</pose>
+    <model name="bed"><static>true</static><pose>0 0.600 0.125 0 0 0</pose>
       <link name="link">
       <collision name="c"><geometry><box><size>4.00 0.90 0.25</size></box></geometry></collision>
       <visual name="v"><geometry><box><size>4.00 0.90 0.25</size></box></geometry>
@@ -102,6 +102,7 @@
     <model name="crop_2"><static>true</static><pose>1.900 0.550 0.300 0 0 0</pose>
       <link name="l"><visual name="v"><geometry><cylinder><radius>0.02</radius><length>0.1</length></cylinder></geometry>
         <material><ambient>0.10 0.50 0.10 1</ambient><diffuse>0.14 0.70 0.14 1</diffuse></material></visual></link></model>
+
     <include><uri>model://weedwatch_robot</uri><name>weedwatch</name><pose>-0.3 0.6 0.16 0 0 0</pose></include>
   </world>
 </sdf>
