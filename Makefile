@@ -83,10 +83,11 @@ bake:
 	@$(ENV) python3 tools/assert_dataset.py models/dataset/train
 	@$(ENV) python3 tools/assert_dataset.py models/dataset/eval
 
-# perception(ML) 격리 venv. 시스템 3.10 에 python3-venv 가 없어 conda 로 만든다(sudo 불필요).
-# torch/torchvision 은 CUDA 휠이라 별도 index(cu124 = 드라이버 595 호환). ROS 와 완전 격리.
+# perception(ML) venv. 시스템 3.10 에 python3-venv 가 없어 conda 로 만든다(sudo 불필요).
+# torch/torchvision 은 CUDA 휠이라 별도 index(cu124 = 드라이버 595 호환).
+# 파이썬 3.10 = ROS rclpy 와 같은 ABI → 한 프로세스에 torch+rclpy 공존(DECISIONS 038, 경계 소멸).
 perception-venv:
-	conda create -y -p perception/.venv python=3.11 pip
+	conda create -y -p perception/.venv python=3.10 pip
 	@# PYTHONNOUSERSITE=1 필수: conda 의 pip 은 Blender user-site(~/.local/lib/python3.11 의
 	@# PIL·yaml 등)를 "이미 설치됨"으로 보고 venv 에 안 넣는다. 그러면 env.sh(user-site off)에서
 	@# import 가 깨진다. user-site 를 끄고 설치해야 venv 가 자기완결이 된다.

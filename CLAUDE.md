@@ -218,13 +218,16 @@ scripts/env.sh     # 유일한 진입점
 tools/             # 단언 스크립트 (ROS 패키지 아님)
 worlds/            # SDF 월드
 src/               # ROS 2 패키지만 — 학습 코드를 넣으면 colcon이 깨진다
-perception/        # ML 코드. 별도 venv. ROS와의 계약은 디스크 파일(models/best.pt)이지
-                   #   공유 import가 아니다
+perception/        # ML 코드 + venv(perception/.venv, conda **3.10**). 학습 결과는 models/best.pt
 configs/           # train_seeds.txt / eval_seeds.txt — 코드가 아니라 데이터로 커밋
 ```
 
-**파이썬이 둘이고 경계는 단단하다.** ROS쪽은 `/usr/bin/python3` 3.10만 쓴다(rclpy가 도는
-유일한 인터프리터). ML쪽은 별도 venv. 둘을 import로 잇지 마라.
+**파이썬은 3.10 하나로 통일**(DECISIONS 038, 2026-07-24). rclpy(ROS)가 3.10 에 못 박혀 있어서,
+ML venv 도 3.10 으로 맞췄다 → **한 프로세스에 torch+rclpy 공존**(인식을 ROS 노드로 짤 수 있다).
+- ROS 전용/도구·시뮬 단언: `scripts/env.sh python3 ...` (시스템 3.10 + ROS 오버레이).
+- ML 학습·평가: `perception/env.sh python ...` (venv 3.10, ROS 씻어냄 — 학습은 ROS 불요·결정성 위해 격리).
+- **인식 ROS 노드**: `scripts/env.sh perception/.venv/bin/python <node>` (ROS 유지 + venv torch 우선).
+예전엔 ML 을 3.11 별도 venv 로 두고 디스크 파일로만 이었으나(직결 시절), ROS 전환하며 3.10 통일.
 
 ---
 

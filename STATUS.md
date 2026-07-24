@@ -14,8 +14,9 @@
 **이관 진행**:
 - **P0 브리지 폐루프** ✅ `make ros-drive` — ign↔ros_gz_bridge↔rclpy 0.72m 주행(설치 0).
 - **P1 제어 노드** ✅ `make ros-control` — ww_cmd 대체 rclpy 노드, 주행 0.57m+tool0 하강.
-- **P2 인식 노드** ← 다음. detect_server(파일IO)를 카메라 토픽 구독으로. ⚠️ 3.10/3.11 경계(torch 격리)
-  결정 필요 — 기본안: 경계 유지, 얇은 rclpy 릴레이로 /weeds 토픽 발행.
+- **P2 인식 노드** ← 다음. detect_server(파일IO)를 카메라 토픽 구독으로. ✅ **선결: 파이썬 3.10 통일**
+  — ML venv 를 3.11→3.10 재구성(torch+rclpy 한 프로세스 공존, eval 게이트 동일 통과), 구 3.11 venv
+  삭제(5.5G). 경계 소멸 → 인식을 단일 ROS 노드로 짤 수 있음. 이제 노드 작성만 남음.
 - **P3 관통 ROS 런치** — field_run 을 ROS 노드 조합으로. 단언=ROS 토픽.
 - **P4 rviz 관람 + `src/` colcon 패키지 정식 포장**.
 
