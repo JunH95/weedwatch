@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run watch-field-run strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row field-run watch-field-run sim-live field-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -37,6 +37,11 @@ help:
 	@echo "make field-render - Stage4-3 P4b: 사실적 밭(사면두둑+고랑+CropCraft) 카메라 렌더 2게이트 (GPU)"
 	@echo "make watch-field - (데스크톱) 사실적 밭 위 주행+스탬핑을 GUI 로 재생"
 	@echo "make row-live  - Stage4-3 P4b-3: 로봇이 제 카메라로 본 잡초만으로 주행 타격 (GPU, 자율)"
+	@echo "make field-run - 관통 P3: 여러 두둑 자율 주행+검출+타격+로깅 → field_run.json (헤드리스, 에이전트 단언)"
+	@echo "make dashboard - 관통 P4: field_run.json → 자기완결 대시보드 HTML (밭 지도+통계, Artifact 발행)"
+	@echo "make sim-live  - (데스크톱) 상주 GUI 시뮬 — 한 번 켜두고 계속 본다. 다른 터미널서 make field-attach"
+	@echo "make field-attach- (데스크톱) 열려있는 sim-live 에 관통 주행을 밀어넣음 — 눈으로 교차검증"
+	@echo "make watch-field-run- (데스크톱) 관통을 GUI 로 한 방 관람 (매번 새로 띄우고 닫힘)"
 	@echo "make percept-render - Stage4-3 P4a: 로봇 카메라가 CropCraft 사실적 두둑 렌더 2게이트 (GPU)"
 	@echo "make percept   - Stage4-3 P4a: 로봇 카메라 렌더에 best.pt 라이브 추론 → 오라클 대조 검출률 (GPU)"
 	@echo "make overlay   - 인식 결과를 눈으로: 원본|예측+타격점 오버레이 PNG (사람 검증용)"
@@ -156,8 +161,22 @@ field-run: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
 	@$(ENV) python3 tools/field_run.py
 
 # (데스크톱 전용) 관통 프로토타입을 GUI 창으로 — 로봇이 두 두둑을 자율로 훑고 잡초 찍는 걸 눈으로 봄.
+# 매번 새로 띄우고 끝나면 닫힌다(한 방 관람). 계속 켜두고 보려면 아래 sim-live + field-attach.
 watch-field-run: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
 	@$(ENV) python3 tools/field_run.py --gui
+
+# ── 상주 시뮬: 한 번 켜두고 계속 본다 (데스크톱 전용, 교차검증용) ──────────────
+# Gazebo 는 서버와 GUI 가 별개라 시뮬을 켜둔 채 붙었다 뗐다 할 수 있다. 매번 새로 만들 필요 없음.
+#   터미널1:  make sim-live      # 서버+GUI 한 창 — 이 창을 열어둔다(닫기 전까지 시뮬이 산다)
+#   터미널2:  make field-attach  # 열려있는 그 시뮬에 관통 주행을 밀어넣음 → 터미널1에서 로봇이 움직인다
+# 나(에이전트)는 make field-run 으로 헤드리스 단언, 너는 이 창으로 같은 걸 눈으로 봄 = 교차검증.
+sim-live: worlds/robot_field_multi.sdf clean-sim
+	@echo "상주 GUI 시뮬을 띄운다. 이 창을 열어두고, 다른 터미널에서:  make field-attach"
+	@$(ENV) ign gazebo -r worlds/robot_field_multi.sdf
+
+# 이미 떠 있는 sim-live 에 붙어 관통 주행 실행(시뮬 안 죽임 — clean-sim 없음이 의도적).
+field-attach: build/ww_cmd
+	@$(ENV) python3 tools/field_run.py --attach
 
 worlds/robot_field_multi.sdf: tools/make_field_world.py
 	@$(ENV) python3 tools/make_field_world.py 2 > worlds/robot_field_multi.sdf

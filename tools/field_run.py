@@ -38,7 +38,8 @@ GT_TOPIC = f"/world/{WORLD_NAME}/dynamic_pose/info"
 GT_FILE = "/tmp/ww_fr_gt.log"
 ODOM_FILE = "/tmp/ww_fr_odom.txt"
 DETS_FILE = "/tmp/ww_fr_dets.txt"
-GUI = "--gui" in sys.argv    # 사람이 데스크톱에서 직접 볼 때만. 기본은 헤드리스(에이전트 단언).
+GUI = "--gui" in sys.argv       # 서버+GUI 를 이 프로세스가 함께 띄운다(창 닫으면 끝).
+ATTACH = "--attach" in sys.argv  # 이미 떠 있는 상주 서버에 붙어 주행만(시뮬 안 죽임). 사람이 계속 봄.
 
 sys.path.insert(0, str(WW / "tools"))
 from assert_row_stamp import (  # noqa: E402
@@ -157,12 +158,18 @@ def run():
     # iterations 로 수명을 못박으면 sim-time(헤드리스 렌더는 실시간배속<1)과 벽시계 루프가 어긋나
     # 두둑1 주행 전에 시계가 멈춘다 — 그러면 프레임이 안 나와 두둑1 검출 0 (2026-07-24 실측 원인).
     log = open("/tmp/ww_fr.log", "w")
-    # GUI(--gui): 사람이 데스크톱에서 프로토타입을 눈으로 본다. 서버+GUI 를 함께 띄운다(-s/헤드리스 뺌).
-    # 에이전트는 GUI 금지(CLAUDE.md)라 헤드리스가 기본 — 이 옵션은 오직 사람이 직접 실행할 때.
-    sim_cmd = ["ign", "gazebo", "-r", WORLD] if GUI else \
-              ["ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD]
-    sim = subprocess.Popen([ENV, *sim_cmd],
-                           stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    # 세 모드:
+    #  기본(에이전트)  : 헤드리스 서버를 띄우고 끝나면 죽인다. 결정적·정리됨(단언용).
+    #  --gui (사람)     : 서버+GUI 를 함께 띄운다 — 이 프로세스가 곧 뷰어. 창 닫으면 끝.
+    #  --attach (사람)  : 시뮬을 스폰하지 않는다. 이미 떠 있는 상주 서버(make sim-server)에 붙어
+    #                     주행만 하고 시뮬은 그대로 둔다. 사람이 GUI 로 계속 보며 교차검증(2026-07-24).
+    if ATTACH:
+        sim = None                                    # 시뮬 수명은 사람이 쥔다(상주 서버)
+    else:
+        sim_cmd = ["ign", "gazebo", "-r", WORLD] if GUI else \
+                  ["ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD]
+        sim = subprocess.Popen([ENV, *sim_cmd],
+                               stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     subs = []
     ww = det = None
     result = {"field": {"n_beds": N_BEDS, "bed_centers": [round(c, 3) for c in centers],
@@ -292,14 +299,15 @@ def run():
     finally:
         for s in (det, ww.proc if ww else None):
             _stop(s)
-        _stop(sim)
-        try:
-            sim.wait(timeout=10)
-        except Exception:
+        if sim is not None:                           # --attach 면 상주 서버는 사람 것 — 안 건드린다
+            _stop(sim)
             try:
-                os.killpg(os.getpgid(sim.pid), signal.SIGKILL)
+                sim.wait(timeout=10)
             except Exception:
-                pass
+                try:
+                    os.killpg(os.getpgid(sim.pid), signal.SIGKILL)
+                except Exception:
+                    pass
         log.close()
     return result
 
