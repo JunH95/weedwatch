@@ -7,8 +7,26 @@
 
 ## 🎯 지금 여기 (딴 데 새지 말 것)
 
-**관통(walking skeleton) 완성됨** — 끝에서 끝까지 한 번 돈다 (DECISIONS 036). 이제 세부를 하나씩 고친다.
-경로: 로봇이 여러 두둑 밭을 자율로 훑으며 잡초 찍고, 한 일을 JSON으로 남겨 대시보드로 본다.
+**ROS 2 로 전환 중** (DECISIONS 038) — 관통은 돌지만 ign-transport 직결이라 실물 이식성이 없었다.
+사용자 결정: 실물 목표 프로젝트는 ROS 위에 올려야 한다. 핵심 로직(모델·기하·계획·URDF)은 전송-무관이라
+그대로 이식, 껍데기만 재작성.
+
+**이관 진행**:
+- **P0 브리지 폐루프** ✅ `make ros-drive` — ign↔ros_gz_bridge↔rclpy 0.72m 주행(설치 0).
+- **P1 제어 노드** ✅ `make ros-control` — ww_cmd 대체 rclpy 노드, 주행 0.57m+tool0 하강.
+- **P2 인식 노드** ← 다음. detect_server(파일IO)를 카메라 토픽 구독으로. ⚠️ 3.10/3.11 경계(torch 격리)
+  결정 필요 — 기본안: 경계 유지, 얇은 rclpy 릴레이로 /weeds 토픽 발행.
+- **P3 관통 ROS 런치** — field_run 을 ROS 노드 조합으로. 단언=ROS 토픽.
+- **P4 rviz 관람 + `src/` colcon 패키지 정식 포장**.
+
+**정리(cleanup)는 migration 을 따라온다 — 앞서지 않는다.** ww_cmd + 직결 소비자 6개(drive_row·
+drive_field·strike_marks·assert_row_stamp·assert_field_live·field_run) + ww_depth + detect_server
+파일IO 는 아직 동작하는 검증된 파이프라인 → P2/P3 가 대체한 뒤 일괄 제거. 지금 고아: diag_slip.py 하나.
+
+---
+
+### (완료) 관통 walking skeleton — DECISIONS 036
+로봇이 여러 두둑 밭을 자율로 훑으며 잡초 찍고, 한 일을 JSON으로 남겨 대시보드로 본다.
 
 단계 (전부 완료):
 1. **P1 커버리지 경로** ✅ 보스트로페돈 계획기(`coverage_path.py`, 테스트 6). 두둑 끝 회전은
@@ -19,8 +37,9 @@
 4. **P4 웹 대시보드** ✅ `make dashboard` → `artifacts/dashboard.html`. 자기완결 HTML(밭 지도 SVG+
    통계 타일), Artifact 발행. 진짜 관리 앱(제어 버튼·실시간)은 실물 단계로 미룸.
 
-**다음 (관통 뒤 세부 수리, 우선순위순)**:
+**관통이 드러낸 약점 (ROS 이관 후 수리, 우선순위순)**:
 - **자율 처리율** — 지금 낮다. 카메라가 채점 밖 클러터 잡초도 검출 + 잎-밑동(4a) 오차. 측정→수리.
+  (ROS 노드 위에서 고치는 게 두 번 일 안 하는 것 — 그래서 이관 먼저.)
 - 끼임 정밀 수리(스켈레톤 밭은 매끈하게 회피 중), 물리 두둑-끝 회전, 배터리 에너지,
   로봇 CAD·구조해석, 실물 관리 앱(제어 버튼 포함).
 
