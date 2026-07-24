@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>weedwatch_description</name>
+  <version>0.1.0</version>
+  <description>로봇 몸체 기술 — URDF (걸터타기 포탈 + 멀티툴 + 카메라·IMU). tools/make_urdf.py 가 생성.</description>
+  <maintainer email="wol00107@gmail.com">JunH95</maintainer>
+  <license>MIT</license>
+  <export><build_type>ament_python</build_type></export>
+</package>
