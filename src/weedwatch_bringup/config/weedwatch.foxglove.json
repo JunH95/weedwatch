@@ -1,0 +1,63 @@
+{
+  "configById": {
+    "3D!main": {
+      "cameraState": {
+        "distance": 9,
+        "perspective": true,
+        "phi": 55,
+        "thetaOffset": 135,
+        "targetOffset": [1.5, 1.2, 0]
+      },
+      "followMode": "follow-none",
+      "followTf": "world",
+      "scene": { "transforms": { "showLabel": true, "axisScale": 0.6 } },
+      "topics": { "/ww/viz": { "visible": true } },
+      "layers": {
+        "grid": { "layerId": "foxglove.Grid", "size": 14, "divisions": 14 }
+      }
+    },
+    "Image!cam0": { "cameraTopic": "/robot/camera", "mode": "fit" },
+    "Image!cam1": { "cameraTopic": "/robot/camera1", "mode": "fit" },
+    "Plot!loc": {
+      "title": "위치추정 오차 (믿음 vs 실제)",
+      "paths": [
+        { "value": "/ww/state/loc_error_cm.data", "label": "위치오차 cm", "color": "#e8663c" },
+        { "value": "/ww/state/gyro_vs_wheel_cm.data", "label": "자이로-오도 vs 휠 cm", "color": "#4a90d9" }
+      ],
+      "showLegend": true,
+      "xAxisVal": "timestamp"
+    },
+    "Plot!heading": {
+      "title": "방위 오차 · 속도",
+      "paths": [
+        { "value": "/ww/state/heading_error_deg.data", "label": "방위오차 °", "color": "#8fce00" },
+        { "value": "/ww/state/speed_mps.data", "label": "속도 m/s", "color": "#c9a758" }
+      ],
+      "showLegend": true,
+      "xAxisVal": "timestamp"
+    },
+    "Plot!weeds": {
+      "title": "지금 보이는 잡초 수",
+      "paths": [{ "value": "/ww/state/weeds_seen.data", "label": "검출 수", "color": "#d05a5a" }],
+      "showLegend": false,
+      "xAxisVal": "timestamp"
+    },
+    "RawMessages!state": { "topicPath": "/ww/state/loc_error_cm" }
+  },
+  "layout": {
+    "first": {
+      "first": "3D!main",
+      "second": { "first": "Image!cam0", "second": "Image!cam1", "direction": "column" },
+      "direction": "row",
+      "splitPercentage": 62
+    },
+    "second": {
+      "first": "Plot!loc",
+      "second": { "first": "Plot!heading", "second": "Plot!weeds", "direction": "row" },
+      "direction": "column",
+      "splitPercentage": 45
+    },
+    "direction": "column",
+    "splitPercentage": 58
+  }
+}

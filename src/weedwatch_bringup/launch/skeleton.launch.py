@@ -66,11 +66,27 @@ def generate_launch_description():
         cmd=["rviz2", "-d", str(WW / "src" / "weedwatch_bringup" / "config" / "weedwatch.rviz")],
         output="screen")])
 
+    # Foxglove — 그래프(Plot)·로봇 상태·영상·3D 를 한 창에서 보는 관제 도구 (PLAN Stage 7).
+    # foxglove_bridge 가 WebSocket(8765)으로 ROS 그래프를 통째로 내보내고, Foxglove Studio
+    # (데스크톱 앱 또는 app.foxglove.dev)가 붙는다. rviz 와 달리 **시계열 그래프**가 된다.
+    # viz 노드도 같이 켠다 — /ww/state/* 수치와 믿음/실제 마커가 거기서 나온다.
+    fox = LaunchConfiguration("foxglove")
+    declare_fox = DeclareLaunchArgument("foxglove", default_value="false",
+                                        description="foxglove_bridge(WebSocket 8765) 기동")
+    fox_viz = TimerAction(period=8.0, actions=[Node(
+        condition=IfCondition(fox), package="weedwatch_bringup", executable="viz_node",
+        output="screen")])
+    fox_bridge = TimerAction(period=8.0, actions=[ExecuteProcess(
+        condition=IfCondition(fox),
+        cmd=["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"],
+        output="screen")])
+
     # 코디네이터가 끝나면(관통 완료) 런치 전체 종료
     shutdown_on_done = RegisterEventHandler(OnProcessExit(
         target_action=coord_node,
         on_exit=[EmitEvent(event=Shutdown(reason="관통 완료"))]))
 
-    return LaunchDescription([declare_gui, declare_rviz, gazebo_headless, gazebo_gui,
-                             bridge_proc, perception, viz_node, rviz_proc,
+    return LaunchDescription([declare_gui, declare_rviz, declare_fox,
+                             gazebo_headless, gazebo_gui, bridge_proc, perception,
+                             viz_node, rviz_proc, fox_viz, fox_bridge,
                              coordinator, shutdown_on_done])

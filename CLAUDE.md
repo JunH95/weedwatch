@@ -243,8 +243,13 @@ ML venv 도 3.10 으로 맞췄다 → **한 프로세스에 torch+rclpy 공존**
   나는 화면이 없어서 못 본다(헤드리스로만 검증). 단 **사람용 관람 경로는 만들어 둔다** —
   `make ros-sim`(상주 GUI 시뮬)+`make ros-attach`, `watch-ros`(한 방 관람), `watch-*`. 사람이
   데스크톱에서 직접 보는 건 교차검증이라 권장. Gazebo GUI(`gui:=true`)가 물리 관람의 저마찰 경로.
-  **관제 화면 `make watch-rviz`**(040 후속): rviz2 로 로봇 머릿속 — 믿는 위치(주황) vs 실제 위치
-  (초록) + 오차 숫자, 검출한 잡초, 카메라 2대. 배선은 `make viz-check`가 화면 없이 단언한다.
+  **관제 `make watch-foxglove`**(PLAN Stage 7): Foxglove Studio 로 **그래프·로봇 상태**를 본다 —
+  위치추정 오차·방위·속도 시계열(`/ww/state/*`) + 3D + 카메라. 선행 1회(사람):
+  `sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap`(dry-run 확인:
+  제거되는 패키지 0). 레이아웃 `src/weedwatch_bringup/config/weedwatch.foxglove.json`.
+  녹화는 `make record`(mcap) → Studio 에서 파일로 스크럽·실행 비교.
+  **3D만 빠르게 볼 땐 `make watch-rviz`**: 믿는 위치(주황) vs 실제(초록) + 오차 숫자.
+  배선은 `make viz-check`·`make foxglove-check`가 화면 없이 단언한다.
   지상진실은 viz 노드가 ign 스트림에서 직접 읽는다 — **ROS 토픽으로 안 흘린다**(제어가 정답을
   구독할 수 있게 되면 "제어는 추정, 채점은 지상진실" 규율이 화면 때문에 무너진다).
 - **AI Hub 데이터를 커밋하지 마라** — 재배포 금지 라이선스다. 지표와 모델만 공개 가능.

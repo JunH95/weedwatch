@@ -9,6 +9,15 @@ Gazebo GUI 가 "밖에서 본 로봇"이라면, rviz2 는 **로봇 머릿속**�
   /tf : world→base_est                     로봇이 믿는 자세 (코디네이터의 자이로-오도메트리)
   /tf : world→base_truth                   지상진실 (시뮬에서만 알 수 있는 값)
   /ww/viz (MarkerArray)                    두둑·검출 잡초·믿음 vs 실제 상자·오차 선분과 숫자
+  /ww/state/* (Float64)                    **그래프로 볼 수치** — 아래 표
+
+  토픽                          무엇                                    왜 보나
+  /ww/state/loc_error_cm        |믿음 − 실제| 위치 오차                  위치추정이 얼마나 새는가
+  /ww/state/heading_error_deg   믿음 − 실제 방위                         IMU 방위가 유지되는가
+  /ww/state/speed_mps           주행 속도                                무정차 상한 0.2 를 지키는가
+  /ww/state/gyro_vs_wheel_cm    자이로-오도 vs 휠 오도 차이               **온보드로만** 보이는 신호 —
+                                                                        바퀴가 긁히면 여기서 벌어진다
+  /ww/state/weeds_seen          지금 프레임에서 본 잡초 수                인식이 살아 있는가
 
 **지상진실은 화면 전용이다.** 이 노드는 아무것도 제어하지 않고, 제어 노드는 이 토픽을 구독하지
 않는다. GT 브리지도 제어용 bridge_args 가 아니라 관람 런치에서만 켠다 — 제어가 정답을 물리적으로
@@ -26,7 +35,8 @@ from pathlib import Path
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Point, PoseArray, PoseStamped, TransformStamped
-from std_msgs.msg import ColorRGBA
+from nav_msgs.msg import Odometry
+from std_msgs.msg import ColorRGBA, Float64
 from tf2_msgs.msg import TFMessage
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -62,9 +72,16 @@ class Viz(Node):
         self.truth = None        # (x, y, yaw) 지상진실
         self.weeds = []
         self.n_markers = 0
+        self._wheel_ref = None
         self.create_subscription(PoseStamped, "/ww/base_pose", self._on_est, 10)
         self.create_subscription(PoseArray, "/weeds", self._on_weeds, 10)
         self._start_truth_reader()
+        self.create_subscription(Odometry, "/odometry", self._on_odom, 10)
+        self.odom = None         # (x, y, speed) 휠 오도메트리 원본
+        # 그래프용 상태 수치 — Foxglove 의 Plot 패널이 이걸 그린다
+        self.state = {k: self.create_publisher(Float64, f"/ww/state/{k}", 10) for k in
+                      ("loc_error_cm", "heading_error_deg", "speed_mps",
+                       "gyro_vs_wheel_cm", "weeds_seen")}
         self.markers = self.create_publisher(MarkerArray, "/ww/viz", 10)
         self.tf = self.create_publisher(TFMessage, "/tf", 10)
         self.create_timer(0.1, self._tick)
@@ -75,6 +92,33 @@ class Viz(Node):
 
     def _on_weeds(self, m):
         self.weeds = [(p.position.x, p.position.y) for p in m.poses]
+
+    def _on_odom(self, m):
+        p = m.pose.pose.position
+        self.odom = (p.x, p.y, m.twist.twist.linear.x)
+
+    def _publish_state(self):
+        """그래프로 볼 수치. 오차 항목은 화면 전용(지상진실 필요)이고, gyro_vs_wheel 은
+        **지상진실 없이도** 보이는 신호라 실물에서도 그대로 쓸 수 있다."""
+        out = {}
+        if self.odom:
+            out["speed_mps"] = self.odom[2]
+        out["weeds_seen"] = float(len(self.weeds))
+        if self.est and self.truth:
+            out["loc_error_cm"] = math.hypot(self.est[0] - self.truth[0],
+                                             self.est[1] - self.truth[1]) * 100
+            out["heading_error_deg"] = math.degrees(
+                math.atan2(math.sin(self.est[2] - self.truth[2]),
+                           math.cos(self.est[2] - self.truth[2])))
+        if self.est and self.odom:
+            # 휠 오도메트리는 스폰 기준 상대이므로, 두 추정의 **증분 차이**가 의미 있다.
+            if self._wheel_ref is None:
+                self._wheel_ref = (self.odom[0] - self.est[0], self.odom[1] - self.est[1])
+            dx = (self.odom[0] - self._wheel_ref[0]) - self.est[0]
+            dy = (self.odom[1] - self._wheel_ref[1]) - self.est[1]
+            out["gyro_vs_wheel_cm"] = math.hypot(dx, dy) * 100
+        for k, v in out.items():
+            m = Float64(); m.data = float(v); self.state[k].publish(m)
 
     def _start_truth_reader(self):
         """지상진실을 ign 텍스트 스트림에서 읽는다 — **화면 전용**.
@@ -182,6 +226,7 @@ class Viz(Node):
 
         self.markers.publish(arr)
         self.n_markers += len(arr.markers)
+        self._publish_state()
 
 
 def selftest():

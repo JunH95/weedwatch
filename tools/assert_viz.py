@@ -6,6 +6,7 @@ sim + 브리지 + GT 브리지 + viz 노드를 켜고, **rviz 가 구독할 토�
 센다. 사람은 `make watch-rviz` 로 같은 걸 눈으로 본다 (에이전트=수치, 사람=화면 교차검증).
 
 게이트:
+  0. 그래프용 상태 수치(/ww/state/*)가 발행된다 — Foxglove Plot 패널이 그릴 것
   1. /ww/viz 마커가 발행된다 (밭·로봇 상자)
   2. 지상진실이 화면 쪽으로 흐른다 (viz 노드가 ign 스트림에서 읽어온다)
   3. viz 노드가 world→base_truth TF 를 낸다 (fixed frame=world 에서 로봇이 보이려면 필요)
@@ -78,10 +79,12 @@ def main():
                                 capture_output=True, text=True, timeout=30).stdout
         out, _ = viz.communicate(timeout=90)
         print(out.strip())
-        for t in ("/robot/camera", "/ww/viz"):
+        need = ("/robot/camera", "/ww/viz", "/ww/state/loc_error_cm",
+                "/ww/state/speed_mps", "/ww/state/gyro_vs_wheel_cm", "/ww/state/weeds_seen")
+        for t in need:
             if t not in topics:
-                raise Fail(f"rviz 가 볼 토픽이 없다: {t}")
-        print("  카메라·마커 토픽 존재: /robot/camera · /robot/camera1 · /ww/viz")
+                raise Fail(f"관제 화면이 볼 토픽이 없다: {t}")
+        print(f"  관제 토픽 {len(need)}개 존재 (영상·마커·그래프용 상태 수치)")
         if viz.returncode != 0:
             raise Fail("viz 노드 자가검증 실패 (위 출력 참고)")
     finally:

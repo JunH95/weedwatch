@@ -58,6 +58,28 @@ IMU 방위 + 자이로-오도메트리**(거리는 바퀴, 방위는 IMU) 채택
 상수 오프셋 상쇄). ② **절대 위치추정 없음** — 패스 x 앵커는 두둑 진입 시 기하로 재설정(가정).
 ③ 주행 중 옆 밀림은 카메라 루프가 닫아야 한다.
 
+### (완료) 관제 경로 — Foxglove(그래프·상태) + rviz2(3D)
+사용자가 "가제보 말고 그래프·로봇 상태 보는 것"을 기억해 확인해보니 PLAN Stage 7 의 **Foxglove**였다.
+CLAUDE.md 엔 rviz2 만 적혀 있었고 둘 다 실제로는 안 만들어져 있었다 — 둘 다 만들었다.
+
+| 명령 | 무엇 |
+|---|---|
+| `make watch-foxglove` | Foxglove Studio: **시계열 그래프**(위치오차·방위·속도·검출 수) + 3D + 카메라 2대 |
+| `make record` | 실행을 mcap 으로 녹화 → Studio 에서 스크럽·실행 비교 |
+| `make watch-rviz` | rviz2 3D: 믿는 위치(주황) vs 실제(초록) + 오차 숫자 |
+| `make viz-check` / `make foxglove-check` | 화면 없이 배선 단언(에이전트 몫) |
+
+그래프용 상태 토픽 `/ww/state/*`: `loc_error_cm`(믿음↔실제) · `heading_error_deg` · `speed_mps` ·
+**`gyro_vs_wheel_cm`**(자이로-오도 vs 휠 — **지상진실 없이도 보이는** 신호라 실물에서도 그대로 쓴다) ·
+`weeds_seen`. 레이아웃 `src/weedwatch_bringup/config/weedwatch.foxglove.json`.
+
+**사람이 한 번 해야 할 것**: `sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap`
+(dry-run 확인 — 제거되는 패키지 0, Harmonic 과 다름). 안 깔려 있으면 `make foxglove-check` 가 그 명령을
+찍어준다.
+
+**규율**: 지상진실은 viz 노드가 ign 스트림에서 직접 읽고 **ROS 토픽으로 안 흘린다**. 제어 노드가
+구독할 수 있게 되면 "제어는 추정, 채점은 지상진실"이 화면 때문에 무너진다.
+
 ### (진행) 위치추정 — 시각 오도메트리 1차 측정 (`tools/diag_vo.py`)
 하방 카메라(0.457mm/px)의 지면 흐름을 위상상관(FFT)으로 재서 바퀴와 비교했다.
 

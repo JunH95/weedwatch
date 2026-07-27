@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle turn watch-rviz viz-check tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row watch-ros ros-sim ros-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-build ros-skeleton ros-percept clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle turn watch-rviz watch-foxglove record viz-check foxglove-check tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row watch-ros ros-sim ros-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-build ros-skeleton ros-percept clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -45,7 +45,9 @@ help:
 	@echo "make ros-build - ROS 이관 P4: colcon 워크스페이스 빌드 (src/weedwatch_*)"
 	@echo "make ros-skeleton - ROS 이관 P4: 관통 전체를 ros2 launch 한 줄로 (Gazebo+브리지+인식+제어+코디네이터)"
 	@echo "make watch-ros  - (데스크톱) 관통을 Gazebo GUI 로 관람 — 밖에서 본 로봇"
-	@echo "make watch-rviz - (데스크톱) 관제 화면: 로봇이 믿는 위치 vs 실제 위치 + 카메라·검출"
+	@echo "make watch-rviz - (데스크톱) rviz2 관제: 믿는 위치 vs 실제 위치 + 카메라·검출"
+	@echo "make watch-foxglove - (데스크톱) Foxglove 관제: 그래프·로봇 상태·영상·3D 한 창에서"
+	@echo "make record     - 실행을 mcap 으로 녹화 → Foxglove 로 나중에 스크럽·비교"
 	@echo "make viz-check  - 관제 배선 자가검증 (화면 없이, 에이전트용)"
 	@echo "make ros-sim   - (데스크톱) 상주 GUI 시뮬 — 켜두고 make ros-attach 로 주행 주입"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
@@ -174,7 +176,24 @@ watch-ros: clean-sim
 watch-rviz: clean-sim
 	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py rviz:=true"
 
-# 관제 시각화 자가검증(에이전트, 화면 없음): 마커·TF·지상진실 수신을 세어 단언.
+# 관제(그래프·상태): Foxglove Studio 로 본다 — 시계열 Plot·로봇 상태·영상·3D 를 한 창에서.
+# 선행 1회: sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap
+# 실행 후 Foxglove Studio(데스크톱 앱 또는 app.foxglove.dev)에서 ws://localhost:8765 접속.
+watch-foxglove: clean-sim
+	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true"
+
+# 나중에 돌려보기: 실행을 mcap 으로 녹화 → Foxglove Studio 에서 파일 열어 스크럽·그래프.
+# 라이브로 못 볼 때(장시간 실행·원격)나 실행끼리 비교할 때 쓴다.
+record: clean-sim
+	@mkdir -p artifacts/bags
+	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true & \
+		sleep 12; ros2 bag record -s mcap -o artifacts/bags/run --all & wait"
+
+# Foxglove 배선 자가검증(에이전트, 화면 없음): WebSocket 핸드셰이크 + 관제 토픽 존재.
+foxglove-check: clean-sim
+	@$(ENV) python3 tools/assert_foxglove.py
+
+# 관제 자가검증(에이전트, 화면 없음): 마커·TF·지상진실·상태 수치를 세어 단언.
 viz-check: clean-sim
 	@$(ENV) python3 tools/assert_viz.py
 
