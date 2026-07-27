@@ -126,3 +126,57 @@ def test_gyro_odom_distance_is_signed_by_direction():
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
     g.update(-0.5, 0.0, 0.0, -0.2, imu_yaw=0.0)
     assert g.x == pytest.approx(-0.5, abs=1e-6)
+
+
+# ── 융합 게이팅 (DECISIONS 041) ────────────────────────────────────────────
+# 실측이 역할을 정했다: 직진 거리는 바퀴가 0.8%, 회전 미끄러짐은 바퀴가 **0.0cm**(못 봄)이고
+# 카메라가 86% 본다. 그래서 회전 중에만 VO 를 쓴다. 여기서는 그 규칙이 코드에 맞게 들어갔는지
+# 산수로 확인한다 — 시뮬을 돌리지 않고.
+
+def test_fusion_uses_vo_while_turning():
+    """회전 중에는 VO 증분을 쓴다 — 바퀴는 미끄러짐을 못 보므로."""
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0, vo=(0.02, -0.01), odom_wz=0.5)
+    assert g.vo_used == 1 and g.wheel_used == 0
+    assert g.x == pytest.approx(0.02, abs=1e-9)
+    assert g.y == pytest.approx(-0.01, abs=1e-9)
+
+
+def test_fusion_uses_wheels_while_driving_straight():
+    """직진에서는 바퀴가 압도적이다 — VO 가 와도 안 쓴다."""
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.10, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.30, 0.0), odom_wz=0.0)
+    assert g.wheel_used == 1 and g.vo_used == 0
+    assert g.x == pytest.approx(0.10, abs=1e-9), "VO 를 직진에 썼다 — 7~13% 오차를 들여온다"
+
+
+def test_fusion_falls_back_to_wheels_without_vo():
+    """VO 노드가 없으면 회전 중이라도 휠로 돈다 — 조용히 멈추지 않고 이전 동작 유지."""
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.01, 0.0, 0.0, 0.0, imu_yaw=0.0, vo=None, odom_wz=0.5)
+    assert g.wheel_used == 1 and g.vo_used == 0
+
+
+def test_fusion_rotates_vo_into_world_frame():
+    """VO 는 로봇 기준(전방·좌)이라 방위로 회전시켜 누적해야 한다."""
+    g = GyroOdom(yaw0=math.pi / 2)                 # +y 를 보고 있음
+    g.update(0.0, 0.0, math.pi / 2, 0.0, imu_yaw=math.pi / 2)
+    g.update(0.0, 0.0, math.pi / 2, 0.0, imu_yaw=math.pi / 2, vo=(0.03, 0.0), odom_wz=0.5)
+    assert g.x == pytest.approx(0.0, abs=1e-9)
+    assert g.y == pytest.approx(0.03, abs=1e-9), "로봇 전방(+y)이 world +y 로 안 갔다"
+
+
+def test_fusion_rejects_impossible_vo_steps():
+    """상관이 실패해 말도 안 되는 증분이 오면 버려야 한다.
+
+    안 거르면 추정이 폭주하고 로봇이 "도착했다"고 착각해 일찍 멈춘다 — 실측으로 U턴 뒤 표류가
+    43.7cm → 221.9cm 로 나빠졌다(2026-07-27). 회전 중 몸통 미끄러짐은 프레임당 1cm 안팎이다.
+    """
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0, vo=(0.50, 0.0), odom_wz=0.5)
+    assert g.vo_rejected == 1 and g.vo_used == 0
+    assert g.x == pytest.approx(0.0, abs=1e-9), "불가능한 VO 를 적산했다"

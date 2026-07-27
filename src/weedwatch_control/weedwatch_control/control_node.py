@@ -15,7 +15,7 @@ import random
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Vector3Stamped
 from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
@@ -54,9 +54,14 @@ class WwControl(Node):
         self._tool = [self.create_publisher(Float64, f"/tool{i}_cmd", 10) for i in range(n_tools)]
         self.create_subscription(Odometry, "/odometry", self._on_odom, 10)
         self.create_subscription(Imu, "/robot/imu", self._on_imu, 10)
+        # 시각 오도메트리 증분 — 회전 중에만 쓴다(DECISIONS 041). 노드가 없으면 안 오고,
+        # 그러면 GyroOdom 이 휠만으로 돌아간다(vo_used 가 0 으로 남아 드러난다).
+        self.create_subscription(Vector3Stamped, "/ww/vo", self._on_vo, 10)
         self.x = self.y = self.yaw = None          # 휠 오도메트리 원본 (직진 구간용)
         self.odom_n = self.imu_n = 0
         self.imu_yaw = None                        # IMU 방위 + 실물 잔차
+        self._vo_acc = [0.0, 0.0]                  # 다음 odom 까지 쌓아둘 VO 증분 (전방, 좌)
+        self.vo_n = 0
         self._rng = random.Random(7)
         self._imu_bias = math.radians(IMU_BIAS_DEG) * self._rng.choice((1, -1))
         # 자이로-오도메트리: 거리는 바퀴, 방위는 IMU. 스폰 자세를 원점으로 두고 노드가 채운다.
@@ -71,12 +76,20 @@ class WwControl(Node):
         self.imu_yaw = self._yaw_of(m.orientation) + self._imu_bias + noise
         self.imu_n += 1
 
+    def _on_vo(self, m):
+        self._vo_acc[0] += m.vector.x
+        self._vo_acc[1] += m.vector.y
+        self.vo_n += 1
+
     def _on_odom(self, m):
         p = m.pose.pose.position
         self.x, self.y = p.x, p.y
         self.yaw = self._yaw_of(m.pose.pose.orientation)
         self.odom_n += 1
-        self.gyro.update(p.x, p.y, self.yaw, m.twist.twist.linear.x, self.imu_yaw)
+        vo = tuple(self._vo_acc) if self.vo_n else None
+        self._vo_acc = [0.0, 0.0]
+        self.gyro.update(p.x, p.y, self.yaw, m.twist.twist.linear.x, self.imu_yaw,
+                         vo=vo, odom_wz=m.twist.twist.angular.z)
 
     def seed_pose(self, x, y, yaw=0.0):
         """자이로-오도메트리 원점을 world 스폰 자세로 맞춘다 (밭 기하를 아는 쪽이 준다).

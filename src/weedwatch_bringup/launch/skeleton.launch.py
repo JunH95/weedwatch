@@ -27,6 +27,7 @@ from weedwatch_control.ww_paths import find_repo_root
 WW = find_repo_root()
 CONDA_PY = str(WW / "perception" / "condaenv" / "bin" / "python")
 PERCEPT = str(WW / "perception" / "ww_perception_node.py")
+VO_NODE = str(WW / "perception" / "ww_vo_node.py")
 WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
 WORLD_NAME = "robot_field_multi"
 N_TOOLS = 3
@@ -34,7 +35,10 @@ CAM_TOPICS = ["/robot/camera", "/robot/camera1"]
 
 
 def generate_launch_description():
-    bridge = bridge_args(N_TOOLS) + [f"{t}@sensor_msgs/msg/Image[ignition.msgs.Image" for t in CAM_TOPICS]
+    # 깊이도 브리지한다 — VO 가 "흙 픽셀만 고르기"에 쓴다(스케일이 아니라 선택, 041).
+    bridge = (bridge_args(N_TOOLS)
+              + [f"{t}@sensor_msgs/msg/Image[ignition.msgs.Image" for t in CAM_TOPICS]
+              + ["/robot/depth@sensor_msgs/msg/Image[ignition.msgs.Image"])
 
     # gui:=false(기본) = 헤드리스(에이전트 수치 단언). gui:=true = Gazebo GUI(사람 관람 — 데스크톱).
     gui = LaunchConfiguration("gui")
@@ -50,6 +54,15 @@ def generate_launch_description():
         cmd=["ros2", "run", "ros_gz_bridge", "parameter_bridge", *bridge], output="screen")])
     perception = TimerAction(period=7.0, actions=[ExecuteProcess(
         cmd=[CONDA_PY, PERCEPT], output="screen")])
+    # 시각 오도메트리 — 회전 중 몸통 미끄러짐(바퀴가 못 보는 것)을 메운다. vo:=false 로 끄면
+    # 예전처럼 휠+IMU 만으로 돈다(A/B 측정용).
+    # 기본 off — 실측에서 이득을 못 봤다(아래 041 후속). 노드·융합 경로는 남겨두고 vo:=true 로 켠다.
+    vo = LaunchConfiguration("vo")
+    declare_vo = DeclareLaunchArgument("vo", default_value="false",
+                                       description="시각 오도메트리 융합(실험). 기본 off — 041 후속 참고")
+    vo_proc = TimerAction(period=7.0, actions=[ExecuteProcess(
+        condition=IfCondition(vo), cmd=[CONDA_PY, VO_NODE], output="screen")])
+
     coord_node = Node(package="weedwatch_coordinator", executable="coordinator_node", output="screen")
     coordinator = TimerAction(period=11.0, actions=[coord_node])
 
@@ -117,8 +130,8 @@ def generate_launch_description():
         target_action=coord_node,
         on_exit=[EmitEvent(event=Shutdown(reason="관통 완료"))]))
 
-    return LaunchDescription([declare_gui, declare_rviz, declare_fox, declare_plot,
+    return LaunchDescription([declare_gui, declare_rviz, declare_fox, declare_plot, declare_vo,
                              gazebo_headless, gazebo_gui, bridge_proc, perception,
                              viz_node, rviz_proc, fox_viz, fox_bridge, fox_hint,
-                             plot_viz, plot_proc,
+                             plot_viz, plot_proc, vo_proc,
                              coordinator, shutdown_on_done])

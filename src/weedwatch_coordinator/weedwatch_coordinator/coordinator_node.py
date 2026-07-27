@@ -176,10 +176,21 @@ class Coordinator(WwControl):
             # 돌아갔고(IMU 는 정직하게 보고했다) U턴이 그 틀어진 방위 기준으로 돌아 재진입이 어긋났다.
             for i in range(N):
                 self.set_tool(i, RAISE)
+            self.get_logger().info(
+                f"두둑 {bed} 끝: 융합 VO {self.gyro.vo_used}회 · 휠 {self.gyro.wheel_used}회 · "
+                f"VO 버림 {self.gyro.vo_rejected}회")
             time.sleep(1.0)
             result["beds"].append(bed_log)
         self.stop()
         result["duration_s"] = round(time.time() - t_start, 1)
+        # 융합이 실제로 붙었나 — VO 노드가 없으면 vo_used 가 0 이고 옛 동작(휠+IMU)이다.
+        result["fusion"] = {"vo_used": self.gyro.vo_used, "wheel_used": self.gyro.wheel_used,
+                            "vo_msgs": self.vo_n, "vo_rejected": self.gyro.vo_rejected,
+                            "odom_jumps_rejected": self.gyro.rejected}
+        self.get_logger().info(
+            f"융합: VO 증분 {self.gyro.vo_used}회(회전 구간) · 휠 {self.gyro.wheel_used}회 · "
+            f"VO 메시지 {self.vo_n}개 · 불가능해 버림 {self.gyro.vo_rejected}회" +
+            ("  ← VO 노드가 안 붙었다(휠+IMU 만)" if self.gyro.vo_used == 0 else ""))
 
         # 사후 오라클 채점 (제어와 분리, GT)
         summ = {"struck": 0, "handed_to_human": 0, "missed": 0, "detected": 0}

@@ -40,7 +40,16 @@ def wrap(a: float) -> float:
 
 
 class GyroOdom:
-    """자이로-오도메트리 — 바퀴에서 **거리**, IMU 에서 **방위**.
+    """자이로-오도메트리(+시각 오도메트리) — 각 센서를 **강한 데서만** 쓴다.
+
+    실측(DECISIONS 041)이 역할을 정했다:
+
+      방위          IMU        회전당 0.0° (휠 yaw 는 26° 부푼다)
+      직진 거리     바퀴        0.5cm/65cm = 0.8%  (VO 는 7~13% 부족)
+      회전 미끄러짐  VO         바퀴는 **0.0cm — 원리적으로 못 봄**, VO 는 86% 관측
+
+    그래서 회전 중(|wz| > TURN_WZ)에는 VO 증분을, 그 외에는 휠 증분을 쓴다. VO 가 안 오면
+    조용히 옛 동작(휠만)으로 돌아가되 vo_used 로 드러낸다.
 
     노드가 /odometry 와 /robot/imu 를 받을 때마다 update() 를 부른다. IMU 가 아직 없으면
     (월드에 imu-system 이 없는 경우) 휠 yaw 로 폴백하되 degraded 를 True 로 남긴다 —
@@ -52,15 +61,32 @@ class GyroOdom:
     # 다른 시뮬의 /odometry 를 같이 발행하면 두 위치 사이를 오가며 매 샘플 수 미터씩 튄다
     # (2026-07-27 사용자 실행에서 추정이 −155m 로 폭발했고, 원인이 이것이었다).
     MAX_STEP = 0.5
+    # 이 각속도를 넘으면 "회전 중"으로 보고 VO 를 쓴다. 제자리 회전 명령이 0.5 rad/s 이고
+    # 직진 중 흔들림은 0.05 이하라 그 사이면 된다.
+    TURN_WZ = 0.15
+    # VO 증분의 물리적 상한 [m/샘플]. 제자리 회전 중 몸통 미끄러짐은 프레임당 1cm 안팎이고,
+    # 최고 속도 0.2m/s 로 달려도 50Hz 샘플이면 4mm 다. 5cm 를 넘는 값은 **측정이 아니라 실패**다
+    # (상관 피크가 엉뚱한 데 꽂힌 것). 안 거르면 추정이 폭주해 로봇이 도착했다고 착각한다 —
+    # 실측으로 U턴 뒤 표류가 43.7cm → 221.9cm 로 나빠졌다(2026-07-27).
+    VO_MAX_STEP = 0.05
 
     def __init__(self, x0=0.0, y0=0.0, yaw0=0.0):
         self.x, self.y, self.yaw = x0, y0, yaw0
         self.degraded = False
         self.rejected = 0          # 튄 샘플 수 — 0 이 아니면 환경이 오염됐다는 신호
+        self.vo_used = 0           # VO 증분을 실제로 쓴 횟수 (0 이면 융합이 안 붙은 것)
+        self.vo_rejected = 0       # 물리적으로 불가능해 버린 VO 증분 (상관 실패 신호)
+        self.wheel_used = 0
         self._last_xy = None
         self._last_raw_yaw = None
 
-    def update(self, odom_x, odom_y, odom_yaw, odom_vx, imu_yaw=None):
+    def update(self, odom_x, odom_y, odom_yaw, odom_vx, imu_yaw=None,
+               vo=None, odom_wz=0.0):
+        """센서 한 묶음으로 자세를 전진시킨다.
+
+        vo: (전방, 좌) 이동 증분 [m] — 로봇 기준. 마지막 update 이후 쌓인 값.
+        odom_wz: 각속도 [rad/s] — 회전 중인지 판정해 VO/휠 중 무엇을 믿을지 고른다.
+        """
         raw = odom_yaw if imu_yaw is None else imu_yaw
         self.degraded = imu_yaw is None
         if self._last_raw_yaw is None:
@@ -70,19 +96,34 @@ class GyroOdom:
             self._last_raw_yaw = raw
         if self._last_xy is None:
             self._last_xy = (odom_x, odom_y)
+            return self.x, self.y, self.yaw
+
+        dx, dy = odom_x - self._last_xy[0], odom_y - self._last_xy[1]
+        self._last_xy = (odom_x, odom_y)
+        ds = math.hypot(dx, dy)
+        if ds > self.MAX_STEP:
+            # 로봇이 순간이동할 리 없다 → 다른 시뮬(좀비 프로세스)의 오도메트리가 섞였다.
+            # 적산하면 추정이 통째로 망가지므로 버리고 센다. 조용히 흡수하지 않는다.
+            self.rejected += 1
+            return self.x, self.y, self.yaw
+
+        turning = abs(odom_wz) > self.TURN_WZ
+        if turning and vo is not None and math.hypot(*vo) > self.VO_MAX_STEP:
+            self.vo_rejected += 1        # 상관 실패 — 버리고 휠로 간다(회전 중 휠은 0 에 가깝다)
+            vo = None
+        if turning and vo is not None:
+            # 회전 중: 바퀴는 미끄러짐을 못 본다(0.0cm 보고). 카메라가 본 것을 쓴다.
+            fwd, left = vo
+            self.x += fwd * math.cos(self.yaw) - left * math.sin(self.yaw)
+            self.y += fwd * math.sin(self.yaw) + left * math.cos(self.yaw)
+            self.vo_used += 1
         else:
-            dx, dy = odom_x - self._last_xy[0], odom_y - self._last_xy[1]
-            self._last_xy = (odom_x, odom_y)
-            ds = math.hypot(dx, dy)
-            if ds > self.MAX_STEP:
-                # 로봇이 순간이동할 리 없다 → 다른 시뮬(좀비 프로세스)의 오도메트리가 섞였다.
-                # 적산하면 추정이 통째로 망가지므로 버리고 센다. 조용히 흡수하지 않는다.
-                self.rejected += 1
-                return self.x, self.y, self.yaw
+            # 직진: 바퀴가 0.8% 로 압도적이다. VO(7~13%)를 쓰면 오히려 나빠진다.
             if odom_vx < 0:
                 ds = -ds
             self.x += ds * math.cos(self.yaw)
             self.y += ds * math.sin(self.yaw)
+            self.wheel_used += 1
         return self.x, self.y, self.yaw
 
 

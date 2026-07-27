@@ -582,7 +582,7 @@
       <p class="lead col reveal">화면을 안 보는 대신 4단으로 검증한다. 산수로 답할 수 있는 건 시뮬을 안 돌린다(느리고 불안정하고 GPU가 필요하니까). 시뮬은 산수로 못 푸는 것만 맡는다.</p>
       <div class="axis reveal">
         <div class="node done"><div class="lab">Tier 0 · 위생 <span class="st">env.sh</span></div><div class="muted">올바른 파이썬·EGL·GPU를 단언. 잘못된 환경을 아예 차단한다.</div></div>
-        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 122개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사. 이 문서가 안내하는 명령이 실제로 존재하는지도 여기서 단언한다.</div></div>
+        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 134개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사. 이 문서가 안내하는 명령이 실제로 존재하는지도 여기서 단언한다.</div></div>
         <div class="node done"><div class="lab">Tier 2 · 물리 시뮬 <span class="st">drive · joints · straddle · turn · tilt-stamp · shake · row</span></div><div class="muted">렌더 없이 물리만(GPU 불필요). 명령이 실제 운동이 되는지를 지상진실로 단언.</div></div>
         <div class="node done"><div class="lab">Tier 3 · 렌더 시뮬 <span class="st">camera · percept · row-live · ros-skeleton · viz-check · foxglove-check</span></div><div class="muted">GPU 렌더. 픽셀이 검지 않은가, 그리고 NVIDIA가 그렸는가(게이트 둘).</div></div>
       </div>
@@ -648,10 +648,22 @@
         대신 <b>캘리브 평면 ±5cm 픽셀(전체의 34%)만 남기고</b> 나머지를 지우면, 남은 픽셀에는 원래
         캘리브 값이 그대로 맞는다. 이 한 줄이 회전 관측을 27% → 86% 로 올렸다.
       </div>
-      <div class="callout open reveal">
-        <span class="lb">그래서 융합이다 — 강점이 정확히 반대라서</span>
+      <div class="callout reveal">
+        <span class="lb">그래서 융합을 만들었다 — 강점이 정확히 반대라서</span>
         직진 거리는 바퀴가 압도적으로 정확하고(0.8%) 카메라는 7~13% 부족하다. 반대로 회전 중
         미끄러짐은 바퀴가 <b>0.0cm</b>, 카메라만 본다. 방위는 IMU. 셋을 각자 강한 데서만 쓴다.
+      </div>
+      <div class="callout open reveal">
+        <span class="lb">그런데 실주행에서는 아직 이득이 없다 (정직한 음성 결과)</span>
+        위 구조를 실제 관통에 붙여 U턴 뒤 표류를 재보니 <b>43.7cm(카메라 끔) → 58.8cm(켬)</b>.
+        첫 구현은 221.9cm 로 폭주했다 — 비용을 아끼려 화면 가운데만 잘라 봤더니 회전 중 대응이
+        깨졌고(진단에서 검증한 설정은 전체 화면이었다), 말도 안 되는 값을 그대로 더해 로봇이
+        "도착했다"고 착각하며 일찍 멈췄다. 가드를 넣어 폭주는 잡았지만 이득은 없어 <b>기본은 꺼둔다</b>.
+        <div class="kv" style="margin:.5rem 0 .3rem">
+          <dt>지금 가설</dt><dd>진단 때는 카메라만 돌았고, 실주행은 인식이 GPU 를 같이 써 프레임이
+            드물어진다 → 프레임 사이 회전량이 커져 대응이 깨진다</dd>
+          <dt>다음 실험</dt><dd>회전 구간에서 카메라 증분과 지상진실 증분을 1:1 로 찍어 편향인지 실패인지 가른다</dd>
+        </div>
       </div>
 
       <h3 class="reveal">지금 돌아가는 것 — 명령 한 줄로 재현된다</h3>
@@ -808,7 +820,7 @@
             <tr><td class="val">035–036</td><td>형태는 걸터타기 유지(캔틸레버 기각), 세부 완벽 대신 끝에서 끝까지 먼저(관통)</td></tr>
             <tr><td class="val">037–038</td><td>시뮬은 Gazebo 확정(Isaac 이득 없음), 실행 구조를 ROS 2 로 이관</td></tr>
             <tr><td class="val">039</td><td>목표 시나리오 확정(창고→밭→제초→기록→복귀) · 도킹은 범위 안</td></tr>
-            <tr><td class="val">041</td><td>위치추정은 융합 — 바퀴는 직진 거리, 카메라는 회전 미끄러짐, IMU 는 방위</td></tr>
+            <tr><td class="val">041</td><td>위치추정 융합(바퀴=직진·카메라=회전 미끄러짐·IMU=방위) — 구조는 맞으나 실주행 이득은 아직 없음(음성 결과)</td></tr>
             <tr><td class="val">040</td><td>두둑 끝 회전의 방위는 IMU 가 준다 — 스키드 스티어라 휠 오도메트리로는 원천 불가</td></tr>
           </tbody>
         </table>
