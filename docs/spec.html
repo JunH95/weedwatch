@@ -229,8 +229,9 @@
         <span class="lb">Foxglove 는 창이 따로 뜬다 — 브리지와 뷰어가 별개다</span>
         <code>wwfox</code> 는 <b>서버(브리지)만</b> 켠다. 보는 창은 직접 연다:
         <div class="kv" style="margin:.5rem 0 .4rem">
-          <dt>웹</dt><dd><code>app.foxglove.dev</code> → Open connection → <code>ws://localhost:8765</code></dd>
-          <dt>앱</dt><dd><code>snap install foxglove-studio</code> 후 같은 주소로 접속</dd>
+          <dt>웹</dt><dd><code>app.foxglove.dev</code> → Open connection → <code>ws://localhost:8765</code>.
+            <b>Chrome 계열에서만</b> 된다 — https 페이지에서 <code>ws://</code> 로 붙는 것을 Firefox 는 막는다</dd>
+          <dt>앱</dt><dd><code>snap install foxglove-studio</code> 후 같은 주소. 브라우저 정책을 안 타서 더 확실하다</dd>
           <dt>레이아웃</dt><dd><code>src/weedwatch_bringup/config/weedwatch.foxglove.json</code> 를 import 하면 패널 배치가 그대로 뜬다</dd>
         </div>
         선행 1회: <code>sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap</code>

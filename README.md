@@ -98,7 +98,8 @@ echo 'source ~/projects/weedwatch/scripts/ww_aliases.sh' >> ~/.bashrc
 ```
 
 관제는 **Foxglove Studio**로 본다. `foxglove:=true` 는 **브리지(서버)만** 켜므로 보는 창은 따로 연다 —
-웹 `app.foxglove.dev` 또는 `snap install foxglove-studio` → **Open connection → `ws://localhost:8765`**.
+웹 `app.foxglove.dev`(**Chrome 계열만** — Firefox 는 https 페이지에서 `ws://` 접속을 막는다) 또는
+`snap install foxglove-studio` → **Open connection → `ws://localhost:8765`**.
 레이아웃 `src/weedwatch_bringup/config/weedwatch.foxglove.json` 를 import 하면 패널 배치가 그대로 뜬다.
 선행 1회: `sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap`.
 
