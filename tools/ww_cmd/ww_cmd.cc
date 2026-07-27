@@ -32,6 +32,7 @@
 //            "q"                      종료
 //   stdout : "R <topic> ..."                          구독/광고 준비 완료
 //            "O <simt> <x> <y> <yaw> <vx> <wz>"        오도메트리
+//            "I <simt> <roll> <pitch> <yaw>"           IMU 자세 (월드에 imu-system 있을 때만)
 //            "J <simt> <c0..c{N-1}> <t0..t{N-1}>"      관절 achieved 위치 (캐리지 N, 툴 N)
 //            "E <message>"                             오류
 //
@@ -49,6 +50,7 @@
 #include <vector>
 
 #include <ignition/msgs/double.pb.h>
+#include <ignition/msgs/imu.pb.h>
 #include <ignition/msgs/model.pb.h>
 #include <ignition/msgs/odometry.pb.h>
 #include <ignition/msgs/twist.pb.h>
@@ -86,6 +88,31 @@ void OnOdom(const ignition::msgs::Odometry &msg) {
   os << "O " << StampSeconds(msg.header()) << ' ' << p.x() << ' ' << p.y() << ' '
      << Yaw(q.x(), q.y(), q.z(), q.w()) << ' '
      << msg.twist().linear().x() << ' ' << msg.twist().angular().z();
+  Emit(os.str());
+}
+
+// IMU 자세 (실제 온보드 센서 — 지상진실이 아니다).
+//
+// ── 왜 필요한가 (diag_uturn 실측) ────────────────────────────────────────
+// 이 로봇은 조향축 없는 **4륜 고정 = 스키드 스티어**다. 제자리로 돌면 네 바퀴가 옆으로
+// 긁히는데(scrub), DiffDrive 오도메트리는 바퀴 회전만 적분하므로 그 미끄러짐을 못 본다.
+// 실측: 90° 회전 명령에서 odom 은 89.9° 라 보고했고 지상진실은 **63.6°** 였다(오차 26°).
+// 두 번 돌면 46°, 재진입 위치가 2.6m 틀어진다 — 두둑 사이 U턴이 odom 만으로는 불가능하다.
+// 방위를 되잡을 수 있는 온보드 센서는 IMU 뿐이라 여기에 붙인다.
+//
+// 주의: gz IMU 의 orientation 은 노이즈 없는 참자세에서 계산된다(적분 안 함). 실물 잔차는
+// 제어하는 쪽에서 얹는다(025 와 같은 처리) — 여기서는 센서를 있는 그대로 흘린다.
+void OnImu(const ignition::msgs::IMU &msg) {
+  const auto &q = msg.orientation();
+  const double x = q.x(), y = q.y(), z = q.z(), w = q.w();
+  const double sinr = 2.0 * (w * x + y * z), cosr = 1.0 - 2.0 * (x * x + y * y);
+  double sinp = 2.0 * (w * y - z * x);
+  sinp = sinp > 1.0 ? 1.0 : (sinp < -1.0 ? -1.0 : sinp);
+  std::ostringstream os;
+  os.setf(std::ios::fixed);
+  os.precision(6);
+  os << "I " << StampSeconds(msg.header()) << ' ' << std::atan2(sinr, cosr) << ' '
+     << std::asin(sinp) << ' ' << Yaw(x, y, z, w);
   Emit(os.str());
 }
 
@@ -143,6 +170,12 @@ int main(int argc, char **argv) {
   if (!node.Subscribe(joint_topic, OnJoints)) {
     Emit("E joint_state 구독 실패: " + joint_topic);
     return 1;
+  }
+  // IMU 는 월드에 imu-system 플러그인이 있어야 발행된다. 없는 월드(row·strike 등)에서도
+  // 나머지 제어는 그대로 돌아야 하므로 구독 실패를 치명으로 보지 않는다 — 대신 I 줄이 안 온다.
+  const std::string imu_topic = "/robot/imu";
+  if (!node.Subscribe(imu_topic, OnImu)) {
+    Emit("E imu 구독 실패(주행엔 무해, 회전 제어엔 필요): " + imu_topic);
   }
 
   auto cmd_vel = node.Advertise<ignition::msgs::Twist>("/cmd_vel");

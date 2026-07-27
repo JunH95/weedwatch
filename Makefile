@@ -392,6 +392,12 @@ ros-percept: worlds/robot_field_multi.sdf clean-sim
 
 
 # ROS 이관 Phase 4: colcon 워크스페이스 빌드 (src/weedwatch_* 패키지). 표준 로봇 구조.
+# 자율주행: 두둑 끝 헤드랜드 U턴 (순간이동 치트 제거). Tier 2 물리(렌더 없음).
+# 제어 코드는 프로덕션과 동일한 weedwatch_control.maneuver 를 import 하므로 colcon 빌드 선행.
+# 게이트: 진입 y<5cm · 진입 yaw<8° · 끼임 없음 · IMU 실사용(휠 폴백이면 회전당 26° 오차).
+turn: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
+	@$(ENV) python3 tools/assert_uturn.py
+
 ros-build:
 	@$(ENV) colcon build
 	@echo "빌드됨. 사용: source install/setup.bash 후 ros2 launch/run"
