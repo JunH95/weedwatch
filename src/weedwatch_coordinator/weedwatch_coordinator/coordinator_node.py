@@ -7,14 +7,14 @@ artifacts/field_run.json 로깅. field_run_ros.py(하네스)를 **진짜 노드*
 
 제어는 WwControl(weedwatch_control) 상속 — /cmd_vel + /carriage<i>_cmd + /tool<i>_cmd 발행,
 /odometry 구독. 여기에 /weeds 구독 + /ww/base_pose 발행(참 world pose 앵커, 텔레포트 odom 누적 흡수)을
-더한다. 스켈레톤 순회 로직은 워커 스레드에서 돌고 rclpy.spin 이 콜백을 처리한다.
+더한다. 순회 로직은 워커 스레드에서 돌고 rclpy.spin 이 콜백을 처리한다.
 
-전이 메모: 기하 상수·오라클·set_pose 는 아직 tools/ 에서 import(WW_ROOT). 직결 파일 정리 때 패키지로 이동.
+기하 상수·오라클·set_pose 는 weedwatch_control.params / weedwatch_sim.field 에서 가져온다 —
+직결 코드(ww_cmd·assert_row_stamp)를 안 끌어온다(garden_geometry·oracle 순수 config 만 경유).
 """
 import json
 import math
 import os
-import sys
 import threading
 import time
 from pathlib import Path
@@ -23,17 +23,17 @@ import rclpy
 from geometry_msgs.msg import PoseArray, PoseStamped
 
 WW = Path(os.environ.get("WW_ROOT", str(Path(__file__).resolve().parents[3])))
-sys.path.insert(0, str(WW / "tools"))
 
 from weedwatch_control.control_node import WwControl              # noqa: E402
-import field_run as FR                                            # noqa: E402
-from assert_row_stamp import TOOL_XS, BAND_CENTERS, V, STRIKE, RAISE, Z_SETTLE, N  # noqa: E402
-from assert_row_stamp import weed_tool                            # noqa: E402
-from make_field_world import bed_centers                          # noqa: E402
+from weedwatch_control.params import (                            # noqa: E402
+    TOOL_XS, BAND_CENTERS, V, STRIKE, RAISE, Z_SETTLE, N, weed_tool)
+from weedwatch_sim.field import (                                 # noqa: E402
+    oracle_weeds_for_bed, crops_for_bed, set_pose, bed_centers)
 
-N_BEDS = FR.N_BEDS
-X0, X1 = FR.X_DRIVE0, FR.X_DRIVE1
-TOL_XY, SAFE_DIST = FR.TOL_XY, FR.SAFE_DIST
+N_BEDS = 2
+X0, X1 = 0.2, 1.6                  # 두둑 주행 구간 (짧게 — 카메라+best.pt GPU 경합 느림, 036)
+TOL_XY = 0.08                      # "그 잡초를 맞게 타격" 반경
+SAFE_DIST = 0.025                  # 작물 근접 잡초는 사람 몫(007)
 OUT = str(WW / "artifacts" / "field_run.json")
 
 
@@ -65,10 +65,10 @@ class Coordinator(WwControl):
             time.sleep(0.1)
         for bed in range(N_BEDS):
             cy = centers[bed]
-            FR.set_pose(X0 - 0.05, cy, 0.05, 0.0)
+            set_pose(X0 - 0.05, cy, 0.05, 0.0)
             self.publish_base(X0 - 0.05, cy); time.sleep(2.5)
             bed_log = {"bed": bed, "y": round(cy, 3), "reached": False,
-                       "detected": [], "struck": [], "oracle_weeds": len(FR.oracle_weeds_for_bed(cy))}
+                       "detected": [], "struck": [], "oracle_weeds": len(oracle_weeds_for_bed(cy))}
             seen, active, pool = set(), [None] * N, [[] for _ in range(N)]
             ox_ref, ox = None, X0 - 0.05
             self.drive(V, 0.0)
@@ -117,10 +117,10 @@ class Coordinator(WwControl):
         # 사후 오라클 채점 (제어와 분리, GT)
         summ = {"struck": 0, "handed_to_human": 0, "missed": 0, "detected": 0}
         for bl in result["beds"]:
-            cy = bl["y"]; crops = FR.crops_for_bed(cy)
+            cy = bl["y"]; crops = crops_for_bed(cy)
             summ["detected"] += len(bl["detected"])
             bl["weeds"] = []
-            for wx, wy in FR.oracle_weeds_for_bed(cy):
+            for wx, wy in oracle_weeds_for_bed(cy):
                 near_crop = crops and min(math.hypot(wx - cx, wy - cyp) for cx, cyp in crops) < SAFE_DIST
                 hit = any(math.hypot(wx - sx, wy - sy) <= TOL_XY for sx, sy in bl["struck"])
                 outcome = "struck" if hit else ("handed_to_human" if near_crop else "missed")
