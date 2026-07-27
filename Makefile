@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row watch-ros ros-sim ros-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-build ros-skeleton ros-percept clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle turn watch-rviz viz-check tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row watch-ros ros-sim ros-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-build ros-skeleton ros-percept clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -44,7 +44,9 @@ help:
 	@echo "make ww-cmd    - Stage4-3 주행 중 제어용 상주 명령 프로세스 빌드 (ign topic -p 는 1초라 못 씀)"
 	@echo "make ros-build - ROS 이관 P4: colcon 워크스페이스 빌드 (src/weedwatch_*)"
 	@echo "make ros-skeleton - ROS 이관 P4: 관통 전체를 ros2 launch 한 줄로 (Gazebo+브리지+인식+제어+코디네이터)"
-	@echo "make watch-ros  - (데스크톱) 관통을 GUI 로 한 번 관람 (skeleton gui:=true)"
+	@echo "make watch-ros  - (데스크톱) 관통을 Gazebo GUI 로 관람 — 밖에서 본 로봇"
+	@echo "make watch-rviz - (데스크톱) 관제 화면: 로봇이 믿는 위치 vs 실제 위치 + 카메라·검출"
+	@echo "make viz-check  - 관제 배선 자가검증 (화면 없이, 에이전트용)"
 	@echo "make ros-sim   - (데스크톱) 상주 GUI 시뮬 — 켜두고 make ros-attach 로 주행 주입"
 	@echo "make view WORLD=... - GUI 를 띄워 사람이 직접 3D 로 확인 (데스크톱 전용)"
 	@echo "make cropcraft   - CropCraft 를 고정 SHA 로 가져오고 의존성 설치"
@@ -166,6 +168,16 @@ watch-ros: clean-sim
 	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py gui:=true"
 
 # (데스크톱 전용) 상주 GUI 시뮬 — 한 번 켜두고 계속 본다. 다른 터미널서 make ros-attach.
+# 관제 화면(사람용): rviz2 로 **로봇 머릿속**을 본다 — 믿는 자세(주황) vs 실제 자세(초록),
+# 그 사이 오차 선분·숫자, 검출한 잡초(빨강), 카메라 2대 영상. Gazebo GUI 는 끄고(gui:=false)
+# rviz 만 띄운다(GPU 경합 줄임). Gazebo 밖모습까지 같이 보려면 gui:=true 를 덧붙인다.
+watch-rviz: clean-sim
+	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py rviz:=true"
+
+# 관제 시각화 자가검증(에이전트, 화면 없음): 마커·TF·지상진실 수신을 세어 단언.
+viz-check: clean-sim
+	@$(ENV) python3 tools/assert_viz.py
+
 ros-sim: clean-sim
 	@echo "상주 GUI 시뮬 — 이 창을 열어두고, 다른 터미널에서:  make ros-attach"
 	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup sim.launch.py"

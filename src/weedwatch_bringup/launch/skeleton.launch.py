@@ -27,6 +27,7 @@ WW = Path(os.environ.get("WW_ROOT", str(Path.cwd())))
 CONDA_PY = str(WW / "perception" / "condaenv" / "bin" / "python")
 PERCEPT = str(WW / "perception" / "ww_perception_node.py")
 WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
+WORLD_NAME = "robot_field_multi"
 N_TOOLS = 3
 CAM_TOPICS = ["/robot/camera", "/robot/camera1"]
 
@@ -51,10 +52,25 @@ def generate_launch_description():
     coord_node = Node(package="weedwatch_coordinator", executable="coordinator_node", output="screen")
     coordinator = TimerAction(period=11.0, actions=[coord_node])
 
+    # 관제 화면(rviz2) — 사람이 "로봇 머릿속"을 본다: 믿는 자세 vs 실제 자세, 검출한 잡초, 카메라.
+    # 지상진실은 viz 노드가 ign 스트림에서 직접 읽는다(ROS 로 안 흘린다). 제어 노드가 구독할 수 있는
+    # ROS 토픽으로 만들지 않는 게 요점 — "제어는 추정, 채점은 지상진실" 규율을 화면 때문에 무르지 않는다.
+    rviz = LaunchConfiguration("rviz")
+    declare_rviz = DeclareLaunchArgument("rviz", default_value="false",
+                                         description="rviz2 관제 화면(사람용). 에이전트는 headless.")
+    viz_node = TimerAction(period=8.0, actions=[Node(
+        condition=IfCondition(rviz), package="weedwatch_bringup", executable="viz_node",
+        output="screen")])
+    rviz_proc = TimerAction(period=9.0, actions=[ExecuteProcess(
+        condition=IfCondition(rviz),
+        cmd=["rviz2", "-d", str(WW / "src" / "weedwatch_bringup" / "config" / "weedwatch.rviz")],
+        output="screen")])
+
     # 코디네이터가 끝나면(관통 완료) 런치 전체 종료
     shutdown_on_done = RegisterEventHandler(OnProcessExit(
         target_action=coord_node,
         on_exit=[EmitEvent(event=Shutdown(reason="관통 완료"))]))
 
-    return LaunchDescription([declare_gui, gazebo_headless, gazebo_gui,
-                             bridge_proc, perception, coordinator, shutdown_on_done])
+    return LaunchDescription([declare_gui, declare_rviz, gazebo_headless, gazebo_gui,
+                             bridge_proc, perception, viz_node, rviz_proc,
+                             coordinator, shutdown_on_done])

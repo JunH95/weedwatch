@@ -11,6 +11,10 @@
   <exec_depend>weedwatch_coordinator</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>ros2launch</exec_depend>
+  <depend>rclpy</depend>
+  <depend>visualization_msgs</depend>   <!-- 관제 마커 -->
+  <depend>tf2_msgs</depend>             <!-- 믿음/실제 좌표계 -->
+  <exec_depend>rviz2</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

@@ -1,0 +1,128 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /밭·로봇·검출1
+      Splitter Ratio: 0.5
+    Tree Height: 600
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: 격자
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 14
+      Color: 100; 100; 100
+      Alpha: 0.3
+      Reference Frame: world
+    - Class: rviz_default_plugins/MarkerArray
+      Name: 밭·로봇·검출
+      Enabled: true
+      Topic:
+        Value: /ww/viz
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Namespaces:
+        {}
+    - Class: rviz_default_plugins/TF
+      Name: 좌표계 (믿음 base_est / 실제 base_truth)
+      Enabled: true
+      Show Names: true
+      Show Axes: true
+      Show Arrows: false
+      Marker Scale: 0.6
+      Frame Timeout: 15
+    - Class: rviz_default_plugins/Image
+      Name: 카메라 좌 (로봇 눈)
+      Enabled: true
+      Topic:
+        Value: /robot/camera
+        Depth: 2
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Normalize Range: true
+    - Class: rviz_default_plugins/Image
+      Name: 카메라 우 (로봇 눈)
+      Enabled: true
+      Topic:
+        Value: /robot/camera1
+        Depth: 2
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Normalize Range: true
+    - Class: rviz_default_plugins/Odometry
+      Name: 휠 오도메트리(참고 — 회전에서 26° 틀어짐)
+      Enabled: false
+      Topic:
+        Value: /odometry
+        Depth: 10
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+      Keep: 200
+      Position Tolerance: 0.05
+      Angle Tolerance: 0.05
+      Shape:
+        Alpha: 0.6
+        Color: 120; 120; 255
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.2
+        Shaft Radius: 0.02
+        Value: Arrow
+  Global Options:
+    Background Color: 32; 36; 34
+    Fixed Frame: world
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 255; 128; 0
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: 3인칭
+      Distance: 9
+      Focal Point:
+        X: 1.5
+        Y: 1.2
+        Z: 0
+      Pitch: 0.72
+      Yaw: 2.4
+      Near Clip Distance: 0.01
+    Saved:
+      - Class: rviz_default_plugins/Orbit
+        Name: 밭 전체 (위에서)
+        Distance: 11
+        Focal Point:
+          X: 1.5
+          Y: 1.2
+          Z: 0
+        Pitch: 1.45
+        Yaw: 3.14
+      - Class: rviz_default_plugins/Orbit
+        Name: 로봇 따라가기
+        Distance: 4
+        Target Frame: base_truth
+        Pitch: 0.5
+        Yaw: 3.0
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 900
+  Width: 1500
+  Hide Left Dock: false
+  Hide Right Dock: true

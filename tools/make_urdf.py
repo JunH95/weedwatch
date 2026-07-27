@@ -224,8 +224,35 @@ def build_urdf() -> str:
     out.append(joint_controllers_gazebo())
     out.append(camera_sensor_gazebo(o))
     out.append(imu_sensor_gazebo())
+    out.append(pose_publisher_gazebo())
     out.append("</robot>")
     return "\n".join(out)
+
+
+def pose_publisher_gazebo() -> str:
+    """모델의 참 자세를 이름 붙은 프레임으로 발행 — **관제 화면(rviz) 전용**.
+
+    왜 필요한가: 지상진실을 rviz 로 보려고 `/world/<w>/dynamic_pose/info`(Pose_V)를 브리지하면
+    TFMessage 의 frame_id·child_frame_id 가 **빈 문자열**로 온다(실측). 어느 게 로봇인지 못 가른다.
+    PosePublisher 는 이름을 제대로 채운 Pose_V 를 `/model/weedwatch/pose` 로 낸다.
+
+    규율: 이 토픽이 ign 쪽에 떠 있어도 **제어용 브리지(bridge_args)에는 안 넣는다.** ROS 로 건너오는
+    건 관람 런치(rviz:=true)뿐이라, 제어 노드는 지상진실을 여전히 물리적으로 못 본다.
+    """
+    return """  <gazebo>
+    <plugin filename="ignition-gazebo-pose-publisher-system" name="ignition::gazebo::systems::PosePublisher">
+      <publish_link_pose>false</publish_link_pose>
+      <publish_visual_pose>false</publish_visual_pose>
+      <publish_collision_pose>false</publish_collision_pose>
+      <publish_sensor_pose>false</publish_sensor_pose>
+      <publish_model_pose>true</publish_model_pose>
+      <publish_nested_model_pose>false</publish_nested_model_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <update_frequency>20</update_frequency>
+      <static_publisher>false</static_publisher>
+    </plugin>
+  </gazebo>
+"""
 
 
 def imu_sensor_gazebo() -> str:
