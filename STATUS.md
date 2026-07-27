@@ -10,11 +10,11 @@
 **ROS 2 로 전환 — 자율 제초 실행이 ROS-native** (DECISIONS 038). 핵심 로직(모델·기하·계획·URDF)은
 전송-무관이라 그대로 이식, 껍데기(제어·검출·조율)만 ROS 노드로 재작성. `ros2 launch` 한 줄로 켜진다.
 
-**이관 완료 (P0~P4)** — 5개 colcon 패키지:
+**이관 완료 (P0~P4)** — colcon 4패키지 + 인식 ML 컴포넌트:
 - P0 브리지 폐루프(`make ros-drive`) · P1 제어 노드(rclpy, ww_cmd 대체) · P2 인식 노드(카메라→/weeds,
   detect_server 파일IO 대체) · P3 코디네이터(두둑 순회·타격·로깅) · P4 패키지+런치.
 - **선결로 파이썬 3.10 통일**(ML venv 3.11→3.10, torch+rclpy 공존, eval 동일 통과, 구 venv 5.5G 삭제).
-- 패키지: `weedwatch_{control,perception,coordinator,sim,description,bringup}`. `make ros-build`.
+- 패키지(colcon 4): `weedwatch_{control,coordinator,sim,bringup}` + 인식은 perception/(ML,condaenv). 시뮬 자산은 worlds/·models/(Gazebo 리소스경로). `make ros-build`.
 - **켜기**: 헤드리스 단언 `make ros-skeleton` (두둑 2/2·검출~20·처리~4). 사람 관람 `make watch-ros`(GUI
   한 방) / `make ros-sim`+`ros-attach`(상주 GUI+주입). 전부 `ros2 launch`.
 - 코디네이터 **자립**: 헬퍼를 패키지로 추출(control/params·sim/field) → ww_cmd 안 끌어옴.

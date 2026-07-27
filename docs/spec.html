@@ -318,7 +318,7 @@
       <div class="grid g2 reveal">
         <div class="card">
           <div class="n">ROS 노드 + 런치</div>
-          <p class="muted" style="margin:.2rem 0 .5rem">제어·인식·조율이 <b>rclpy 노드</b>. Gazebo(ign)↔ROS 는 <code>ros_gz_bridge</code>. <code>ros2 launch weedwatch_bringup skeleton.launch.py</code> 한 줄로 전부 켜진다(colcon 패키지 6개).</p>
+          <p class="muted" style="margin:.2rem 0 .5rem">제어·인식·조율이 <b>rclpy 노드</b>. Gazebo(ign)↔ROS 는 <code>ros_gz_bridge</code>. <code>ros2 launch weedwatch_bringup skeleton.launch.py</code> 한 줄로 전부 켜진다(colcon 패키지 4개 + 인식 ML 컴포넌트).</p>
           <p class="muted" style="margin:0">제어 토픽 <code>/cmd_vel</code> <code>/carriage_i</code> <code>/tool_i</code>, 상태 <code>/odometry</code>, 검출 <code>/weeds</code>. 상주 발행이라 지연은 직결(3.6us)과 동급.</p>
         </div>
         <div class="card">
@@ -536,7 +536,7 @@
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
         <div class="node done"><div class="lab">관통(walking skeleton) · 끝에서 끝까지 <span class="st">완료</span></div><div class="muted">세부 완벽 대신 전 과정을 한 번 돌렸다. 로봇이 여러 두둑 밭을 자율로 훑고 → 카메라로 잡초 검출 → 타격 → 한 일을 JSON으로 남기고 → 대시보드로 본다. 아래 표가 4단계 전부의 재현 명령이다.</div></div>
-        <div class="node done"><div class="lab">ROS 2 이관 · 표준 로봇 구조 <span class="st">완료</span></div><div class="muted">직결(ign-transport)에서 ROS 로. 제어·인식·조율이 rclpy 노드, Gazebo↔ROS 는 ros_gz_bridge, colcon 패키지 6개(<code>src/weedwatch_*</code>), <code>ros2 launch</code> 한 줄로 켜진다. 실물 단계엔 sim 패키지만 실제 드라이버로 갈아끼우면 같은 노드가 돈다. 파이썬 3.10 통일.</div></div>
+        <div class="node done"><div class="lab">ROS 2 이관 · 표준 로봇 구조 <span class="st">완료</span></div><div class="muted">직결(ign-transport)에서 ROS 로. 제어·인식·조율이 rclpy 노드, Gazebo↔ROS 는 ros_gz_bridge, colcon 패키지 4개(<code>src/weedwatch_*</code>, 시뮬 자산은 worlds·models 리소스경로), <code>ros2 launch</code> 한 줄로 켜진다. 실물 단계엔 sim 패키지만 실제 드라이버로 갈아끼우면 같은 노드가 돈다. 파이썬 3.10 통일.</div></div>
         <div class="node now"><div class="lab">자율주행 <span class="st">다음</span><span class="badge">현재</span></div><div class="muted">지금은 두둑을 직선 주행하고 두둑 사이는 순간이동(치트). 진짜 자율주행 = 밭 안 커버리지(두둑 끝 <strong>회전</strong>) + 위치추정, 그리고 창고↔밭 이동·도킹(목표 시나리오, DECISIONS 039).</div></div>
         <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
         <div class="node plan"><div class="lab">물리 두둑-끝 회전 · 끼임 <span class="st">세부 부채</span></div><div class="muted">스켈레톤은 두둑 사이를 재배치(<code>set_pose</code>)로 건너뛰고 밭을 매끈하게 둬 끼임을 피했다. 실물화하려면 물리 회전과 두둑-포드 4cm 여유(034)를 정면으로 푼다.</div></div>
