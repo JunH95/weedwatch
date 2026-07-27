@@ -3,9 +3,10 @@
 주말농장을 대신 돌보는 **자율 제초 로봇**을 시뮬레이션 안에서 만든다.
 카메라로 작물과 잡초를 구별해 잡초 위에 정밀하게 서서 제거한다.
 
-> **현재 상태: Stage 0/7 완료.** 아직 로봇도 정원도 없다.
-> 지금 있는 건 "화면 없이 GPU 시뮬을 돌려 사진을 받아올 수 있다"는 증명 하나다.
-> 진행 상황은 [STATUS.md](STATUS.md), 설계 결정은 [docs/DECISIONS.md](docs/DECISIONS.md).
+> **현재 상태**: 로봇이 여러 두둑 밭을 자율로 훑는다 — 카메라로 잡초를 보고(IoU 0.959),
+> 무정차로 달리며 찍고, 두둑 끝에서 **실제로 U턴**해 옆 두둑으로 넘어간다. 남은 큰 조각은
+> 절대 위치추정, 창고↔밭 이동·도킹, 실물 관리 앱.
+> 종합본 [docs/spec.html](docs/spec.html) · 진행 [STATUS.md](STATUS.md) · 결정 [docs/DECISIONS.md](docs/DECISIONS.md)
 
 ---
 
@@ -75,14 +76,48 @@ or FarmBot in general, to be able to remove large, established weeds"* 라고 �
 
 ---
 
+## 시작하기 (사람)
+
+셸을 한 번 준비하면 그다음은 **평범한 ROS 2 명령**이다:
+
+```bash
+source scripts/ros_env.sh          # 파이썬 3.10 · ROS 오버레이 · EGL(NVIDIA) · 리소스 경로
+colcon build                       # 처음 한 번
+
+ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true   # 관제(그래프·상태)
+ros2 launch weedwatch_bringup skeleton.launch.py gui:=true        # Gazebo 로 눈으로
+ros2 topic echo /ww/state/loc_error_cm                            # 위치추정 오차 실시간
+```
+
+관제는 **Foxglove Studio**로 본다 — `ws://localhost:8765` 접속, 레이아웃은
+`src/weedwatch_bringup/config/weedwatch.foxglove.json` 를 import.
+선행 1회: `sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap`.
+
+`source` 없이 `ros2` 만 치면 조용히 틀린다 — 이 컴퓨터의 `python3` 는 conda 3.13 이고(ROS 는
+3.10 빌드), `~/.bashrc` 가 남의 워크스페이스 4개를 `PYTHONPATH` 에 밀어넣고, EGL 기본값이
+인텔 내장 그래픽을 잡는다. `ros_env.sh` 가 그 넷을 한 번에 정리한다.
+
+### `make` 는 뭔가
+
+**사람에겐 필수가 아니다.** 두 가지 때문에 있다:
+- **에이전트 제약** — AI 는 Bash 호출 사이에 셸 상태가 안 남아서(`cd`·`export`·`source` 소실)
+  모든 명령이 자기완결적이어야 한다. `make X` = `./scripts/env.sh <긴 명령>`.
+- **선행 조건** — 좀비 `ign` 정리(`clean-sim`), C++ 도구 빌드(`build/ww_cmd`), 생성물
+  (`worlds/*.sdf`·`models/*/model.sdf`)을 의존성으로 걸어둔다. 검증을 돌릴 땐 이게 편하다.
+
+두 진입점은 **같은 파일**(`scripts/ros_env.sh`)을 읽고, 어긋나지 않는지 테스트가 지킨다
+(`tests/test_env_entrypoints.py`).
+
 ## 검증 방식
 
-이 저장소의 특이한 제약: **사람이 GUI를 안 본다.** AI 에이전트가 만들고 스스로 검증한다.
-따라서 **CLI에서 단언할 수 없는 기능은 존재할 수 없다.**
+이 저장소의 특이한 제약: **에이전트는 GUI를 안 본다.** AI 가 만들고 스스로 검증한다.
+따라서 **CLI에서 단언할 수 없는 기능은 존재할 수 없다.** (사람이 화면으로 보는 건 교차검증이라
+권장 — 위 관제 경로가 그 용도다.)
 
 ```bash
 make doctor   # 환경 건강검진 (파이썬 3.10 / rclpy / EGL / NVIDIA)
 make smoke    # 화면 없이 GPU 렌더링 → 사진 → 게이트 2개 단언
+make test     # 순수 단위 (시뮬·GPU 불필요, 밀리초)
 ```
 
 **모든 시뮬 테스트는 게이트가 2개다**: 사진이 나왔나 **AND** NVIDIA가 그렸나.

@@ -46,9 +46,14 @@ SVG 는 CSS 변수(`var(--ink)` 등)를 쓰면 라이트/다크도 되고 어디
 ### 1. 모든 명령은 `./scripts/env.sh`를 통과해야 한다
 
 ```bash
-./scripts/env.sh python3 ...      # ✅
+./scripts/env.sh python3 ...      # ✅ (에이전트 — 호출마다 자기완결)
 python3 ...                        # ❌ 조용히 틀린 파이썬을 쓴다
 ```
+
+**사람은 `source scripts/ros_env.sh` 한 번 하고 평범하게 `ros2 launch/run/topic`, `rviz2` 를 쓴다.**
+설정은 `ros_env.sh` 한 곳에만 있고 `env.sh` 가 그걸 source 한다 — 두 경로가 어긋날 수 없고,
+`tests/test_env_entrypoints.py` 가 값이 같은지 단언한다. `make` 는 에이전트 편의 + 선행조건
+(clean-sim·빌드 산출물) 자동화일 뿐 사람에게 필수가 아니다.
 
 이 컴퓨터의 `python3`는 **miniforge의 3.13.13**이고, `/usr/bin/python3`(3.10.12)를 가린다.
 ROS 2 Humble은 3.10용으로 빌드돼 있어서 `import rclpy`가 이렇게 실패한다:

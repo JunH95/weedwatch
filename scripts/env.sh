@@ -1,61 +1,28 @@
 #!/usr/bin/env bash
-# The ONLY entrypoint for every ROS / Gazebo command in this repo.
+# 에이전트용 래퍼 — 한 방에 자기완결적으로 명령 하나를 실행한다.
 #
-# Why this exists (all verified on this machine, 2026-07-15):
-#   1. `python3` on PATH is miniforge 3.13.13, which SHADOWS /usr/bin/python3 (3.10.12).
-#      ROS 2 Humble C-extensions are built for 3.10 → `import rclpy` fails under conda.
-#   2. ~/.bashrc sources four unrelated workspaces (rmf_ws, movebot_ws, colcon_ws,
-#      micro_ros_ws) into PYTHONPATH/AMENT_PREFIX_PATH. None of them collide with
-#      weedwatch's dependency set by name, but they are noise an agent should not inherit.
-#   3. EGL on this box enumerates the Intel iGPU at index 0 and llvmpipe at index 1 —
-#      the RTX 4060 is NOT in the list. gz-sim#1272 (open) always picks index 0, and
-#      gz-sim#1116 means llvmpipe renders BLACK. Pinning the NVIDIA ICD is mandatory.
+#   ./scripts/env.sh python3 -c 'import rclpy; print("ok")'
+#   ./scripts/env.sh ign gazebo -s -r --headless-rendering worlds/X.sdf
 #
-# Usage:  ./scripts/env.sh <command> [args...]
-#         ./scripts/env.sh python3 -c 'import rclpy; print("ok")'
+# Bash 호출 사이에 셸 상태가 안 남으므로(에이전트 제약) 매번 이걸 통과해야 한다.
+# **사람은 이걸 쓸 필요가 없다** — 한 번만 `source scripts/ros_env.sh` 하고
+# 그 셸에서 평범하게 `ros2 launch ...` / `rviz2` / `ros2 topic echo ...` 를 쓰면 된다.
+#
+# 환경 설정 자체는 scripts/ros_env.sh 한 곳에만 있다. 두 진입점이 같은 파일을 읽으므로
+# "에이전트 경로에서만 되고 사람 경로에서는 안 되는" 상태가 생길 수 없다.
+# 왜 이런 게 필요한지는 ros_env.sh 주석 참고 (python 3.13 그림자 · 남의 워크스페이스
+# PYTHONPATH 주입 · EGL 이 인텔 내장을 잡음 · Gazebo 리소스 경로).
 
 set -eo pipefail
 
-WW="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export WW
-
-# --- 1. Strip the inherited environment ------------------------------------
-unset PYTHONPATH AMENT_PREFIX_PATH AMENT_CURRENT_PREFIX COLCON_PREFIX_PATH \
-      CMAKE_PREFIX_PATH ROS_PACKAGE_PATH LD_LIBRARY_PATH PKG_CONFIG_PATH \
-      PYTHONHOME CONDA_PREFIX CONDA_DEFAULT_ENV CONDA_SHLVL CONDA_PYTHON_EXE \
-      IGN_GAZEBO_RESOURCE_PATH IGN_GAZEBO_SYSTEM_PLUGIN_PATH
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-export PYTHONNOUSERSITE=1
-
-# --- 2. Force EGL onto the NVIDIA ICD --------------------------------------
-# libglvnd: "it is a colon-separated list of JSON filenames. The ICDs described in
-# those files are loaded, in the order given. No other ICDs are loaded."
-# → only NVIDIA devices enumerate → EGL device index 0 == RTX 4060.
-export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
-
-# Fortress renders camera sensors in the SERVER. EGL is ogre2-only — never fall
-# back to ogre or headless dies silently.
-export IGN_GAZEBO_RENDER_ENGINE=ogre2
-
-# Keep parallel test runs from cross-talking over DDS.
-export ROS_DOMAIN_ID="${WW_ROS_DOMAIN_ID:-42}"
-export ROS_LOCALHOST_ONLY=1
-
-# --- 3. Source ROS (setup.bash trips `set -u`, so guard it) ----------------
-set +u
+_WW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source /opt/ros/humble/setup.bash
-if [ -f "$WW/install/setup.bash" ]; then
-  # shellcheck disable=SC1091
-  source "$WW/install/setup.bash"
-fi
-set -u
-
-# --- 4. Project resource paths ---------------------------------------------
-export IGN_GAZEBO_RESOURCE_PATH="$WW/worlds:$WW/models${IGN_GAZEBO_RESOURCE_PATH:+:$IGN_GAZEBO_RESOURCE_PATH}"
+source "$_WW_DIR/ros_env.sh"
+unset _WW_DIR
 
 if [ "$#" -eq 0 ]; then
   echo "usage: $0 <command> [args...]" >&2
+  echo "사람이라면:  source scripts/ros_env.sh   후 ros2 명령을 그대로 쓰세요" >&2
   exit 2
 fi
 
