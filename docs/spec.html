@@ -622,12 +622,38 @@
         <div class="node done"><div class="lab">관통(walking skeleton) · 끝에서 끝까지 <span class="st">완료</span></div><div class="muted">세부 완벽 대신 전 과정을 한 번 돌렸다. 로봇이 여러 두둑 밭을 자율로 훑고 → 카메라로 잡초 검출 → 타격 → 한 일을 JSON으로 남기고 → 대시보드로 본다. 아래 표가 4단계 전부의 재현 명령이다.</div></div>
         <div class="node done"><div class="lab">ROS 2 이관 · 표준 로봇 구조 <span class="st">완료</span></div><div class="muted">직결(ign-transport)에서 ROS 로. 제어·인식·조율이 rclpy 노드, Gazebo↔ROS 는 ros_gz_bridge, colcon 패키지 4개(<code>src/weedwatch_*</code>, 시뮬 자산은 worlds·models 리소스경로), <code>ros2 launch</code> 한 줄로 켜진다. 실물 단계엔 sim 패키지만 실제 드라이버로 갈아끼우면 같은 노드가 돈다. 파이썬 3.10 통일.</div></div>
         <div class="node done"><div class="lab">두둑 끝 회전 <span class="st">완료</span></div><div class="muted">순간이동 치트를 지우고 <b>실제 U턴</b>으로 돈다 — 두둑을 벗어나 헤드랜드에서 돌아 옆 두둑에 다시 걸터탄다. 그래서 지그재그(보스트로페돈)가 진짜 주행으로 성립한다. 방위는 <b>IMU</b>가 준다(아래 표).</div></div>
-        <div class="node now"><div class="lab">위치추정 <span class="st">다음</span><span class="badge">현재</span></div><div class="muted">U턴이 남긴 것을 관측으로 닫는다. 회전 중 몸통이 실제로 미끄러지는데 바퀴도 IMU도 그걸 못 봐서 <b>U턴 한 번에 절대 위치가 52cm</b> 밀린다. 후보는 하방 카메라(0.457mm/px)의 지면 흐름, 또는 두둑·작물을 보고 진입 시 좌표를 다시 잡는 것.</div></div>
+        <div class="node now"><div class="lab">위치추정 <span class="st">측정 완료 · 구현 중</span><span class="badge">현재</span></div><div class="muted">회전 중 몸통이 실제로 미끄러지는데 바퀴도 IMU도 못 봐서 <b>U턴 한 번에 절대 위치가 52cm</b> 밀린다. 하방 카메라로 그 미끄러짐을 <b>실제로 관측했다</b> — 아래 표. 남은 건 융합 구현.</div></div>
         <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
         <div class="node plan"><div class="lab">바퀴 접촉 모델 · 지형 하이트필드 <span class="st">부채</span></div><div class="muted">바퀴 마찰은 이제 단일 출처 0.4(젖은 흙 최악 가정)로 넣었다(032). 남은 건 흙덩이 상자를 연속 지형으로 바꾸고 슬립 모델을 문헌 값으로 채우는 것.</div></div>
         <div class="node plan"><div class="lab">배터리 · 도킹 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 잰다. 도킹은 범위 안 — 홈 베이스에 보관·에너지 저장·복귀(위치추정 선행이라 미룸, DECISIONS 039).</div></div>
         <div class="node plan"><div class="lab">실물 텃밭 관리 앱 <span class="st">설계됨 · 최종</span></div><div class="muted">지금 대시보드는 자기완결 HTML(자리표시). 실물 로봇이 나오면 실시간 확인 + 작동 제어가 되는 웹/앱으로. 가장 마지막 단계.</div></div>
       </div>
+      <h3 class="reveal">위치추정 — 바퀴와 카메라는 서로 못 보는 것을 본다</h3>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>같은 주행을 세 방식으로 재고 지상진실과 대조 (DECISIONS 041)</caption>
+          <thead><tr><th>재는 방법</th><th>직진 65cm 오차</th><th>제자리 회전 중 몸통 미끄러짐</th></tr></thead>
+          <tbody>
+            <tr><td>휠 오도메트리</td><td><span class="val">0.5cm</span> (0.8%)</td><td><b>0.0cm — 원리적으로 못 봄</b> (실제 8~13cm 미끄러진다)</td></tr>
+            <tr><td>카메라, 고정 스케일</td><td>4.7cm (7%)</td><td>2.6 / 9.5cm (27%만)</td></tr>
+            <tr><td>카메라 + 깊이로 <b>스케일</b> 보정</td><td><span class="val">38cm</span> — 실패</td><td>—</td></tr>
+            <tr><td><b>카메라 + 깊이로 흙만 <em>선택</em> + IMU 회전 상쇄</b></td><td>4.3–8.4cm</td><td><span class="val">9.8–10.8cm</span> (86% 이상)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">깊이는 스케일이 아니라 선택에 쓴다</span>
+        밭은 평면이 아니다 — 두둑 윗면·식물·고랑이 다 다른 거리에 있어서 "픽셀당 몇 mm"라는 값이
+        하나로 존재하지 않는다. 중앙값 깊이로 스케일을 고쳤더니 65cm 주행을 18cm 로 봤다.
+        대신 <b>캘리브 평면 ±5cm 픽셀(전체의 34%)만 남기고</b> 나머지를 지우면, 남은 픽셀에는 원래
+        캘리브 값이 그대로 맞는다. 이 한 줄이 회전 관측을 27% → 86% 로 올렸다.
+      </div>
+      <div class="callout open reveal">
+        <span class="lb">그래서 융합이다 — 강점이 정확히 반대라서</span>
+        직진 거리는 바퀴가 압도적으로 정확하고(0.8%) 카메라는 7~13% 부족하다. 반대로 회전 중
+        미끄러짐은 바퀴가 <b>0.0cm</b>, 카메라만 본다. 방위는 IMU. 셋을 각자 강한 데서만 쓴다.
+      </div>
+
       <h3 class="reveal">지금 돌아가는 것 — 명령 한 줄로 재현된다</h3>
       <div class="tbl-wrap reveal">
         <table>
@@ -782,11 +808,12 @@
             <tr><td class="val">035–036</td><td>형태는 걸터타기 유지(캔틸레버 기각), 세부 완벽 대신 끝에서 끝까지 먼저(관통)</td></tr>
             <tr><td class="val">037–038</td><td>시뮬은 Gazebo 확정(Isaac 이득 없음), 실행 구조를 ROS 2 로 이관</td></tr>
             <tr><td class="val">039</td><td>목표 시나리오 확정(창고→밭→제초→기록→복귀) · 도킹은 범위 안</td></tr>
+            <tr><td class="val">041</td><td>위치추정은 융합 — 바퀴는 직진 거리, 카메라는 회전 미끄러짐, IMU 는 방위</td></tr>
             <tr><td class="val">040</td><td>두둑 끝 회전의 방위는 IMU 가 준다 — 스키드 스티어라 휠 오도메트리로는 원천 불가</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(40건)와 <code>REFERENCES.md</code>에.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(41건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 
