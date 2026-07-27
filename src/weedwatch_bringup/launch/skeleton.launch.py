@@ -4,12 +4,11 @@
   Gazebo(ign) → ros_gz_bridge → 인식 노드(condaenv) → 코디네이터(제어+판단)
 
 실행(make ros-skeleton 가 감싼다):
-  env.sh bash -c "source install/setup.bash && WW_ROOT=<repo> ros2 launch weedwatch_bringup skeleton.launch.py"
+  source scripts/ros_env.sh && ros2 launch weedwatch_bringup skeleton.launch.py
 
 env.sh 환경(EGL·정리된 PYTHONPATH·ROS 오버레이) + 워크스페이스 install 을 상속받아 자식들이 돈다.
 인식 노드만 condaenv 파이썬으로(torch), 나머지는 시스템 3.10. 코디네이터가 끝나면 전체 종료.
 """
-import os
 from pathlib import Path
 
 from launch import LaunchDescription
@@ -22,8 +21,10 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 from weedwatch_control.control_node import bridge_args
+from weedwatch_control.ww_paths import find_repo_root
 
-WW = Path(os.environ.get("WW_ROOT", str(Path.cwd())))
+# 저장소 루트는 환경변수 없이도 찾는다 — `ros2 launch` 를 직접 써도 되게(2026-07-27 버그).
+WW = find_repo_root()
 CONDA_PY = str(WW / "perception" / "condaenv" / "bin" / "python")
 PERCEPT = str(WW / "perception" / "ww_perception_node.py")
 WORLD = str(WW / "worlds" / "robot_field_multi.sdf")

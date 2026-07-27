@@ -19,7 +19,6 @@ artifacts/field_run.json 로깅. field_run_ros.py(하네스)를 **진짜 노드*
 """
 import json
 import math
-import os
 import threading
 import time
 from pathlib import Path
@@ -27,7 +26,9 @@ from pathlib import Path
 import rclpy
 from geometry_msgs.msg import PoseArray, PoseStamped
 
-WW = Path(os.environ.get("WW_ROOT", str(Path(__file__).resolve().parents[3])))
+from weedwatch_control.ww_paths import find_repo_root
+
+WW = find_repo_root()
 
 from weedwatch_control.control_node import WwControl              # noqa: E402
 from weedwatch_control.maneuver import Maneuver, SWING_RADIUS, EXIT_MARGIN  # noqa: E402

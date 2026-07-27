@@ -5,12 +5,11 @@
 직결)를 딸려와 직결 코드 삭제를 막았다. 여기서 garden_geometry(순수 기하 config)만 import 해서
 그 끈을 끊는다. garden_geometry 는 ROS 패키지·물리 테스트가 공유하는 config 라 tools/ 에 남긴다.
 """
-import os
 import sys
-from pathlib import Path
 
-WW = Path(os.environ.get("WW_ROOT", str(Path(__file__).resolve().parents[3])))
-sys.path.insert(0, str(WW / "tools"))
+from weedwatch_control.ww_paths import tools_dir
+
+sys.path.insert(0, tools_dir())
 from garden_geometry import Garden, Portal  # noqa: E402  (순수 config — ww_cmd 안 끌어옴)
 
 _G, _P = Garden(), Portal()

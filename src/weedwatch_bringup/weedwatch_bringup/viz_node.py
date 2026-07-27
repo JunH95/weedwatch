@@ -40,7 +40,9 @@ from std_msgs.msg import ColorRGBA, Float64
 from tf2_msgs.msg import TFMessage
 from visualization_msgs.msg import Marker, MarkerArray
 
-WW = Path(os.environ.get("WW_ROOT", str(Path(__file__).resolve().parents[3])))
+from weedwatch_control.ww_paths import find_repo_root  # noqa: E402
+
+WW = find_repo_root()
 sys.path.insert(0, str(WW / "tools"))
 from garden_geometry import Garden, Portal  # noqa: E402  (순수 기하 config)
 from assert_drive import gt_samples          # noqa: E402  (게이트들이 쓰는 그 GT 파서)

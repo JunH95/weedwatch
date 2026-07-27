@@ -7,11 +7,11 @@ coordinator 가 예전엔 tools/field_run 에서 이걸 가져왔는데, field_r
 순간이동 치트(set_pose)는 **삭제됐다** — 두둑 사이를 실제 헤드랜드 U턴으로 돌게 되면서(DECISIONS 040,
 weedwatch_control.maneuver) 쓸 데가 없어졌다. oracle 채점은 제어와 분리된 지상진실(GT)이다.
 """
-import os
 import sys
-from pathlib import Path
 
-WW = Path(os.environ.get("WW_ROOT", str(Path(__file__).resolve().parents[3])))
+from weedwatch_control.ww_paths import find_repo_root
+
+WW = find_repo_root()
 sys.path.insert(0, str(WW / "tools"))
 from oracle import load as oracle_load  # noqa: E402  (순수 — description.json 읽기)
 

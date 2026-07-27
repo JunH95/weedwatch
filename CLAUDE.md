@@ -51,9 +51,15 @@ python3 ...                        # ❌ 조용히 틀린 파이썬을 쓴다
 ```
 
 **사람은 `source scripts/ros_env.sh` 한 번 하고 평범하게 `ros2 launch/run/topic`, `rviz2` 를 쓴다.**
-설정은 `ros_env.sh` 한 곳에만 있고 `env.sh` 가 그걸 source 한다 — 두 경로가 어긋날 수 없고,
-`tests/test_env_entrypoints.py` 가 값이 같은지 단언한다. `make` 는 에이전트 편의 + 선행조건
-(clean-sim·빌드 산출물) 자동화일 뿐 사람에게 필수가 아니다.
+설정은 `ros_env.sh` 한 곳에만 있고 `env.sh` 가 그걸 source 한다. `make` 는 에이전트 편의 +
+선행조건(clean-sim·빌드 산출물) 자동화일 뿐 사람에게 필수가 아니다.
+
+🔴 **환경변수에 기대지 마라.** 한때 ROS 패키지들이 `WW_ROOT`(=make 가 넣어주는 값)로 `tools/` 를
+찾았는데, 사람이 `ros2 launch` 를 직접 치면 그게 없어서 노드가 죽었다(`ModuleNotFoundError:
+garden_geometry`, 2026-07-27 사용자 실행). 지금은 `weedwatch_control.ww_paths.find_repo_root()`
+가 파일 위치에서 위로 올라가며 찾는다(환경변수는 선택적 재정의). 교훈: **환경변수 값이 같은지
+비교하는 테스트로는 부족하다** — `tests/test_ros_native_launch.py` 처럼 환경변수를 빼고 저장소
+밖에서 **실제로 import·런치를 만들어 봐야** 잡힌다.
 
 이 컴퓨터의 `python3`는 **miniforge의 3.13.13**이고, `/usr/bin/python3`(3.10.12)를 가린다.
 ROS 2 Humble은 3.10용으로 빌드돼 있어서 `import rclpy`가 이렇게 실패한다:

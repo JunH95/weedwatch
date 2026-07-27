@@ -9,7 +9,6 @@
 
 기본 gui:=true (관람 목적). 에이전트 헤드리스 단언은 make ros-skeleton(코디네이터까지 한 번에).
 """
-import os
 from pathlib import Path
 
 from launch import LaunchDescription
@@ -18,8 +17,10 @@ from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 
 from weedwatch_control.control_node import bridge_args
+from weedwatch_control.ww_paths import find_repo_root
 
-WW = Path(os.environ.get("WW_ROOT", str(Path.cwd())))
+# 저장소 루트는 환경변수 없이도 찾는다 — `ros2 launch` 를 직접 써도 되게(2026-07-27 버그).
+WW = find_repo_root()
 CONDA_PY = str(WW / "perception" / "condaenv" / "bin" / "python")
 PERCEPT = str(WW / "perception" / "ww_perception_node.py")
 WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
