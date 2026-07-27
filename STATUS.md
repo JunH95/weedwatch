@@ -7,22 +7,22 @@
 
 ## 🎯 지금 여기 (딴 데 새지 말 것)
 
-**ROS 2 로 전환 중** (DECISIONS 038) — 관통은 돌지만 ign-transport 직결이라 실물 이식성이 없었다.
-사용자 결정: 실물 목표 프로젝트는 ROS 위에 올려야 한다. 핵심 로직(모델·기하·계획·URDF)은 전송-무관이라
-그대로 이식, 껍데기만 재작성.
+**ROS 2 로 전환 — 자율 제초 실행이 ROS-native** (DECISIONS 038). 핵심 로직(모델·기하·계획·URDF)은
+전송-무관이라 그대로 이식, 껍데기(제어·검출·조율)만 ROS 노드로 재작성. `ros2 launch` 한 줄로 켜진다.
 
-**이관 진행**:
-- **P0 브리지 폐루프** ✅ `make ros-drive` — ign↔ros_gz_bridge↔rclpy 0.72m 주행(설치 0).
-- **P1 제어 노드** ✅ `make ros-control` — ww_cmd 대체 rclpy 노드, 주행 0.57m+tool0 하강.
-- **P2 인식 노드** ← 다음. detect_server(파일IO)를 카메라 토픽 구독으로. ✅ **선결: 파이썬 3.10 통일**
-  — ML venv 를 3.11→3.10 재구성(torch+rclpy 한 프로세스 공존, eval 게이트 동일 통과), 구 3.11 venv
-  삭제(5.5G). 경계 소멸 → 인식을 단일 ROS 노드로 짤 수 있음. 이제 노드 작성만 남음.
-- **P3 관통 ROS 런치** — field_run 을 ROS 노드 조합으로. 단언=ROS 토픽.
-- **P4 rviz 관람 + `src/` colcon 패키지 정식 포장**.
+**이관 완료 (P0~P4)** — 5개 colcon 패키지:
+- P0 브리지 폐루프(`make ros-drive`) · P1 제어 노드(rclpy, ww_cmd 대체) · P2 인식 노드(카메라→/weeds,
+  detect_server 파일IO 대체) · P3 코디네이터(두둑 순회·타격·로깅) · P4 패키지+런치.
+- **선결로 파이썬 3.10 통일**(ML venv 3.11→3.10, torch+rclpy 공존, eval 동일 통과, 구 venv 5.5G 삭제).
+- 패키지: `weedwatch_{control,perception,coordinator,sim,description,bringup}`. `make ros-build`.
+- **켜기**: 헤드리스 단언 `make ros-skeleton` (두둑 2/2·검출~20·처리~4). 사람 관람 `make watch-ros`(GUI
+  한 방) / `make ros-sim`+`ros-attach`(상주 GUI+주입). 전부 `ros2 launch`.
+- 코디네이터 **자립**: 헬퍼를 패키지로 추출(control/params·sim/field) → ww_cmd 안 끌어옴.
 
-**정리(cleanup)는 migration 을 따라온다 — 앞서지 않는다.** ww_cmd + 직결 소비자 6개(drive_row·
-drive_field·strike_marks·assert_row_stamp·assert_field_live·field_run) + ww_depth + detect_server
-파일IO 는 아직 동작하는 검증된 파이프라인 → P2/P3 가 대체한 뒤 일괄 제거. 지금 고아: diag_slip.py 하나.
+**정리 완료/진행**: 삭제됨 = field_run_ros·tools/ww_control(하네스), field_run.py(직결 관통 — ROS 대체),
+구 3.11 venv(5.5G)·AI Hub(3.2G). **유지** = ww_cmd + 물리 단언 테스트(drive·straddle·joints·tilt·shake·
+row — ROS 불필요한 빠른·결정적 단위테스트; ROS 이관하면 DDS 로 flaky). detect_server 추론은 인식 노드가
+import(유지). 남은 정리 판단: drive_row·drive_field·strike_marks·assert_field_live 직결 스크립트 중복 여부.
 
 ---
 

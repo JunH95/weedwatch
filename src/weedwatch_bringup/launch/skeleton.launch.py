@@ -13,9 +13,12 @@ import os
 from pathlib import Path
 
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, TimerAction, RegisterEventHandler, EmitEvent
+from launch.actions import (ExecuteProcess, TimerAction, RegisterEventHandler,
+                            EmitEvent, DeclareLaunchArgument)
+from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 from weedwatch_control.control_node import bridge_args
@@ -31,9 +34,16 @@ CAM_TOPICS = ["/robot/camera", "/robot/camera1"]
 def generate_launch_description():
     bridge = bridge_args(N_TOOLS) + [f"{t}@sensor_msgs/msg/Image[ignition.msgs.Image" for t in CAM_TOPICS]
 
-    gazebo = ExecuteProcess(
-        cmd=["ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD],
-        output="screen")
+    # gui:=false(기본) = 헤드리스(에이전트 수치 단언). gui:=true = Gazebo GUI(사람 관람 — 데스크톱).
+    gui = LaunchConfiguration("gui")
+    declare_gui = DeclareLaunchArgument("gui", default_value="false",
+                                        description="Gazebo GUI 표시. 기본 headless(에이전트).")
+    gazebo_headless = ExecuteProcess(
+        condition=UnlessCondition(gui),
+        cmd=["ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD], output="screen")
+    gazebo_gui = ExecuteProcess(
+        condition=IfCondition(gui),
+        cmd=["ign", "gazebo", "-r", WORLD], output="screen")   # 서버+GUI (사람이 봄)
     bridge_proc = TimerAction(period=5.0, actions=[ExecuteProcess(
         cmd=["ros2", "run", "ros_gz_bridge", "parameter_bridge", *bridge], output="screen")])
     perception = TimerAction(period=7.0, actions=[ExecuteProcess(
@@ -46,4 +56,5 @@ def generate_launch_description():
         target_action=coord_node,
         on_exit=[EmitEvent(event=Shutdown(reason="관통 완료"))]))
 
-    return LaunchDescription([gazebo, bridge_proc, perception, coordinator, shutdown_on_done])
+    return LaunchDescription([declare_gui, gazebo_headless, gazebo_gui,
+                             bridge_proc, perception, coordinator, shutdown_on_done])
