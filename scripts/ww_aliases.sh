@@ -9,7 +9,14 @@
 export WW_HOME="${WW_HOME:-$HOME/projects/weedwatch}"
 
 # ww        저장소로 이동 + ROS 환경 준비 (터미널마다 한 번)
-ww() { cd "$WW_HOME" && source "$WW_HOME/scripts/ros_env.sh" && echo "weedwatch 준비됨: $(python3 -V), ROS $ROS_DISTRO"; }
+#           별칭 정의도 **매번 다시 읽는다** — git pull 로 새 명령이 생겨도 터미널을 새로 안 열어도 된다.
+#           (실제로 wwplot 을 추가한 뒤 "명령을 찾을 수 없습니다"가 났다 — 셸이 옛 정의를 들고 있어서.)
+ww() {
+  cd "$WW_HOME" || return 1
+  source "$WW_HOME/scripts/ros_env.sh"
+  source "$WW_HOME/scripts/ww_aliases.sh"
+  echo "weedwatch 준비됨: $(python3 -V 2>&1), ROS $ROS_DISTRO  (명령 목록: wwhelp)"
+}
 
 # wwb       코드 받아서 빌드 (git pull 후에만 필요 — 매번 아님)
 wwb() { ww && git pull --ff-only && colcon build && echo "빌드 완료"; }
@@ -50,5 +57,10 @@ weedwatch 명령
   검증
     wwtest    순수 단위 테스트          wwturn   두둑 끝 U턴 게이트
     wwrun     관통 전체(헤드리스)        wwkill   시뮬 정리 (한 번에 하나만!)
+
+  참고
+    · 끝날 때 나오는 "process has died ... exit code -15" 는 **정상 종료**다.
+      관통이 끝나면 런치가 나머지를 SIGTERM 으로 내리는데, 브리지가 그걸 그냥 종료로 처리한다.
+    · 새 명령이 안 잡히면 ww 를 한 번 더 쳐라 (별칭을 다시 읽는다).
 EOF
 }
