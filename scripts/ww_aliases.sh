@@ -18,6 +18,7 @@ wwb() { ww && git pull --ff-only && colcon build && echo "빌드 완료"; }
 wwsim()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py gui:=true; }        # Gazebo
 wwfox()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true; }   # 그래프·상태
 wwrviz() { ww && ros2 launch weedwatch_bringup skeleton.launch.py rviz:=true; }       # 3D 믿음vs실제
+wwplot() { ww && ros2 launch weedwatch_bringup skeleton.launch.py plot:=true; }       # 그래프만 (계정 불필요)
 wwall()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py gui:=true rviz:=true foxglove:=true; }
 
 # 상태 들여다보기 ────────────────────────────────────────────────────────────
@@ -40,7 +41,8 @@ weedwatch 명령
 
   보기
     wwsim     Gazebo — 밖에서 본 로봇
-    wwfox     Foxglove 브리지 — 그래프·로봇 상태 (창은 app.foxglove.dev 에서 ws://localhost:8765)
+    wwplot    그래프 — 위치오차·방위·속도·슬립 (rqt_plot/PlotJuggler, 계정 불필요)
+    wwfox     Foxglove 브리지 — 창은 app.foxglove.dev (계정 필요) 또는 Lichtblick
     wwrviz    rviz2 — 믿는 위치(주황) vs 실제 위치(초록)
     wwall     셋 다 (느림)
     wwerr     위치추정 오차 실시간 숫자

@@ -91,12 +91,34 @@ def generate_launch_description():
         "  레이아웃 import: src/weedwatch_bringup/config/weedwatch.foxglove.json\n" +
         "=" * 72))])
 
+    # 그래프만 보고 싶을 때 — 계정도 설치도 필요 없는 경로. Foxglove 는 계정을 요구하지만
+    # rqt_plot 은 ROS 기본이라 이미 있고, PlotJuggler 를 깔면(apt, 계정 없음) 훨씬 낫다.
+    plot = LaunchConfiguration("plot")
+    declare_plot = DeclareLaunchArgument("plot", default_value="false",
+                                         description="그래프 창(rqt_plot 또는 plotjuggler)")
+    plot_viz = TimerAction(period=8.0, actions=[Node(
+        condition=IfCondition(plot), package="weedwatch_bringup", executable="viz_node",
+        output="screen")])
+    plot_proc = TimerAction(period=10.0, actions=[ExecuteProcess(
+        condition=IfCondition(plot),
+        cmd=["bash", "-c",
+             # PlotJuggler 가 있으면 그걸로(레이아웃·다축·줌 다 됨), 없으면 rqt_plot 으로 폴백.
+             "if ros2 pkg prefix plotjuggler_ros >/dev/null 2>&1; then "
+             "  ros2 run plotjuggler plotjuggler; "
+             "else "
+             "  echo '[안내] PlotJuggler 를 깔면 더 낫다: sudo apt install ros-humble-plotjuggler-ros'; "
+             "  rqt_plot /ww/state/loc_error_cm/data /ww/state/heading_error_deg/data "
+             "           /ww/state/speed_mps/data /ww/state/gyro_vs_wheel_cm/data; "
+             "fi"],
+        output="screen")])
+
     # 코디네이터가 끝나면(관통 완료) 런치 전체 종료
     shutdown_on_done = RegisterEventHandler(OnProcessExit(
         target_action=coord_node,
         on_exit=[EmitEvent(event=Shutdown(reason="관통 완료"))]))
 
-    return LaunchDescription([declare_gui, declare_rviz, declare_fox,
+    return LaunchDescription([declare_gui, declare_rviz, declare_fox, declare_plot,
                              gazebo_headless, gazebo_gui, bridge_proc, perception,
                              viz_node, rviz_proc, fox_viz, fox_bridge, fox_hint,
+                             plot_viz, plot_proc,
                              coordinator, shutdown_on_done])

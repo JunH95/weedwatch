@@ -86,13 +86,31 @@ def test_uturn_entry_x_is_reached():
 
 
 def test_gyro_odom_uses_imu_heading_not_wheel_yaw():
-    """휠 yaw 가 26° 틀어져도(스키드 스티어 실측) IMU 가 있으면 그쪽 방위로 적분해야 한다."""
+    """휠 yaw 가 26° 틀어져도(스키드 스티어 실측) IMU 가 있으면 그쪽 방위로 적분해야 한다.
+
+    한 샘플에 1m 를 보내면 안 된다 — 그건 점프 가드(MAX_STEP)에 걸린다. 실제 오도메트리는
+    50Hz 에 4mm 씩 오므로 여기서도 잘게 나눠 보낸다.
+    """
     g = GyroOdom(x0=0.0, y0=0.0, yaw0=0.0)
     g.update(0.0, 0.0, math.radians(26), 0.0, imu_yaw=0.0)       # 휠은 26°, IMU 는 0°
-    g.update(1.0, 0.0, math.radians(26), 0.2, imu_yaw=0.0)       # 1m 전진
+    for i in range(1, 11):                                        # 0.1m 씩 10번 = 1m 전진
+        g.update(i * 0.1, 0.0, math.radians(26), 0.2, imu_yaw=0.0)
     assert g.x == pytest.approx(1.0, abs=1e-6)
     assert g.y == pytest.approx(0.0, abs=1e-6), "휠 yaw 로 적분했다 — IMU 를 안 씀"
     assert not g.degraded
+    assert g.rejected == 0
+
+
+def test_gyro_odom_rejects_teleport_jumps():
+    """물리적으로 불가능한 점프는 버려야 한다 — 좀비 프로세스가 남의 오도메트리를 같이 발행하면
+    두 위치 사이를 오가며 샘플당 수 미터가 들어오고, 적산하면 추정이 통째로 폭발한다
+    (2026-07-27 실행에서 −155m). 버리고 **세어서** 알린다."""
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.02, 0.0, 0.0, 0.2, imu_yaw=0.0)      # 정상 2cm
+    g.update(4.50, 0.0, 0.0, 0.2, imu_yaw=0.0)      # 4.5m 점프 = 다른 시뮬의 값
+    assert g.rejected == 1
+    assert g.x == pytest.approx(0.02, abs=1e-6), "점프를 적산했다 — 추정이 오염된다"
 
 
 def test_gyro_odom_flags_fallback_when_imu_missing():
