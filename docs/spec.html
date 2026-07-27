@@ -190,7 +190,7 @@
         <div class="tagline muted">주말농장을 대신 돌보는 <b style="color:var(--ink)">자율 제초 로봇</b>을, <b style="color:var(--ink)">시뮬레이션 안에서</b> 만든다.</div>
         <div class="hook">카메라로 작물과 잡초를 구별해, 잡초 위에 정밀하게 서서 찍어 누른다. 실물은 만들지 않는다. 사람이 화면을 들여다보지 않으므로, 모든 기능은 명령줄에서 수치로 단언(assert)할 수 있어야만 존재로 인정한다.</div>
         <div class="chips">
-          <span class="chip">현재 <b>관통 완료 · 처리율 개선 중</b></span>
+          <span class="chip">현재 <b>ROS 2 이관 완료 · 자율주행 다음</b></span>
           <span class="chip">잡초 인식 IoU <b>0.959</b></span>
           <span class="chip">정밀 타격 <b>&lt;1.5mm</b></span>
           <span class="chip">여러 두둑 자율 주행 <b>2/2</b></span>
@@ -292,22 +292,22 @@
   <text class="sm" x="20" y="124">헤드리스 GPU 렌더</text>
 
   <rect class="bx" x="272" y="20" width="200" height="80"/>
-  <text class="hd" x="284" y="40">인식</text>
-  <text class="tx" x="284" y="62">detect_server</text>
-  <text class="sm" x="284" y="84">best.pt · 2대 융합</text>
+  <text class="hd" x="284" y="40">인식 노드 (rclpy)</text>
+  <text class="tx" x="284" y="62">best.pt · 2대 융합</text>
+  <text class="sm" x="284" y="84">카메라 토픽 → /weeds</text>
 
   <rect class="bx" x="521" y="20" width="200" height="80"/>
-  <text class="hd" x="533" y="40">제어</text>
-  <text class="tx" x="533" y="62">ww_cmd (상주)</text>
-  <text class="sm" x="533" y="84">odom 기반 · 3.6us/명령</text>
+  <text class="hd" x="533" y="40">제어·조율 노드 (rclpy)</text>
+  <text class="tx" x="533" y="62">코디네이터 + 제어</text>
+  <text class="sm" x="533" y="84">odom 기반 · /cmd_vel·관절</text>
 
   <rect class="bx" x="521" y="150" width="200" height="72"/>
   <text class="hd" x="533" y="170">채점 (분리)</text>
   <text class="tx" x="533" y="192">지상진실 구독</text>
   <text class="sm" x="533" y="212">제어기가 못 보게 격리</text>
 
-  <path class="ln" d="M223,60 L268,60"/><text class="sm" x="228" y="52">PNG·깊이</text>
-  <path class="ln" d="M472,60 L517,60"/><text class="sm" x="476" y="52">검출 좌표</text>
+  <path class="ln" d="M223,60 L268,60"/><text class="sm" x="228" y="52">카메라(bridge)</text>
+  <path class="ln" d="M472,60 L517,60"/><text class="sm" x="476" y="52">/weeds</text>
   <path class="ln" d="M621,100 L621,146"/>
   <path class="ln" d="M521,186 L232,186 L232,144"/><text class="sm" x="300" y="200">dynamic_pose</text>
   <path class="ln" d="M600,100 L600,120 L115,120 L115,144"/><text class="sm" x="330" y="134">/cmd_vel · /carriage_i · /tool_i</text>
@@ -317,9 +317,9 @@
       <h3 class="reveal">인터페이스 <span class="tag t-ok">검증</span></h3>
       <div class="grid g2 reveal">
         <div class="card">
-          <div class="n">ww_cmd</div>
-          <p class="muted" style="margin:.2rem 0 .5rem">주행 중 폐루프 제어용 상주 프로세스. 매번 새로 발행하면 디스커버리에 1초가 걸려 주행 중엔 못 쓴다. 상주시키면 명령 쓰기 3.6us.</p>
-          <p class="muted" style="margin:0">입력 <code>v</code> <code>carriage i m</code> <code>tool i m</code>. 출력 <code>O</code>(odom) <code>J</code>(관절 실제 위치).</p>
+          <div class="n">ROS 노드 + 런치</div>
+          <p class="muted" style="margin:.2rem 0 .5rem">제어·인식·조율이 <b>rclpy 노드</b>. Gazebo(ign)↔ROS 는 <code>ros_gz_bridge</code>. <code>ros2 launch weedwatch_bringup skeleton.launch.py</code> 한 줄로 전부 켜진다(colcon 패키지 6개).</p>
+          <p class="muted" style="margin:0">제어 토픽 <code>/cmd_vel</code> <code>/carriage_i</code> <code>/tool_i</code>, 상태 <code>/odometry</code>, 검출 <code>/weeds</code>. 상주 발행이라 지연은 직결(3.6us)과 동급.</p>
         </div>
         <div class="card">
           <div class="n">픽셀 → 월드 좌표</div>
@@ -327,9 +327,9 @@
           <p class="muted" style="margin:0"><code>world_x = cam_x − 0.457mm·(row−360)</code><br/><code>world_y = cam_y − 0.457mm·(col−640)</code>. 두둑을 0.25m 올려 카메라가 식물 위 0.33m에서 본다(학습 스케일과 정합).</p>
         </div>
       </div>
-      <div class="callout plan reveal">
-        <span class="lb">파이썬 두 벌 — 나중에 정리</span>
-        지금 로봇 제어(ROS)와 인식(torch)이 서로 다른 파이썬 환경에서 돈다. 버전이 안 맞아서라기보다 무거운 딥러닝 의존성을 로봇 쪽에 안 섞으려는 격리에 가깝다. 하나로 합칠 수 있고, 환경 설정은 나중에 한 번 깔끔하게 정리할 예정이다.
+      <div class="callout reveal">
+        <span class="lb">파이썬 3.10 하나로 통일 <span class="tag t-ok">완료</span></span>
+        rclpy(ROS)가 3.10 에 못 박혀 있어 인식 venv 도 3.10 으로 맞췄다 — 한 프로세스에 torch+rclpy 공존(인식을 ROS 노드로 직접 짬). 학습·평가는 여전히 격리 venv 로 돌려 결정성을 지킨다. 구 3.11 venv 는 삭제.
       </div>
     </div>
   </section>
@@ -536,7 +536,9 @@
         <div class="node done"><div class="lab">Stage 3 · 인식 <span class="st">핵심 완료</span></div><div class="muted">4클래스 분할, held-out 잡초 IoU 0.959. 실사진 전이는 범위에서 제외.</div></div>
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
         <div class="node done"><div class="lab">관통(walking skeleton) · 끝에서 끝까지 <span class="st">완료</span></div><div class="muted">세부 완벽 대신 전 과정을 한 번 돌렸다. 로봇이 여러 두둑 밭을 자율로 훑고 → 카메라로 잡초 검출 → 타격 → 한 일을 JSON으로 남기고 → 대시보드로 본다. 아래 표가 4단계 전부의 재현 명령이다.</div></div>
-        <div class="node now"><div class="lab">자율 처리율 올리기 <span class="st">진행 중</span><span class="badge">현재</span></div><div class="muted">관통은 돌지만 처리율이 낮다(최근 검출 8·처리 0~1·놓침 36). 카메라가 채점 밖 클러터 잡초까지 검출해 툴 시간을 먹고, 잎-밑동 오차가 남는다. 측정 계약부터 고친다 — 커버리지도 깊이 시차도 원인이 아니었다.</div></div>
+        <div class="node done"><div class="lab">ROS 2 이관 · 표준 로봇 구조 <span class="st">완료</span></div><div class="muted">직결(ign-transport)에서 ROS 로. 제어·인식·조율이 rclpy 노드, Gazebo↔ROS 는 ros_gz_bridge, colcon 패키지 6개(<code>src/weedwatch_*</code>), <code>ros2 launch</code> 한 줄로 켜진다. 실물 단계엔 sim 패키지만 실제 드라이버로 갈아끼우면 같은 노드가 돈다. 파이썬 3.10 통일.</div></div>
+        <div class="node now"><div class="lab">자율주행 <span class="st">다음</span><span class="badge">현재</span></div><div class="muted">지금은 두둑을 직선 주행하고 두둑 사이는 순간이동(치트). 진짜 자율주행 = 밭 안 커버리지(두둑 끝 <strong>회전</strong>) + 위치추정, 그리고 창고↔밭 이동·도킹(목표 시나리오, DECISIONS 039).</div></div>
+        <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
         <div class="node plan"><div class="lab">물리 두둑-끝 회전 · 끼임 <span class="st">세부 부채</span></div><div class="muted">스켈레톤은 두둑 사이를 재배치(<code>set_pose</code>)로 건너뛰고 밭을 매끈하게 둬 끼임을 피했다. 실물화하려면 물리 회전과 두둑-포드 4cm 여유(034)를 정면으로 푼다.</div></div>
         <div class="node plan"><div class="lab">바퀴 접촉 모델 · 지형 하이트필드 <span class="st">부채</span></div><div class="muted">바퀴 마찰은 이제 단일 출처 0.4(젖은 흙 최악 가정)로 넣었다(032). 남은 건 흙덩이 상자를 연속 지형으로 바꾸고 슬립 모델을 문헌 값으로 채우는 것.</div></div>
         <div class="node plan"><div class="lab">배터리 · 도킹 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 잰다. 도킹은 범위 안 — 홈 베이스에 보관·에너지 저장·복귀(위치추정 선행이라 미룸, DECISIONS 039).</div></div>
