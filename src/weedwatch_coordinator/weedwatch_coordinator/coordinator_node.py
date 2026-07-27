@@ -65,6 +65,24 @@ class Coordinator(WwControl):
         ps.pose.orientation.z = math.sin(yaw / 2); ps.pose.orientation.w = math.cos(yaw / 2)
         self.base_pub.publish(ps)
 
+    def check_single_stack(self, wait=3.0):
+        """같은 로봇에 명령하는 실행이 둘 이상이면 **시작하지 않는다**.
+
+        두 번 켜면 두 코디네이터가 /cmd_vel 을 동시에 밀어 로봇이 실제로 비틀리고, 추정도
+        오도메트리도 뒤섞인다(사용자 실행에서 직진 패스인데 yaw +9.1°·y 1.207 로 나왔다).
+        증상이 "로봇이 이상하다"로 보여서 원인을 찾기 어렵다 — 그래서 규율 대신 코드로 막는다.
+        """
+        time.sleep(wait)                     # 디스커버리가 도는 시간
+        others = self.count_publishers("/cmd_vel") - 1      # 하나는 나 자신
+        dups = [n for n in self.get_node_names() if n == "ww_control"]
+        if others > 0 or len(dups) > 1:
+            self.get_logger().error(
+                f"다른 실행이 이미 로봇을 몰고 있다 (/cmd_vel 발행자 {others+1}개, "
+                f"ww_control 노드 {len(dups)}개). 두 개가 동시에 명령하면 로봇이 비틀린다. "
+                f"모든 터미널의 실행을 끄고 `make clean-sim`(또는 wwkill) 후 다시 켜라.")
+            return False
+        return True
+
     def run_skeleton(self):
         centers = bed_centers(N_BEDS)
         result = {"field": {"n_beds": N_BEDS, "bed_centers": [round(c, 3) for c in centers],
@@ -74,6 +92,9 @@ class Coordinator(WwControl):
         t0 = time.time()
         while self.x is None and time.time() - t0 < 15:
             time.sleep(0.1)
+        if not self.check_single_stack():
+            self.result = {"error": "duplicate_stack"}
+            return
         # 추정 원점을 world 스폰 자세로 (월드가 로봇을 두둑0 걸터탄 x=0 에 놓는다). 이걸 맞춰야
         # 인식 노드가 받는 base_pose 가 절대 좌표가 된다 — 예전엔 순간이동이 이 정합을 대신했다.
         self.seed_pose(SPAWN_X, centers[0], 0.0)
