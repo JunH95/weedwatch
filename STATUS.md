@@ -7,8 +7,18 @@
 
 ## 🎯 지금 여기 (딴 데 새지 말 것)
 
-**ROS 2 로 전환 — 자율 제초 실행이 ROS-native** (DECISIONS 038). 핵심 로직(모델·기하·계획·URDF)은
-전송-무관이라 그대로 이식, 껍데기(제어·검출·조율)만 ROS 노드로 재작성. `ros2 launch` 한 줄로 켜진다.
+### ▶ 다음 세션 시작점: 자율주행 — 헤드랜드 회전 마뉴버 구현
+ROS 이관은 완료(아래). 이제 코디네이터가 두둑 사이를 **순간이동(`set_pose` 치트)** 하는 걸 **실제 회전**
+으로 바꾼다: 두둑 벗어남 → 헤드랜드서 회전 → 다음 두둑 재진입. 크럭스(재진입 물리)는 `make` 없이
+`./scripts/env.sh python3 tools/diag_turn.py` 로 측정해둠 — **8° yaw 오차까지 끼임 없음 = 안 막힘**.
+그다음: 위치추정(odom+IMU EKF) → 커버리지 경로(회전 포함) → 창고↔밭 이동(전역계획). 목표 시나리오=DECISIONS 039.
+구현 위치: `src/weedwatch_coordinator/.../coordinator_node.py`(지금 set_pose 하는 곳을 회전 마뉴버로).
+
+---
+
+### (완료) ROS 2 이관 — 자율 제초 실행이 ROS-native (DECISIONS 038)
+핵심 로직(모델·기하·계획·URDF)은 전송-무관이라 그대로 이식, 껍데기(제어·검출·조율)만 ROS 노드로 재작성.
+`ros2 launch` 한 줄로 켜진다.
 
 **이관 완료 (P0~P4)** — colcon 4패키지 + 인식 ML 컴포넌트:
 - P0 브리지 폐루프(`make ros-drive`) · P1 제어 노드(rclpy, ww_cmd 대체) · P2 인식 노드(카메라→/weeds,
