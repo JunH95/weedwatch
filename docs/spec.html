@@ -190,13 +190,13 @@
         <div class="tagline muted">주말농장을 대신 돌보는 <b style="color:var(--ink)">자율 제초 로봇</b>을, <b style="color:var(--ink)">시뮬레이션 안에서</b> 만든다.</div>
         <div class="hook">카메라로 작물과 잡초를 구별해, 잡초 위에 정밀하게 서서 찍어 누른다. 실물은 만들지 않는다. 사람이 화면을 들여다보지 않으므로, 모든 기능은 명령줄에서 수치로 단언(assert)할 수 있어야만 존재로 인정한다.</div>
         <div class="chips">
-          <span class="chip">현재 <b>ROS 2 이관 완료 · 자율주행 다음</b></span>
+          <span class="chip">현재 <b>두둑 끝 회전 구현 중</b></span>
           <span class="chip">잡초 인식 IoU <b>0.959</b></span>
-          <span class="chip">정밀 타격 <b>&lt;1.5mm</b></span>
-          <span class="chip">여러 두둑 자율 주행 <b>2/2</b></span>
+          <span class="chip">정밀 타격 <b>&lt;1.5mm</b> <span class="muted">좌표를 줄 때</span></span>
+          <span class="chip">자율 타격 <b>3–5cm</b> <span class="muted">카메라만으로</span></span>
         </div>
         <div class="cover-meta">
-          이 문서는 프로젝트 전체를 한눈에 보는 종합본이다. 상세는 각 문서로: 계획 <code>PLAN.md</code> · 결정 기록 <code>DECISIONS.md</code> · 실물 설계 <code>DESIGN.md</code> · 현황 <code>STATUS.md</code> · 근거 <code>REFERENCES.md</code>. &nbsp;최종 갱신 2026-07-22.
+          이 문서는 프로젝트 전체를 한눈에 보는 종합본이다. 상세는 각 문서로: 계획 <code>PLAN.md</code> · 결정 기록 <code>DECISIONS.md</code> · 실물 설계 <code>DESIGN.md</code> · 현황 <code>STATUS.md</code> · 근거 <code>REFERENCES.md</code>. &nbsp;최종 갱신 2026-07-27.
         </div>
       </div>
     </div>
@@ -328,8 +328,8 @@
         </div>
       </div>
       <div class="callout reveal">
-        <span class="lb">파이썬 3.10 하나로 통일 <span class="tag t-ok">완료</span></span>
-        rclpy(ROS)가 3.10 에 못 박혀 있어 인식 venv 도 3.10 으로 맞췄다 — 한 프로세스에 torch+rclpy 공존(인식을 ROS 노드로 직접 짬). 학습·평가는 여전히 격리 venv 로 돌려 결정성을 지킨다. 구 3.11 venv 는 삭제.
+        <span class="lb">파이썬은 3.10 하나</span>
+        rclpy(ROS)가 3.10 에 묶여 있어 인식 venv 도 3.10 이다. 그래서 한 프로세스에 torch 와 rclpy 가 같이 살고, 인식을 별도 하네스가 아니라 ROS 노드로 직접 짤 수 있다. 학습·평가만 격리 venv 로 돌려 결정성을 지킨다.
       </div>
     </div>
   </section>
@@ -512,9 +512,9 @@
       <p class="lead col reveal">화면을 안 보는 대신 4단으로 검증한다. 산수로 답할 수 있는 건 시뮬을 안 돌린다(느리고 불안정하고 GPU가 필요하니까). 시뮬은 산수로 못 푸는 것만 맡는다.</p>
       <div class="axis reveal">
         <div class="node done"><div class="lab">Tier 0 · 위생 <span class="st">env.sh</span></div><div class="muted">올바른 파이썬·EGL·GPU를 단언. 잘못된 환경을 아예 차단한다.</div></div>
-        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 57개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사.</div></div>
+        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 93개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사. 이 문서가 안내하는 명령이 실제로 존재하는지도 여기서 단언한다.</div></div>
         <div class="node done"><div class="lab">Tier 2 · 물리 시뮬 <span class="st">drive · joints · straddle · tilt · tilt-stamp · shake · row</span></div><div class="muted">렌더 없이 물리만(GPU 불필요). 명령이 실제 운동이 되는지를 지상진실로 단언.</div></div>
-        <div class="node done"><div class="lab">Tier 3 · 렌더 시뮬 <span class="st">camera · percept · row-live</span></div><div class="muted">GPU 렌더. 픽셀이 검지 않은가, 그리고 NVIDIA가 그렸는가(게이트 둘).</div></div>
+        <div class="node done"><div class="lab">Tier 3 · 렌더 시뮬 <span class="st">camera · percept · row-live · ros-skeleton</span></div><div class="muted">GPU 렌더. 픽셀이 검지 않은가, 그리고 NVIDIA가 그렸는가(게이트 둘).</div></div>
       </div>
       <div class="grid g3 reveal">
         <div class="card"><div class="n">규율</div><h4>게이트 둘</h4><p class="muted" style="margin:0">픽셀만 보면 거짓 통과한다. 소프트웨어 렌더러는 멀쩡해 보이는 그림을 100배 느리게 그린다. 그래서 “NVIDIA가 그렸나”를 항상 같이 본다.</p></div>
@@ -529,6 +529,20 @@
     <div class="wrap">
       <div class="eyebrow reveal"><span class="kick">로드맵</span><span class="sub">진행 현황 · 갱신될 때마다 업데이트</span></div>
       <h2 class="reveal">어디까지 왔고, 무엇이 남았나</h2>
+      <p class="lead col reveal">완성은 기능 목록이 아니라 <b>한 번의 심부름</b>이다. 앱에서 “관리 시작”을 누르면 로봇이 창고에서 나와, 밭을 훑어 잡초를 찍고, 한 일을 남기고, 창고로 돌아간다. 아래 다섯 칸이 사람 손 없이 이어지면 끝난다.</p>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>목표 시나리오 (DECISIONS 039) — 지금 어느 칸에 서 있나</caption>
+          <thead><tr><th class="val">#</th><th>단계</th><th>지금</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td class="val">1</td><td>창고(홈 베이스)에서 나온다</td><td>홈 베이스 모델·도킹 미구현. 부품·전력 설계는 있음</td><td><span class="tag t-plan">설계됨</span></td></tr>
+            <tr><td class="val">2</td><td>밭으로 스스로 이동</td><td>밭 밖 전역 경로 미착수. 위치추정이 선행</td><td><span class="tag t-open">미착수</span></td></tr>
+            <tr><td class="val">3</td><td>밭을 훑으며 잡초를 찍는다</td><td>두둑 <b>위</b> 주행·검출·타격은 자율로 돎. 두둑 <b>사이</b>는 아직 순간이동 치트</td><td><span class="tag t-ok">부분 검증</span></td></tr>
+            <tr><td class="val">4</td><td>한 일을 기록하고 보여준다</td><td>실행마다 <code>field_run.json</code> → 자기완결 대시보드 HTML. 실시간 제어 앱은 최종 단계</td><td><span class="tag t-ok">검증</span></td></tr>
+            <tr><td class="val">5</td><td>창고로 복귀·충전</td><td>미착수. 태양광 상주여도 보관·에너지 저장은 홈 베이스에서 한다</td><td><span class="tag t-open">미착수</span></td></tr>
+          </tbody>
+        </table>
+      </div>
       <div class="axis reveal">
         <div class="node done"><div class="lab">Stage 0 · 스모크 <span class="st">완료</span></div><div class="muted">화면 없이 GPU 렌더가 되는가. 사진 121장, NVIDIA가 그림. 함정 세 개 기록.</div></div>
         <div class="node done"><div class="lab">Stage 1 · 정원 + 정답 좌표 <span class="st">완료</span></div><div class="muted">두둑·고랑 기하, Blender GPU 렌더, 잡초 정답 좌표를 뽑는 트릭. 시드 고정으로 정원 재현.</div></div>
@@ -537,23 +551,23 @@
         <div class="node done"><div class="lab">Stage 4 · 인식 → 타격 <span class="st">완료</span></div><div class="muted">인식→좌표, 정밀 타격, 멀티툴 무정차, 카메라 정합, 그리고 카메라만으로 주행하는 완전 자율(row-live)까지.</div></div>
         <div class="node done"><div class="lab">관통(walking skeleton) · 끝에서 끝까지 <span class="st">완료</span></div><div class="muted">세부 완벽 대신 전 과정을 한 번 돌렸다. 로봇이 여러 두둑 밭을 자율로 훑고 → 카메라로 잡초 검출 → 타격 → 한 일을 JSON으로 남기고 → 대시보드로 본다. 아래 표가 4단계 전부의 재현 명령이다.</div></div>
         <div class="node done"><div class="lab">ROS 2 이관 · 표준 로봇 구조 <span class="st">완료</span></div><div class="muted">직결(ign-transport)에서 ROS 로. 제어·인식·조율이 rclpy 노드, Gazebo↔ROS 는 ros_gz_bridge, colcon 패키지 4개(<code>src/weedwatch_*</code>, 시뮬 자산은 worlds·models 리소스경로), <code>ros2 launch</code> 한 줄로 켜진다. 실물 단계엔 sim 패키지만 실제 드라이버로 갈아끼우면 같은 노드가 돈다. 파이썬 3.10 통일.</div></div>
-        <div class="node now"><div class="lab">자율주행 <span class="st">다음</span><span class="badge">현재</span></div><div class="muted">지금은 두둑을 직선 주행하고 두둑 사이는 순간이동(치트). 진짜 자율주행 = 밭 안 커버리지(두둑 끝 <strong>회전</strong>) + 위치추정, 그리고 창고↔밭 이동·도킹(목표 시나리오, DECISIONS 039).</div></div>
+        <div class="node now"><div class="lab">두둑 끝 회전 <span class="st">작업 중</span><span class="badge">현재</span></div><div class="muted">두둑 사이를 건너뛰던 순간이동 치트를 실제 U턴으로 바꾼다: 두둑을 벗어나 → 헤드랜드에서 돌아 → 옆 두둑에 다시 걸터탄다. 크럭스인 <b>재진입 허용오차는 측정해 뒀다 — yaw 8°까지 안 낀다</b>(여유 11cm/쪽). 남은 미지수는 제자리 회전이 바퀴 오도메트리를 얼마나 틀어놓는가.</div></div>
+        <div class="node plan"><div class="lab">위치추정 <span class="st">다음</span></div><div class="muted">회전으로 틀어진 위치를 무엇으로 되잡을지. 바퀴 오도메트리는 미끄러지면 못 고치므로, 하방 카메라(0.457mm/px)의 지면 흐름이 후보다.</div></div>
         <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
-        <div class="node plan"><div class="lab">물리 두둑-끝 회전 · 끼임 <span class="st">세부 부채</span></div><div class="muted">스켈레톤은 두둑 사이를 재배치(<code>set_pose</code>)로 건너뛰고 밭을 매끈하게 둬 끼임을 피했다. 실물화하려면 물리 회전과 두둑-포드 4cm 여유(034)를 정면으로 푼다.</div></div>
         <div class="node plan"><div class="lab">바퀴 접촉 모델 · 지형 하이트필드 <span class="st">부채</span></div><div class="muted">바퀴 마찰은 이제 단일 출처 0.4(젖은 흙 최악 가정)로 넣었다(032). 남은 건 흙덩이 상자를 연속 지형으로 바꾸고 슬립 모델을 문헌 값으로 채우는 것.</div></div>
         <div class="node plan"><div class="lab">배터리 · 도킹 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 잰다. 도킹은 범위 안 — 홈 베이스에 보관·에너지 저장·복귀(위치추정 선행이라 미룸, DECISIONS 039).</div></div>
         <div class="node plan"><div class="lab">실물 텃밭 관리 앱 <span class="st">설계됨 · 최종</span></div><div class="muted">지금 대시보드는 자기완결 HTML(자리표시). 실물 로봇이 나오면 실시간 확인 + 작동 제어가 되는 웹/앱으로. 가장 마지막 단계.</div></div>
       </div>
-      <h3 class="reveal">관통 — 명령 한 줄로 재현되는 4단계</h3>
+      <h3 class="reveal">지금 돌아가는 것 — 명령 한 줄로 재현된다</h3>
       <div class="tbl-wrap reveal">
         <table>
-          <caption>전부 명령 한 줄로 재현된다. 수치는 실측(최근 실행).</caption>
-          <thead><tr><th>단계</th><th>명령</th><th>결과</th><th>상태</th></tr></thead>
+          <caption>끝에서 끝까지가 <code>ros2 launch</code> 하나로 켜진다. 수치는 최근 실행 실측.</caption>
+          <thead><tr><th>무엇</th><th>명령</th><th>결과</th></tr></thead>
           <tbody>
-            <tr><td>P1 커버리지 경로</td><td><code>pytest tests/test_coverage.py</code></td><td>보스트로페돈 계획기, 테스트 <span class="val">6/6</span> (두둑 완주·방향 교대·헤드랜드)</td><td><span class="tag t-ok">통과</span></td></tr>
-            <tr><td>P2 여러 줄 밭</td><td><code>make field-multi</code></td><td>두둑 2줄 월드(PITCH 1.20). 로봇이 두둑0 위 <span class="val">y=0.600</span>에 걸터탐</td><td><span class="tag t-ok">통과</span></td></tr>
-            <tr><td>P3 관통 실행 + 로깅</td><td><code>make field-run</code></td><td>두둑 <span class="val">2/2</span> 자율 완주 · 검출 8 · <code>field_run.json</code></td><td><span class="tag t-ok">통과</span></td></tr>
-            <tr><td>P4 대시보드</td><td><code>make dashboard</code></td><td>밭 지도 SVG + 통계 타일 → 자기완결 <code>dashboard.html</code></td><td><span class="tag t-ok">통과</span></td></tr>
+            <tr><td>관통 전체 (시뮬 + 인식 + 조율)</td><td><code>make ros-skeleton</code></td><td>두둑 <span class="val">2/2</span> 완주 · 검출 <span class="val">~20</span> · 처리 <span class="val">~4</span> · <code>field_run.json</code></td></tr>
+            <tr><td>커버리지 경로 계획</td><td><code>pytest tests/test_coverage.py</code></td><td>보스트로페돈 계획기 <span class="val">6/6</span> (두둑 완주·방향 교대·헤드랜드)</td></tr>
+            <tr><td>대시보드</td><td><code>make dashboard</code></td><td>밭 지도 SVG + 통계 타일 → 자기완결 <code>dashboard.html</code></td></tr>
+            <tr><td>사람이 눈으로 보기</td><td><code>make watch-ros</code></td><td>같은 런치를 Gazebo 화면으로 (에이전트는 수치, 사람은 눈 — 교차검증)</td></tr>
           </tbody>
         </table>
       </div>
@@ -574,8 +588,13 @@
         </table>
       </div>
       <div class="callout reveal">
-        <span class="lb">경사+요철 미끄러짐 — 원인 정정(034)</span>
-        한때 “경사에서 1.8m 미끄러진다”고 봤으나, 그건 <b>가로경사 걸터타기</b>라는 비현실 시나리오에서 두둑에 낀 인공물이었다(033 철회). 현실적 피치에서는 슬립 <span class="val">1.2%</span>. 진짜 원인은 마찰이 아니라 두둑-포드 4cm 여유가 3° 기울면 2.2cm 밀려 끼는 <b>기하</b>였다(두둑을 좁히니 슬립 94%→5%로 재현). 스켈레톤 밭을 매끈하게 둔 이유.
+        <span class="lb">밭이 얼마나 거칠어도 되는가는 마찰이 아니라 여유가 정한다</span>
+        <div class="kv" style="margin:.5rem 0 .4rem">
+          <dt>두둑과 포드 사이 여유</dt><dd>4 cm</dd>
+          <dt>3° 기울 때 옆으로 밀리는 양</dt><dd>2.2 cm — 여유의 절반을 한 번에 먹는다</dd>
+          <dt>바퀴 슬립 자체</dt><dd><span class="val">1.2%</span> · 제약이 아니다</dd>
+        </div>
+        그래서 거친 밭에서 로봇이 서는 건 미끄러져서가 아니라 <b>포드가 두둑 옆면에 끼어서</b>다(034). 지금 관통용 밭을 매끈하게 두는 이유이고, 지형 부채 항목에서 정면으로 푼다.
       </div>
       <div class="callout reveal">
         <span class="lb">자율주행은 왜 강화학습이 아닌가</span>
@@ -685,10 +704,15 @@
             <tr><td class="val">022–023</td><td>정적/주행 라이브 인식 = 카메라만으로 자율 타격</td></tr>
             <tr><td class="val">024–025</td><td>정책 비교 철회, 지형·흔들림 대응 자율 타격(IMU·깊이 융합)</td></tr>
             <tr><td class="val">026–027</td><td>카메라 2대(한 대는 두둑의 65%만 봄), 점 타격 근거 정정(흙 교란·선택성, 본잎 2장까지)</td></tr>
+            <tr><td class="val">028</td><td>깊이로 시차를 보정해도 안 나아진다(음성 결과) — 칠 수 있는 잡초는 키가 1cm라 시차가 없다</td></tr>
+            <tr><td class="val">030–034</td><td>바퀴 마찰 단일 출처 0.4(젖은 흙 최악), 드리프트의 원인은 마찰이 아니라 두둑-포드 여유 4cm 기하</td></tr>
+            <tr><td class="val">035–036</td><td>형태는 걸터타기 유지(캔틸레버 기각), 세부 완벽 대신 끝에서 끝까지 먼저(관통)</td></tr>
+            <tr><td class="val">037–038</td><td>시뮬은 Gazebo 확정(Isaac 이득 없음), 실행 구조를 ROS 2 로 이관</td></tr>
+            <tr><td class="val">039</td><td>목표 시나리오 확정(창고→밭→제초→기록→복귀) · 도킹은 범위 안</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(27건)와 <code>REFERENCES.md</code>에.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(39건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 
