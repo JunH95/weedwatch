@@ -267,7 +267,10 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        # 런치가 SIGINT 를 보내면 rclpy 가 먼저 내려가 있을 수 있다. 그대로 shutdown 을 부르면
+        # "rcl_shutdown already called" 로 **종료코드 1** 이 되고 런치 로그에 빨간 ERROR 가 남는다.
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

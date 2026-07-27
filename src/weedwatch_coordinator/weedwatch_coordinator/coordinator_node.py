@@ -81,6 +81,7 @@ class Coordinator(WwControl):
         man.wait_pose()
         if self.gyro.degraded:
             self.get_logger().warn("IMU 가 없어 휠 yaw 로 폴백 — 회전당 26° 오차가 난다(diag_uturn)")
+        self._rejected0 = self.gyro.rejected
 
         for bed in range(N_BEDS):
             cy = centers[bed]
@@ -142,6 +143,12 @@ class Coordinator(WwControl):
                     break
                 time.sleep(0.01)
             bed_log["reached"] = d * (ox - ex) >= -0.05
+            if self.gyro.rejected > self._rejected0:
+                # 오도메트리가 순간이동했다 = 다른 시뮬이 같은 토픽에 발행 중이다(좀비 프로세스).
+                self.get_logger().error(
+                    f"오도메트리 점프 {self.gyro.rejected - self._rejected0}건 버림 — 좀비 시뮬이 "
+                    f"떠 있는 것 같다. 다른 터미널의 실행을 끄고 `make clean-sim` 후 다시 돌려라.")
+                self._rejected0 = self.gyro.rejected
             self.stop()
             # 패스가 끝나면 **모든 도구를 올린다**. 안 올리면 타격 도중 패스가 끝난 툴이 내려간 채
             # 남아, 헤드랜드로 나가는 2.8m 동안 두둑을 긁으며 로봇을 비튼다 — 실측으로 yaw 가 19°

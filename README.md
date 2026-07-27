@@ -82,16 +82,28 @@ or FarmBot in general, to be able to remove large, established weeds"* 라고 �
 
 ```bash
 source scripts/ros_env.sh          # 파이썬 3.10 · ROS 오버레이 · EGL(NVIDIA) · 리소스 경로
-colcon build                       # 처음 한 번
+colcon build                       # 코드를 받았을 때만
 
 ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true   # 관제(그래프·상태)
 ros2 launch weedwatch_bringup skeleton.launch.py gui:=true        # Gazebo 로 눈으로
 ros2 topic echo /ww/state/loc_error_cm                            # 위치추정 오차 실시간
 ```
 
-관제는 **Foxglove Studio**로 본다 — `ws://localhost:8765` 접속, 레이아웃은
-`src/weedwatch_bringup/config/weedwatch.foxglove.json` 를 import.
+매번 치기 귀찮으면 별칭을 `~/.bashrc` 에 등록한다(정의만 하므로 다른 작업에 영향 없음):
+
+```bash
+echo 'source ~/projects/weedwatch/scripts/ww_aliases.sh' >> ~/.bashrc
+#  ww(환경준비) · wwb(pull+build) · wwsim/wwfox/wwrviz(보기) · wwtest/wwturn/wwrun(검증) · wwkill(정리)
+#  목록: wwhelp
+```
+
+관제는 **Foxglove Studio**로 본다. `foxglove:=true` 는 **브리지(서버)만** 켜므로 보는 창은 따로 연다 —
+웹 `app.foxglove.dev` 또는 `snap install foxglove-studio` → **Open connection → `ws://localhost:8765`**.
+레이아웃 `src/weedwatch_bringup/config/weedwatch.foxglove.json` 를 import 하면 패널 배치가 그대로 뜬다.
 선행 1회: `sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap`.
+
+**시뮬은 한 번에 하나만.** 남은 프로세스가 같은 토픽에 계속 발행하면 위치 추정이 통째로 튄다.
+새로 돌리기 전에 `make clean-sim`(또는 `wwkill`).
 
 `source` 없이 `ros2` 만 치면 조용히 틀린다 — 이 컴퓨터의 `python3` 는 conda 3.13 이고(ROS 는
 3.10 빌드), `~/.bashrc` 가 남의 워크스페이스 4개를 `PYTHONPATH` 에 밀어넣고, EGL 기본값이

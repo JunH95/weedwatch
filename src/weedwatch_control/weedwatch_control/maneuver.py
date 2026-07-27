@@ -47,9 +47,16 @@ class GyroOdom:
     조용히 나쁜 추정으로 돌아가지 않게.
     """
 
+    # 한 샘플 사이에 물리적으로 가능한 최대 이동 [m]. 0.2 m/s · 50Hz 면 4mm 이므로 0.5m 는
+    # 아주 넉넉한 상한이다. 이걸 넘는 값은 **로봇의 움직임이 아니다** — 좀비 프로세스가 남아
+    # 다른 시뮬의 /odometry 를 같이 발행하면 두 위치 사이를 오가며 매 샘플 수 미터씩 튄다
+    # (2026-07-27 사용자 실행에서 추정이 −155m 로 폭발했고, 원인이 이것이었다).
+    MAX_STEP = 0.5
+
     def __init__(self, x0=0.0, y0=0.0, yaw0=0.0):
         self.x, self.y, self.yaw = x0, y0, yaw0
         self.degraded = False
+        self.rejected = 0          # 튄 샘플 수 — 0 이 아니면 환경이 오염됐다는 신호
         self._last_xy = None
         self._last_raw_yaw = None
 
@@ -67,6 +74,11 @@ class GyroOdom:
             dx, dy = odom_x - self._last_xy[0], odom_y - self._last_xy[1]
             self._last_xy = (odom_x, odom_y)
             ds = math.hypot(dx, dy)
+            if ds > self.MAX_STEP:
+                # 로봇이 순간이동할 리 없다 → 다른 시뮬(좀비 프로세스)의 오도메트리가 섞였다.
+                # 적산하면 추정이 통째로 망가지므로 버리고 센다. 조용히 흡수하지 않는다.
+                self.rejected += 1
+                return self.x, self.y, self.yaw
             if odom_vx < 0:
                 ds = -ds
             self.x += ds * math.cos(self.yaw)

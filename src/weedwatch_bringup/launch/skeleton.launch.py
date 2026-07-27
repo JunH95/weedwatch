@@ -13,7 +13,7 @@ from pathlib import Path
 
 from launch import LaunchDescription
 from launch.actions import (ExecuteProcess, TimerAction, RegisterEventHandler,
-                            EmitEvent, DeclareLaunchArgument)
+                            EmitEvent, DeclareLaunchArgument, LogInfo)
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
@@ -81,6 +81,15 @@ def generate_launch_description():
         condition=IfCondition(fox),
         cmd=["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"],
         output="screen")])
+    # foxglove:=true 는 **서버(브리지)만** 켠다. 보는 창은 Foxglove Studio(앱 또는 웹)다 —
+    # 이 안내가 없으면 "켰는데 아무것도 안 뜬다"가 된다(2026-07-27 실제로 그랬다).
+    fox_hint = TimerAction(period=10.0, actions=[LogInfo(condition=IfCondition(fox), msg=(
+        "\n" + "=" * 72 +
+        "\n  Foxglove 브리지가 떴다. **보는 창은 따로 연다** — 둘 중 하나:\n"
+        "    · 웹  : https://app.foxglove.dev  →  Open connection  →  ws://localhost:8765\n"
+        "    · 앱  : snap install foxglove-studio   (설치 후 같은 주소로 접속)\n"
+        "  레이아웃 import: src/weedwatch_bringup/config/weedwatch.foxglove.json\n" +
+        "=" * 72))])
 
     # 코디네이터가 끝나면(관통 완료) 런치 전체 종료
     shutdown_on_done = RegisterEventHandler(OnProcessExit(
@@ -89,5 +98,5 @@ def generate_launch_description():
 
     return LaunchDescription([declare_gui, declare_rviz, declare_fox,
                              gazebo_headless, gazebo_gui, bridge_proc, perception,
-                             viz_node, rviz_proc, fox_viz, fox_bridge,
+                             viz_node, rviz_proc, fox_viz, fox_bridge, fox_hint,
                              coordinator, shutdown_on_done])

@@ -165,6 +165,7 @@
     <div class="nav-brand"><b>weed</b>watch</div>
     <nav class="nav-links" aria-label="목차">
       <a href="#intro">개요</a>
+      <a href="#usage">써보기</a>
       <a href="#results">현재 성능</a>
       <a href="#arch">아키텍처</a>
       <a href="#robot">로봇</a>
@@ -202,6 +203,66 @@
     </div>
     <div class="field"></div>
   </header>
+
+
+  <!-- 써보기 -->
+  <section id="usage">
+    <div class="wrap">
+      <div class="eyebrow reveal"><span class="kick">써보기</span><span class="sub">내 컴퓨터에서 무엇을 어떻게 보나</span></div>
+      <h2 class="reveal">명령 한 줄씩</h2>
+      <p class="lead col reveal">터미널을 열면 <code>ww</code> 한 번. 그다음은 아래 명령을 그대로 친다. (별칭은 <code>~/.bashrc</code>에 등록돼 있고, 목록은 <code>wwhelp</code>.)</p>
+
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>보기 — 사람 눈. 셋은 같은 시스템을 다른 창으로 보는 것이다.</caption>
+          <thead><tr><th>명령</th><th>창</th><th>무엇이 보이나</th></tr></thead>
+          <tbody>
+            <tr><td><code>wwsim</code></td><td>Gazebo</td><td>밖에서 본 로봇 — 두둑 주행, 헤드랜드 U턴, 도구 하강</td></tr>
+            <tr><td><code>wwfox</code></td><td><b>Foxglove</b></td><td><b>그래프·로봇 상태</b> — 위치오차·방위·속도 시계열 + 3D + 카메라</td></tr>
+            <tr><td><code>wwrviz</code></td><td>rviz2</td><td>믿는 위치(주황) vs 실제 위치(초록) + 오차 숫자</td></tr>
+            <tr><td><code>wwerr</code></td><td>터미널</td><td>위치추정 오차 숫자만 실시간</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout reveal">
+        <span class="lb">Foxglove 는 창이 따로 뜬다 — 브리지와 뷰어가 별개다</span>
+        <code>wwfox</code> 는 <b>서버(브리지)만</b> 켠다. 보는 창은 직접 연다:
+        <div class="kv" style="margin:.5rem 0 .4rem">
+          <dt>웹</dt><dd><code>app.foxglove.dev</code> → Open connection → <code>ws://localhost:8765</code></dd>
+          <dt>앱</dt><dd><code>snap install foxglove-studio</code> 후 같은 주소로 접속</dd>
+          <dt>레이아웃</dt><dd><code>src/weedwatch_bringup/config/weedwatch.foxglove.json</code> 를 import 하면 패널 배치가 그대로 뜬다</dd>
+        </div>
+        선행 1회: <code>sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap</code>
+      </div>
+
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>확인 — 수치 게이트. 통과/실패가 숫자로 찍힌다.</caption>
+          <thead><tr><th>명령</th><th>무엇을 단언</th><th>최근 결과</th></tr></thead>
+          <tbody>
+            <tr><td><code>wwtest</code></td><td>순수 산수 (시뮬·GPU 없이)</td><td><span class="val">121</span> 통과 · 6초</td></tr>
+            <tr><td><code>wwturn</code></td><td>두둑 끝 U턴 — 진입 y·yaw·끼임</td><td>y <span class="val">0.1–2.8cm</span> (4회 반복)</td></tr>
+            <tr><td><code>wwrun</code></td><td>관통 전체 (헤드리스)</td><td>두둑 <span class="val">2/2</span> · 검출 30 · 처리 3</td></tr>
+            <tr><td><code>wwkill</code></td><td>시뮬 정리</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout open reveal">
+        <span class="lb">시뮬은 한 번에 하나만</span>
+        두 개를 동시에 돌리면 뒤엣것이 앞엣것의 시뮬을 죽인다(대부분 명령이 좀비 정리를 선행으로 건다).
+        더 나쁜 건 프로세스가 죽는 게 아니라 <b>남은 프로세스가 같은 토픽에 계속 발행</b>해서 로봇의
+        위치 추정이 통째로 튀는 것이다(실제로 −155m 로 폭발한 적 있다). 새로 돌리기 전에 <code>wwkill</code>.
+      </div>
+
+      <div class="callout reveal">
+        <span class="lb">코드를 받았을 때만</span>
+        <code>wwb</code> — <code>git pull</code> + <code>colcon build</code>. 터미널을 열 때마다 할 필요는 없다.
+        <code>ww</code> 만으로 충분하다.
+      </div>
+    </div>
+  </section>
 
   <!-- 개요 -->
   <section id="intro">
