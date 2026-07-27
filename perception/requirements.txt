@@ -9,3 +9,4 @@ numpy
 pillow
 tqdm
 scipy
+websockets            # Foxglove 관제 배선 단언(make foxglove-check)용 WS 클라이언트

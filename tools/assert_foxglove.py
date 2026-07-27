@@ -5,17 +5,19 @@ Foxglove Studio 는 사람이 보는 창이고 나는 못 본다. 그래서 **�
 있는지**를 대신 단언한다: foxglove_bridge 가 WebSocket 을 열고 프로토콜 핸드셰이크에 응답하는가,
 그리고 거기서 볼 상태 수치(/ww/state/*)가 실제로 흐르는가.
 
-WebSocket 핸드셰이크는 표준 라이브러리 소켓으로 직접 친다(의존성 추가 없음): HTTP Upgrade 를
-보내고 **101 Switching Protocols** 와 `Sec-WebSocket-Protocol: foxglove.websocket.v1` 을 받으면
-Foxglove Studio 가 붙을 수 있는 상태다.
+핸드셰이크는 **실제 WebSocket 클라이언트**(perception venv 의 `websockets`)로 친다. 손수 만든
+HTTP Upgrade 는 어떤 변형을 써도 400 이었다 — 프로토콜 세부를 흉내내는 건 "Studio 가 붙는다"의
+증거로 약하다. 붙은 뒤 서버가 보내는 **serverInfo** 와 채널 광고까지 받아야 확인한 것이다.
+
+⚠️ 서브프로토콜 이름이 버전마다 다르다: foxglove_bridge **3.4.2 는 `foxglove.sdk.v1`**,
+옛 문서의 `foxglove.websocket.v1` 만 보내면 400 으로 거부된다(실측). 둘 다 제시한다.
 
 선행 1회(사람):  sudo apt install ros-humble-foxglove-bridge ros-humble-rosbag2-storage-mcap
 """
-import base64
+import json
 import os
 import shutil
 import signal
-import socket
 import subprocess
 import sys
 import time
@@ -41,17 +43,47 @@ def kill(p):
         pass
 
 
-def ws_handshake(host="127.0.0.1", port=PORT, timeout=5.0) -> str:
-    """WebSocket 업그레이드를 직접 쳐서 응답 헤더를 돌려준다."""
-    key = base64.b64encode(os.urandom(16)).decode()
-    req = (f"GET / HTTP/1.1\r\nHost: {host}:{port}\r\nUpgrade: websocket\r\n"
-           f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
-           f"Sec-WebSocket-Version: 13\r\n"
-           f"Sec-WebSocket-Protocol: foxglove.websocket.v1\r\n\r\n")
-    with socket.create_connection((host, port), timeout=timeout) as s:
-        s.settimeout(timeout)
-        s.sendall(req.encode())
-        return s.recv(4096).decode(errors="ignore")
+WS_PROBE = r'''
+import asyncio, json, sys
+import websockets
+
+async def main():
+    # 서브프로토콜 이름이 버전마다 다르다 — foxglove_bridge 3.4.2 는 "foxglove.sdk.v1" 이고
+    # 옛 이름("foxglove.websocket.v1")만 보내면 **400 으로 거부**된다(실측). 둘 다 제시하고
+    # 서버가 고르게 한다.
+    async with websockets.connect("ws://127.0.0.1:%d",
+                                  subprotocols=["foxglove.sdk.v1", "foxglove.websocket.v1"],
+                                  open_timeout=10) as ws:
+        got = {"serverInfo": None, "channels": []}
+        for _ in range(40):
+            try:
+                msg = await asyncio.wait_for(ws.recv(), timeout=5)
+            except asyncio.TimeoutError:
+                break
+            if isinstance(msg, bytes):
+                continue
+            d = json.loads(msg)
+            if d.get("op") == "serverInfo":
+                got["serverInfo"] = d.get("name") or "(이름 미설정)"
+                got["subprotocol"] = ws.subprotocol
+            elif d.get("op") == "advertise":
+                got["channels"] += [c["topic"] for c in d.get("channels", [])]
+            if got["serverInfo"] and len(got["channels"]) > 5:
+                break
+        print(json.dumps(got))
+
+asyncio.run(main())
+'''
+
+
+def ws_probe(py: str, port: int = PORT) -> dict:
+    """진짜 WebSocket 클라이언트로 붙어 serverInfo·채널 광고를 받아온다."""
+    script = Path("/tmp/ww_fox_probe.py")
+    script.write_text(WS_PROBE % port)
+    r = subprocess.run([py, str(script)], capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        raise Fail(f"WebSocket 접속 실패:\n{r.stderr[-500:]}")
+    return json.loads(r.stdout.strip().splitlines()[-1])
 
 
 def main():
@@ -88,18 +120,16 @@ def main():
             stdout=foxlog, stderr=subprocess.STDOUT, start_new_session=True))
         time.sleep(9)
 
-        # 게이트 1 — WebSocket 이 열리고 Foxglove 프로토콜로 응답하는가
-        try:
-            resp = ws_handshake()
-        except OSError as e:
-            raise Fail(f"WebSocket({PORT}) 접속 실패: {e} — 브리지 로그 /tmp/ww_fox_bridge.log")
-        first = resp.splitlines()[0] if resp else "(응답 없음)"
-        if "101" not in first:
-            raise Fail(f"업그레이드 거부: {first}")
-        proto_ok = "foxglove.websocket.v1" in resp
-        print(f"  게이트 1 WebSocket  {first.strip()} · 프로토콜 {'OK' if proto_ok else '불일치'}")
-        if not proto_ok:
-            raise Fail("Foxglove 프로토콜을 응답하지 않습니다")
+        # 게이트 1 — Studio 처럼 실제로 붙어서 serverInfo 와 채널 광고를 받는가
+        probe = ws_probe(str(WW / "perception" / "condaenv" / "bin" / "python"))
+        if not probe.get("serverInfo"):
+            raise Fail("붙긴 했으나 serverInfo 가 안 옵니다 — 프로토콜 불일치")
+        chans = probe.get("channels", [])
+        print(f"  게이트 1 접속       serverInfo='{probe['serverInfo']}' · 채널 {len(chans)}개 광고")
+        want = [t for t in ("/ww/state/loc_error_cm", "/ww/viz", "/robot/camera") if t in chans]
+        print(f"           그중 관제 핵심 토픽: {want}")
+        if len(want) < 2:
+            raise Fail(f"관제 토픽이 Studio 로 안 나갑니다 (광고된 채널: {chans[:10]})")
 
         # 게이트 2 — 그 창에서 볼 상태 수치가 실제로 흐르는가
         topics = subprocess.run([ENV, "ros2", "topic", "list"],
