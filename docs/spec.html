@@ -636,7 +636,7 @@
         <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
         <div class="node done"><div class="lab">현실적인 밭 <span class="st">완료</span></div><div class="muted">지금 밭은 <b>자로 그은 듯 반듯하다</b> — 고랑은 무한 평면, 두둑은 단면을 그대로 밀어낸 완전 균일. 요철·경사는 따로 만든 시험 밭에만 있다. 그래서 U턴·위치추정 숫자가 현실에서 성립하는지 모른다. 밭 생성기를 일반화해 <b>불균일·요철·경사·창고</b>를 넣고, 밭을 셋으로 나눈다(아래).</div></div>
         <div class="node now"><div class="lab">전방 카메라 <span class="st">측정이 요구함</span><span class="badge">다음</span></div><div class="muted">현실적인 밭에서 재보니 <b>발밑만 보는 로봇은 못 간다</b>: 패스 중 옆으로 14.4cm 밀리고(방위를 붙들어도 위치는 안 돌아온다), 절대 위치가 90cm 틀어져 두둑 앞 61cm 에서 멈춘다. 둘 다 밭을 <b>보고</b> 풀어야 한다 — 두둑 중심선 조향 + 두둑 끝 감지. 두둑은 25cm 융기라 깊이 기하로 찾는다(인식 모델 불필요).</div></div>
-        <div class="node plan"><div class="lab">울퉁불퉁한 밭에서의 타격 <span class="st">설계됨 · 실행 남음</span></div><div class="muted">기울기 보정은 이미 증명됐다(8° 경사에서 무보정 4.26cm → 보정 0.10cm). 남은 건 <b>달리면서</b>다 — 요철+경사를 함께 놓고 무보정 vs IMU 보정을 가른다. 흙덩이만으로는 무보정도 1.2cm라 차이가 안 나서, 두 지형을 합쳐야 한다.</div></div>
+        <div class="node plan"><div class="lab">울퉁불퉁한 밭에서의 타격 <span class="st">측정함 · 실패</span></div><div class="muted">현실 밭을 <b>달리면서</b> 찍어봤다 — 무보정 23.5cm, IMU 보정 23.0cm로 <b>둘 다 실패</b>. 그런데 오차가 거의 전부 <b>앞뒤 방향</b>이고 이동거리 과대추정과 크기가 같다: 흙덩이에서 바퀴가 헛돌아 "갔다"고 믿은 만큼 실제로는 안 갔다. 슬립이 없던 표적 하나는 3.5cm로 맞았다 — <b>기구는 멀쩡하다</b>.</div></div>
         <div class="node plan"><div class="lab">바퀴 접촉 모델 <span class="st">부채</span></div><div class="muted">바퀴 마찰은 단일 출처 0.4(젖은 흙 최악)로 넣었다. 남은 건 흙덩이 상자를 연속 지형으로 바꾸고 슬립 모델을 문헌 값으로 채우는 것.</div></div>
         <div class="node plan"><div class="lab">배터리 · 도킹 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 잰다. 도킹은 범위 안 — 홈 베이스에 보관·에너지 저장·복귀(위치추정 선행이라 미룸, DECISIONS 039).</div></div>
         <div class="node plan"><div class="lab">실물 텃밭 관리 앱 <span class="st">설계됨 · 최종</span></div><div class="muted">지금 대시보드는 자기완결 HTML(자리표시). 실물 로봇이 나오면 실시간 확인 + 작동 제어가 되는 웹/앱으로. 가장 마지막 단계.</div></div>
@@ -666,6 +666,14 @@
         IMU 는 방위만 안다). 둘 다 밭에 대한 <b>상대 위치</b>를 봐야 풀린다 — 두둑 중심선을 보고
         조향하고, 두둑 끝을 보고 돌 시점을 안다(좌표를 몰라도 된다). 두둑은 25cm 융기라 깊이 기하로
         찾으므로 <b>인식 모델은 필요 없다</b>.
+      </div>
+
+      <div class="callout open reveal">
+        <span class="lb">그리고 이전 결론 하나가 흔들렸다 — 밭이 이상적이었기 때문</span>
+        "직진 거리는 바퀴가 압도적으로 정확하다(0.8%)"고 정해 두었다. 그건 <b>매끈한 밭</b>에서 잰
+        값이다. 현실 밭에서는 <b>1m 이동에 20~31cm(25~65%) 과대</b>다 — 같은 조건에서 카메라는
+        7~13%였다. 그러면 순서가 뒤집힌다. 다음 실험은 개발 밭에서 바퀴와 카메라를 다시 나란히
+        놓는 것이고, 결과에 따라 융합 규칙이 바뀐다.
       </div>
 
       <h3 class="reveal">밭 셋 — 작게 고치고 크게 검증한다</h3>
@@ -881,6 +889,7 @@
             <tr><td class="val">035–036</td><td>형태는 걸터타기 유지(캔틸레버 기각), 세부 완벽 대신 끝에서 끝까지 먼저(관통)</td></tr>
             <tr><td class="val">037–038</td><td>시뮬은 Gazebo 확정(Isaac 이득 없음), 실행 구조를 ROS 2 로 이관</td></tr>
             <tr><td class="val">039</td><td>목표 시나리오 확정(창고→밭→제초→기록→복귀) · 도킹은 범위 안</td></tr>
+            <tr><td class="val">044</td><td>현실 밭 타격 실패의 정체는 바퀴 슬립 — "직진은 바퀴가 정확"은 매끈한 밭 산물이었다</td></tr>
             <tr><td class="val">043</td><td>현실적인 밭이 깨뜨린 것 — 방위는 IMU 로 고쳐지고, 옆 위치·절대 위치는 카메라가 필요하다</td></tr>
             <tr><td class="val">042</td><td>밭 사다리 — 개발 밭에서 고치고 정본 밭에서 판정. 정본은 보호 대상</td></tr>
             <tr><td class="val">041</td><td>위치추정 융합(바퀴=직진·카메라=회전 미끄러짐·IMU=방위) — 구조는 맞으나 실주행 이득은 아직 없음(음성 결과)</td></tr>
@@ -888,7 +897,7 @@
           </tbody>
         </table>
       </div>
-      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(43건)와 <code>REFERENCES.md</code>에.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(44건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 
