@@ -299,18 +299,11 @@
       </div>
 
       <div class="callout reveal">
-        <span class="lb">코드를 받았을 때만</span>
-        <code>wwb</code> — <code>git pull</code> + <code>colcon build</code>. 터미널을 열 때마다 할 필요는 없다.
-        <code>ww</code> 만으로 충분하다.
-      </div>
-      <div class="callout reveal">
-        <span class="lb">놀랄 필요 없는 두 가지</span>
+        <span class="lb">자주 걸리는 것들</span>
         <div class="kv" style="margin:.5rem 0 .3rem">
-          <dt>끝에 뜨는 빨간 줄</dt><dd><code>process has died … exit code -15</code> 는 <b>정상 종료</b>다.
-            관통이 끝나면 런치가 나머지 프로세스를 SIGTERM 으로 내리는데, 브리지가 그걸 그냥 종료로
-            처리해서 런치가 ERROR 로 찍는다. 결과에는 영향이 없다.</dd>
-          <dt>새 명령이 없다고 나올 때</dt><dd><code>wwplot: 명령을 찾을 수 없습니다</code> — 셸이 옛 별칭을
-            들고 있는 것이다. <code>ww</code> 를 한 번 더 치면 별칭을 다시 읽는다(새 터미널을 열 필요 없음).</dd>
+          <dt>빌드는 언제</dt><dd><code>wwb</code> — 코드를 받았을 때만. 터미널 열 때마다는 <code>ww</code> 하나면 된다</dd>
+          <dt>끝에 뜨는 빨간 줄</dt><dd><code>process has died … exit code -15</code> 는 <b>정상 종료</b>다 — 관통이 끝나면 런치가 나머지를 SIGTERM 으로 내린다</dd>
+          <dt>새 명령이 없다고 나오면</dt><dd>셸이 옛 별칭을 들고 있는 것 — <code>ww</code> 를 한 번 더 치면 다시 읽는다</dd>
         </div>
       </div>
     </div>
@@ -665,7 +658,7 @@
         <div class="node done"><div class="lab">관통(walking skeleton) · 끝에서 끝까지 <span class="st">완료</span></div><div class="muted">세부 완벽 대신 전 과정을 한 번 돌렸다. 로봇이 여러 두둑 밭을 자율로 훑고 → 카메라로 잡초 검출 → 타격 → 한 일을 JSON으로 남기고 → 대시보드로 본다. 아래 표가 4단계 전부의 재현 명령이다.</div></div>
         <div class="node done"><div class="lab">ROS 2 이관 · 표준 로봇 구조 <span class="st">완료</span></div><div class="muted">직결(ign-transport)에서 ROS 로. 제어·인식·조율이 rclpy 노드, Gazebo↔ROS 는 ros_gz_bridge, colcon 패키지 4개(<code>src/weedwatch_*</code>, 시뮬 자산은 worlds·models 리소스경로), <code>ros2 launch</code> 한 줄로 켜진다. 실물 단계엔 sim 패키지만 실제 드라이버로 갈아끼우면 같은 노드가 돈다. 파이썬 3.10 통일.</div></div>
         <div class="node done"><div class="lab">두둑 끝 회전 <span class="st">완료</span></div><div class="muted">순간이동 치트를 지우고 <b>실제 U턴</b>으로 돈다 — 두둑을 벗어나 헤드랜드에서 돌아 옆 두둑에 다시 걸터탄다. 그래서 지그재그(보스트로페돈)가 진짜 주행으로 성립한다. 방위는 <b>IMU</b>가 준다(아래 표).</div></div>
-        <div class="node plan"><div class="lab">위치추정 <span class="st">측정 완료 · 이득은 아직</span></div><div class="muted">회전 중 몸통이 실제로 미끄러지는데 바퀴도 IMU도 못 봐서 <b>U턴 한 번에 절대 위치가 52cm</b> 밀린다. 하방 카메라로 그 미끄러짐을 <b>실제로 관측했다</b> — 아래 표. 남은 건 융합 구현.</div></div>
+        <div class="node plan"><div class="lab">위치추정 <span class="st">융합은 붙었고, 카메라가 현실 밭에서 자주 실패한다</span></div><div class="muted">회전 중 몸통이 미끄러지는데 바퀴도 IMU도 못 봐서 <b>U턴 한 번에 절대 위치가 52cm</b> 밀린다. 카메라가 그걸 보긴 하는데(관측 63~86%), 현실 밭에서는 값이 자주 신뢰 범위를 벗어나 <b>지금은 사실상 바퀴만 쓴다</b>. 다음은 흙 마스크를 고정 평면이 아니라 <b>측정된 표면</b> 기준으로 바꾸는 것.</div></div>
         <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
         <div class="node done"><div class="lab">현실적인 밭 <span class="st">완료</span></div><div class="muted">지금 밭은 <b>자로 그은 듯 반듯하다</b> — 고랑은 무한 평면, 두둑은 단면을 그대로 밀어낸 완전 균일. 요철·경사는 따로 만든 시험 밭에만 있다. 그래서 U턴·위치추정 숫자가 현실에서 성립하는지 모른다. 밭 생성기를 일반화해 <b>불균일·요철·경사·창고</b>를 넣고, 밭을 셋으로 나눈다(아래).</div></div>
         <div class="node now"><div class="lab">전방 카메라 <span class="st">측정이 요구함</span><span class="badge">다음</span></div><div class="muted">현실적인 밭에서 재보니 <b>발밑만 보는 로봇은 못 간다</b>: 패스 중 옆으로 14.4cm 밀리고(방위를 붙들어도 위치는 안 돌아온다), 절대 위치가 90cm 틀어져 두둑 앞 61cm 에서 멈춘다. 둘 다 밭을 <b>보고</b> 풀어야 한다 — 두둑 중심선 조향 + 두둑 끝 감지. 두둑은 25cm 융기라 깊이 기하로 찾는다(인식 모델 불필요).</div></div>
@@ -674,96 +667,74 @@
         <div class="node plan"><div class="lab">배터리 · 도킹 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 잰다. 도킹은 범위 안 — 홈 베이스에 보관·에너지 저장·복귀(위치추정 선행이라 미룸, DECISIONS 039).</div></div>
         <div class="node plan"><div class="lab">실물 텃밭 관리 앱 <span class="st">설계됨 · 최종</span></div><div class="muted">지금 대시보드는 자기완결 HTML(자리표시). 실물 로봇이 나오면 실시간 확인 + 작동 제어가 되는 웹/앱으로. 가장 마지막 단계.</div></div>
       </div>
-      <h3 class="reveal">현실적인 밭이 무엇을 깨뜨렸나</h3>
-      <div class="tbl-wrap reveal">
-        <table>
-          <caption>같은 게이트(<code>make turn</code>)를 밭만 바꿔 돌렸다. <b>임계값은 안 건드렸다</b> — 밭에 맞춰 낮추면 "현실 밭에서도 된다"가 공허해진다 (DECISIONS 043)</caption>
-          <thead><tr><th>측정</th><th>매끈한 밭</th><th>현실적인 밭</th><th></th></tr></thead>
-          <tbody>
-            <tr><td>패스 중 방위 (고치기 전)</td><td>~0°</td><td><span class="val">−25.1°</span></td><td>흙덩이에 채이면 돌아간 채로 계속 간다</td></tr>
-            <tr><td>패스 중 방위 (고친 뒤)</td><td>~0°</td><td><span class="val">−0.5°</span></td><td><b>IMU 로 해결</b></td></tr>
-            <tr><td>패스 중 옆 이탈</td><td>0.1cm</td><td><span class="val">14.4cm</span></td><td>방위 보정은 <b>방향</b>만 되돌린다</td></tr>
-            <tr><td>절대 위치 오차</td><td>52cm (무해)</td><td><span class="val">90cm</span></td><td>두둑 앞 61cm 에서 "도착"으로 착각</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="callout reveal">
-        <span class="lb">보정이 스스로 오차를 만든다 — 이 로봇 형태의 대가</span>
-        방위를 붙들려고 잔오차까지 고쳤더니 <b>매끈한 밭 성적이 오히려 나빠졌다</b>(진입 오차 0.3~2.8cm
-        → 5.0cm). 조향축이 없어서 각속도 명령 자체가 바퀴를 긁고 몸통을 옆으로 밀기 때문이다.
-        불감대 2°를 넣어 <b>큰 교란만</b> 되돌리게 하니 2.1cm 로 복구됐다.
-      </div>
-      <div class="callout open reveal">
-        <span class="lb">그래서 전방 카메라를 붙인다 — 측정이 요구했다</span>
-        옆 이탈과 절대 위치는 <b>온보드 센서로는 원리적으로 못 푼다</b>(바퀴는 미끄러짐을 못 보고
-        IMU 는 방위만 안다). 둘 다 밭에 대한 <b>상대 위치</b>를 봐야 풀린다 — 두둑 중심선을 보고
-        조향하고, 두둑 끝을 보고 돌 시점을 안다(좌표를 몰라도 된다). 두둑은 25cm 융기라 깊이 기하로
-        찾으므로 <b>인식 모델은 필요 없다</b>.
-      </div>
-
-      <div class="callout open reveal">
-        <span class="lb">그리고 이전 결론 하나가 흔들렸다 — 밭이 이상적이었기 때문</span>
-        "직진 거리는 바퀴가 압도적으로 정확하다(0.8%)"고 정해 두었다. 그건 <b>매끈한 밭</b>에서 잰
-        값이다. 현실 밭에서는 <b>1m 이동에 20~31cm(25~65%) 과대</b>다 — 같은 조건에서 카메라는
-        7~13%였다. 그러면 순서가 뒤집힌다. 다음 실험은 개발 밭에서 바퀴와 카메라를 다시 나란히
-        놓는 것이고, 결과에 따라 융합 규칙이 바뀐다.
-      </div>
-
       <h3 class="reveal">밭 셋 — 작게 고치고 크게 검증한다</h3>
       <div class="tbl-wrap reveal">
         <table>
           <caption>밭이 커지면 검증 한 번이 수십 분이다. 그래서 고치는 밭과 판정하는 밭을 나눈다 (DECISIONS 042)</caption>
           <thead><tr><th>밭</th><th>규모</th><th>현실성</th><th>언제 쓰나</th></tr></thead>
           <tbody>
-            <tr><td>매끈 (지금 것)</td><td>두둑 2 × 4m</td><td>없음</td><td>빠른 회귀 — 코드가 안 깨졌나</td></tr>
-            <tr><td><b>개발</b></td><td>두둑 2 × 2m</td><td><b>전부 켬</b> — 불균일·요철·경사·전폭 잡초</td><td>매 수정. 여기서 다 고친다</td></tr>
-            <tr><td><b>정본</b></td><td>두둑 6~8 × 6~8m + 창고</td><td>전부 켬 + 형태 다양</td><td>단계 끝에만. 최종 판정</td></tr>
+            <tr><td>매끈</td><td>두둑 2 × 4m</td><td>없음</td><td>빠른 회귀 — 코드가 안 깨졌나</td></tr>
+            <tr><td><b>개발</b></td><td>두둑 2 × 2m</td><td><b>전부 켬</b> — 두둑 폭±5·높이±3·사행±4cm · 흙덩이 1.5/m · 경사 3°</td><td>매 수정. 여기서 다 고친다</td></tr>
+            <tr><td><b>정본</b></td><td>두둑 6 × 7m + 창고</td><td>전부 켬 + 형태 다양</td><td>단계 끝에만. 최종 판정</td></tr>
           </tbody>
         </table>
       </div>
       <div class="callout reveal">
         <span class="lb">작게 만들되 쉽게 만들지 않는다</span>
         개발 밭은 <b>정본 밭의 한 조각</b>이다 — 같은 생성기, 같은 현실성 파라미터, 두둑 수와 길이만
-        작다. 크기를 줄이면서 어려움까지 줄이면 사다리가 아니라 자기기만이 된다. 그리고 <b>정본 밭
-        파라미터는 보호 대상</b>이다 — 로봇을 고치는 커밋에서 밭을 같이 손대지 않는다. 정본이 실패하면
-        밭이 아니라 로봇을 고친다.
+        작다. 크기를 줄이면서 어려움까지 줄이면 사다리가 아니라 자기기만이 된다. 정본 밭 파라미터는
+        <b>보호 대상</b>이다 — 로봇을 고치는 커밋에서 밭을 같이 손대지 않는다.
       </div>
 
-      <h3 class="reveal">위치추정 — 바퀴와 카메라는 서로 못 보는 것을 본다</h3>
+      <h3 class="reveal">현실적인 밭에서 지금 어디까지 되나</h3>
       <div class="tbl-wrap reveal">
         <table>
-          <caption>같은 주행을 세 방식으로 재고 지상진실과 대조 (DECISIONS 041)</caption>
-          <thead><tr><th>재는 방법</th><th>직진 65cm 오차</th><th>제자리 회전 중 몸통 미끄러짐</th></tr></thead>
+          <caption>같은 게이트를 밭만 바꿔 돌린 결과. <b>임계값은 안 건드렸다</b> (DECISIONS 043·044·046)</caption>
+          <thead><tr><th>무엇</th><th>매끈한 밭</th><th>현실적인 밭</th><th>상태</th></tr></thead>
           <tbody>
-            <tr><td>휠 오도메트리</td><td><span class="val">0.5cm</span> (0.8%)</td><td><b>0.0cm — 원리적으로 못 봄</b> (실제 8~13cm 미끄러진다)</td></tr>
-            <tr><td>카메라, 고정 스케일</td><td>4.7cm (7%)</td><td>2.6 / 9.5cm (27%만)</td></tr>
-            <tr><td>카메라 + 깊이로 <b>스케일</b> 보정</td><td><span class="val">38cm</span> — 실패</td><td>—</td></tr>
-            <tr><td><b>카메라 + 깊이로 흙만 <em>선택</em> + IMU 회전 상쇄</b></td><td>4.3–8.4cm</td><td><span class="val">9.8–10.8cm</span> (86% 이상)</td></tr>
+            <tr><td>패스 중 방위</td><td>~0°</td><td>−25° → <span class="val">−0.5°</span></td><td><span class="tag t-ok">고침</span> IMU 로 붙든다</td></tr>
+            <tr><td>U턴 재진입</td><td>진입 오차 <span class="val">0.3–2.8cm</span></td><td>완주(A~E)</td><td><span class="tag t-ok">됨</span></td></tr>
+            <tr><td>패스 중 옆 이탈</td><td>0.1cm</td><td><span class="val">14.4cm</span></td><td><span class="tag t-open">미해결</span></td></tr>
+            <tr><td>절대 위치</td><td>52cm(무해)</td><td><span class="val">90cm</span></td><td><span class="tag t-open">미해결</span></td></tr>
+            <tr><td>달리며 타격</td><td>6/6 <span class="val">&lt;0.15cm</span></td><td><span class="val">23cm</span> (실패)</td><td><span class="tag t-open">미해결</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">타격이 실패한 이유는 기울기가 아니라 바퀴가 헛도는 것이었다</span>
+        기울기 보정을 켜도 안 켜도 23cm 였다. 오차를 성분으로 쪼개니 거의 전부 <b>앞뒤 방향</b>이고
+        <b>이동거리 과대추정과 크기가 같았다</b> — 흙덩이에서 바퀴가 헛돌아 "갔다"고 믿은 만큼 실제로는
+        안 갔고, 도구가 표적에 닿기 전에 내려갔다. 슬립이 없던 표적 하나는 3.5cm 로 맞았다:
+        <b>기구는 멀쩡하다</b>. 보정하던 항(기울기 옆밀림)이 애초에 오차의 원인이 아니었다.
+      </div>
+
+      <h3 class="reveal">센서를 어떻게 섞나 — 그리고 실패한 센서를 어떻게 막나</h3>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>같은 주행을 세 방식으로 재고 지상진실과 대조. <b>밭이 바뀌면 순위도 바뀐다</b> (DECISIONS 041·044)</caption>
+          <thead><tr><th>재는 방법</th><th>매끈한 밭</th><th>현실적인 밭</th><th>역할</th></tr></thead>
+          <tbody>
+            <tr><td>IMU (방위)</td><td>회전당 0.0°</td><td>0.0°</td><td><b>방위는 전부 여기서</b> — 휠 yaw 는 회전당 26° 부푼다</td></tr>
+            <tr><td>바퀴 (직진 거리)</td><td><span class="val">0.8%</span></td><td><span class="val">9.2%</span> (국소 25~65%)</td><td>기본값. 조용할 땐 가장 정확</td></tr>
+            <tr><td>카메라 (지면 흐름)</td><td>7–13%</td><td>12%</td><td>바퀴가 <b>원리적으로 못 보는</b> 회전 미끄러짐(관측 63~86%)</td></tr>
           </tbody>
         </table>
       </div>
       <div class="callout reveal">
         <span class="lb">깊이는 스케일이 아니라 선택에 쓴다</span>
         밭은 평면이 아니다 — 두둑 윗면·식물·고랑이 다 다른 거리에 있어서 "픽셀당 몇 mm"라는 값이
-        하나로 존재하지 않는다. 중앙값 깊이로 스케일을 고쳤더니 65cm 주행을 18cm 로 봤다.
-        대신 <b>캘리브 평면 ±5cm 픽셀(전체의 34%)만 남기고</b> 나머지를 지우면, 남은 픽셀에는 원래
-        캘리브 값이 그대로 맞는다. 이 한 줄이 회전 관측을 27% → 86% 로 올렸다.
-      </div>
-      <div class="callout reveal">
-        <span class="lb">그래서 융합을 만들었다 — 강점이 정확히 반대라서</span>
-        직진 거리는 바퀴가 압도적으로 정확하고(0.8%) 카메라는 7~13% 부족하다. 반대로 회전 중
-        미끄러짐은 바퀴가 <b>0.0cm</b>, 카메라만 본다. 방위는 IMU. 셋을 각자 강한 데서만 쓴다.
+        하나로 존재하지 않는다. 중앙값 깊이로 스케일을 고쳤더니 65cm 주행을 18cm 로 봤다. 대신
+        <b>캘리브 평면 근처 픽셀만 남기고</b> 나머지를 지우면 원래 캘리브 값이 그대로 맞는다.
       </div>
       <div class="callout open reveal">
-        <span class="lb">그런데 실주행에서는 아직 이득이 없다 (정직한 음성 결과)</span>
-        위 구조를 실제 관통에 붙여 U턴 뒤 표류를 재보니 <b>43.7cm(카메라 끔) → 58.8cm(켬)</b>.
-        첫 구현은 221.9cm 로 폭주했다 — 비용을 아끼려 화면 가운데만 잘라 봤더니 회전 중 대응이
-        깨졌고(진단에서 검증한 설정은 전체 화면이었다), 말도 안 되는 값을 그대로 더해 로봇이
-        "도착했다"고 착각하며 일찍 멈췄다. 가드를 넣어 폭주는 잡았지만 이득은 없어 <b>기본은 꺼둔다</b>.
+        <span class="lb">실패한 센서가 멀쩡한 센서를 덮어쓰면 안 된다 — 로봇이 밭 밖 21m 까지 달렸다</span>
+        "바퀴와 카메라가 어긋나면 카메라를 믿는다"로 만들었더니, <b>카메라가 실패해 0 에 가까운 값을
+        낼 때도 믿었다.</b> 추정이 거의 멈추자 로봇은 "아직 도착 안 했다"며 밭(x −0.3~1.7m)을 벗어나
+        <b>x=21m 까지</b> 달렸다. 시간 초과가 날 때까지 아무도 몰랐다.
         <div class="kv" style="margin:.5rem 0 .3rem">
-          <dt>지금 가설</dt><dd>진단 때는 카메라만 돌았고, 실주행은 인식이 GPU 를 같이 써 프레임이
-            드물어진다 → 프레임 사이 회전량이 커져 대응이 깨진다</dd>
-          <dt>다음 실험</dt><dd>회전 구간에서 카메라 증분과 지상진실 증분을 1:1 로 찍어 편향인지 실패인지 가른다</dd>
+          <dt>신뢰 범위</dt><dd>실제 슬립은 10~60% 지 100% 가 아니다 → 창 이동의 40~160% 밖이면 <b>상관 실패</b>로 보고 바퀴를 지킨다</dd>
+          <dt>구간 상한</dt><dd>한 직진에서 8m 넘게 갔는데 목표에 못 닿으면 <b>크게 실패</b>한다 — 밭 밖으로 달려나가지 않게</dd>
+          <dt>지금 상태</dt><dd>현실 밭에서 카메라 값이 대부분 신뢰 범위 밖이라 <b>융합은 사실상 바퀴만 쓴다</b>. 흙 마스크가 고정 평면 기준이라 두둑 높이·기울기가 변하면 흔들리는 게 원인 후보다</dd>
         </div>
       </div>
 
