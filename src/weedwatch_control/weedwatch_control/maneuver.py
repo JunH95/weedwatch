@@ -104,6 +104,12 @@ class GyroOdom:
     # 그래서 카메라 프레임이 올 때까지 바퀴 이동을 모아뒀다가 한 번에 비교한다.
     SLIP_REL = 0.20        # 창 안 이동의 20% 이상 어긋나면 슬립
     SLIP_ABS = 0.010       # 그리고 최소 1cm 는 어긋나야 (작은 창의 잡음 배제)
+    # **카메라를 믿는 범위**. 실제 슬립은 10~60% 지 100% 가 아니다 — 바퀴가 0.2m/s 로 도는데
+    # 몸이 전혀 안 가는 일은 흙에서 드물다. 카메라가 창 이동의 40% 미만/160% 초과를 말하면
+    # 그건 슬립이 아니라 **상관 실패**로 보고 바퀴를 지킨다.
+    # 안 그러면 실패한 VO(≈0)가 멀쩡한 바퀴 값을 덮어써 추정이 사실상 멈춘다 — 실측으로
+    # 로봇이 밭(x −0.3~1.7m)을 벗어나 **x=21m 까지 달렸다**(추정상 목표에 영영 못 닿아서).
+    VO_TRUST_LO, VO_TRUST_HI = 0.4, 1.6
 
     def __init__(self, x0=0.0, y0=0.0, yaw0=0.0):
         self.x, self.y, self.yaw = x0, y0, yaw0
@@ -168,6 +174,13 @@ class GyroOdom:
             wdx_w, wdy_w = self._wheel_win
             gap = math.hypot(vdx - wdx_w, vdy - wdy_w)
             win = max(math.hypot(vdx, vdy), math.hypot(wdx_w, wdy_w))
+            wheel_d, vo_d = math.hypot(wdx_w, wdy_w), math.hypot(vdx, vdy)
+            # 직진에서 카메라 값이 신뢰 범위를 벗어나면 상관 실패로 본다(회전은 바퀴가 0 이라 예외).
+            if not turning and wheel_d > 0.005 and not (
+                    self.VO_TRUST_LO * wheel_d <= vo_d <= self.VO_TRUST_HI * wheel_d):
+                self.vo_rejected += 1
+                self._wheel_win = [0.0, 0.0]
+                return self.x, self.y, self.yaw
             if turning or (gap > self.SLIP_ABS and gap > self.SLIP_REL * win):
                 # 회전이거나 큰 불일치 → 그 창의 이동을 카메라 값으로 **교체**한다(더하지 않는다).
                 self.x += vdx - wdx_w
@@ -201,15 +214,25 @@ class Maneuver:
             self._sleep(0.02)
         raise RuntimeError("자세 추정이 안 옵니다 (odom/IMU 미수신)")
 
+    # 한 구간에서 이보다 더 갔는데도 목표에 못 닿으면 **센서를 의심한다**. 밭 길이가 수 m 이므로
+    # 8m 는 어떤 정상 구간보다 길다. 이게 없으면 추정이 안 늘 때 로봇이 밭 밖으로 달려나간다
+    # (실측: x=21m 까지 갔다 — 시간 초과로 겨우 멈췄다).
+    MAX_LEG = 8.0
+
     def _drive_until(self, done, timeout, hold_heading=True):
         """직진 구간. **방위를 붙들고** 간다 — 흙덩이에 채이면 개루프는 그대로 돌아간 채 달린다."""
-        _, _, yaw0 = self.wait_pose()
+        x0, y0, yaw0 = self.wait_pose()
         self._drive(self.v, 0.0)
         t0 = self._now()
         while self._now() - t0 < timeout:
             x, y, yaw = self.wait_pose()
             if done(x, y, yaw):
                 break
+            if math.hypot(x - x0, y - y0) > self.MAX_LEG:
+                self._drive(0.0, 0.0)
+                raise RuntimeError(
+                    f"한 구간에서 {self.MAX_LEG}m 넘게 갔는데 목표에 못 닿았다 — 추정이 이동을 "
+                    f"못 따라오고 있다(융합·센서 의심). 로봇을 더 달리게 두지 않는다.")
             self._drive(self.v, heading_correction(yaw, yaw0) if hold_heading else 0.0)
             self._sleep(0.01)
         else:

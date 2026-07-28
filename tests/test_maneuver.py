@@ -160,9 +160,12 @@ def test_fusion_detects_slip_when_they_disagree():
     """
     g = GyroOdom()
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
-    g.update(0.020, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.004, 0.0), odom_wz=0.0)  # 바퀴 2cm, 카메라 0.4cm
+    for k in range(1, 11):                       # 바퀴로 4cm (10 × 4mm)
+        g.update(0.004 * k, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=None, odom_wz=0.0)
+    # 카메라는 같은 창에서 2.4cm 만 갔다고 본다(60% — 신뢰 범위 안의 진짜 슬립)
+    g.update(0.040, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.024, 0.0), odom_wz=0.0)
     assert g.slip_events == 1 and g.vo_used == 1
-    assert g.x == pytest.approx(0.004, abs=1e-9), "헛도는 바퀴를 그대로 적산했다"
+    assert g.x == pytest.approx(0.024, abs=1e-9), "헛도는 바퀴를 그대로 적산했다"
 
 
 def test_fusion_does_not_double_count_across_the_camera_window():
@@ -247,3 +250,30 @@ def test_fusion_ignores_missing_vo_rather_than_reading_zero():
     g.update(0.004, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=None, odom_wz=0.0)   # 증분 없음
     assert g.slip_events == 0 and g.wheel_used == 1
     assert g.x == pytest.approx(0.004, abs=1e-9)
+
+
+def test_fusion_rejects_vo_that_says_almost_nothing():
+    """카메라가 "거의 안 갔다"고 하면 그건 슬립이 아니라 **상관 실패**로 본다.
+
+    실제 슬립은 10~60% 지 100% 가 아니다. 이 가드가 없으면 실패한 VO(≈0)가 멀쩡한 바퀴 값을
+    덮어써 추정이 사실상 멈추고, 로봇은 "아직 도착 안 했다"며 밭 밖으로 달린다
+    (실측: x −0.3~1.7m 밭에서 **x=21m 까지 갔다**).
+    """
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    for k in range(1, 6):
+        g.update(0.004 * k, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=None, odom_wz=0.0)   # 바퀴 2cm
+    g.update(0.020, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.001, 0.0), odom_wz=0.0)   # 카메라 0.1cm(5%)
+    assert g.vo_rejected == 1 and g.slip_events == 0
+    assert g.x == pytest.approx(0.020, abs=1e-9), "실패한 VO 가 바퀴를 덮어썼다"
+
+
+def test_fusion_accepts_plausible_slip_within_trust_band():
+    """신뢰 범위(40~160%) 안의 불일치는 진짜 슬립으로 받아들인다."""
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    for k in range(1, 11):
+        g.update(0.004 * k, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=None, odom_wz=0.0)   # 바퀴 4cm
+    g.update(0.040, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.024, 0.0), odom_wz=0.0)   # 카메라 2.4cm(60%)
+    assert g.slip_events == 1 and g.vo_rejected == 0
+    assert g.x == pytest.approx(0.024, abs=1e-9)

@@ -12,7 +12,13 @@ y 가 1.207(두둑 중심 0.6). 직진 명령만 줬는데 로봇이 돌아간 �
 그래서 지상진실 yaw 시계열과 도구 명령(내려감/올라감)을 같은 시간축에 찍는다.
 제어는 평소대로 코디네이터가 하고, 여기서는 **보기만** 한다(GT 는 채점·진단 전용).
 
-실행:  ./scripts/env.sh python3 tools/diag_pass_yaw.py
+밭·옵션을 받는다:  FIELD=dev VO=true ./scripts/env.sh python3 tools/diag_pass_yaw.py
+
+**지금 쓰는 이유**(2026-07-27): 현실 밭 관통이 U턴 진입에서 시간 초과로 멈췄다. 로봇이 자기
+추정상 목표에 못 닿았는데, 두 가지가 구분이 안 된다 —
+  ① 물리적으로 **끼였다**(흙덩이·두둑 모서리) → 지상진실도 안 움직인다
+  ② 추정이 **과하게 깎였다**(VO 보정) → 지상진실은 가는데 추정만 안 는다
+지상진실을 같이 녹화하면 한 줄로 갈린다.
 """
 import math
 import os
@@ -28,7 +34,8 @@ ENV = str(WW / "scripts" / "env.sh")
 sys.path.insert(0, str(WW / "tools"))
 from assert_drive import gt_samples  # noqa: E402
 
-WORLD_NAME = "robot_field_multi"
+FIELD = os.environ.get("FIELD", "")
+WORLD_NAME = f"field_{FIELD}" if FIELD else "robot_field_multi"
 GT_TOPIC = f"/world/{WORLD_NAME}/dynamic_pose/info"
 GT_FILE = "/tmp/ww_passyaw_gt.log"
 LAUNCH_LOG = "/tmp/ww_passyaw_launch.log"
@@ -49,9 +56,10 @@ def main():
     subprocess.run(["pkill", "-f", "[r]os2 launch"], capture_output=True)
     time.sleep(1.0)
 
+    args = (f"field:={FIELD} " if FIELD else "") + os.environ.get("LAUNCH_ARGS", "")
     launch = subprocess.Popen(
         [ENV, "bash", "-c",
-         f"source {WW}/install/setup.bash && ros2 launch weedwatch_bringup skeleton.launch.py"],
+         f"source {WW}/install/setup.bash && ros2 launch weedwatch_bringup skeleton.launch.py {args}"],
         stdout=open(LAUNCH_LOG, "w"), stderr=subprocess.STDOUT, start_new_session=True)
     gtsub = None
     try:
@@ -73,7 +81,7 @@ def main():
             if launch.poll() is not None:
                 break
             log = Path(LAUNCH_LOG).read_text(errors="ignore")
-            if "U턴 A 헤드랜드 진출" in log:
+            if "시간 초과" in log or "관통 완료" in log or "U턴 E" in log:
                 time.sleep(2)
                 break
             time.sleep(2)
@@ -113,6 +121,16 @@ def main():
 
     yaws = [math.degrees(s[6]) for s in gt]
     ys = [s[2] for s in gt]
+    # U턴 진입 구간(=마지막 60초)에서 로봇이 **물리적으로** 움직였나
+    tail = [g for g in gt if g[0] >= gt[-1][0] - 60]
+    if len(tail) > 10:
+        dx = max(t[1] for t in tail) - min(t[1] for t in tail)
+        dy = max(t[2] for t in tail) - min(t[2] for t in tail)
+        moved = math.hypot(dx, dy)
+        print(f"\n    마지막 60초 지상진실 이동: {moved*100:.1f}cm "
+              f"(x {min(t[1] for t in tail):.2f}~{max(t[1] for t in tail):.2f})")
+        print("    ⟹ " + ("**로봇이 물리적으로 안 움직였다 = 끼임**" if moved < 0.05 else
+                          "로봇은 움직였다 — 추정이 안 따라온 것(융합 과보정 의심)"))
     print(f"\n    yaw 총 변화 {yaws[-1]-yaws[0]:+.2f}° · 최대 회전율 {worst[0]:+.2f}°/s (t={worst[1]:.1f}s)")
     print(f"    y 이동 {ys[0]:.3f} → {ys[-1]:.3f} ({(ys[-1]-ys[0])*100:+.1f}cm)")
 
