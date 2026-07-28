@@ -19,6 +19,7 @@ artifacts/field_run.json 로깅. field_run_ros.py(하네스)를 **진짜 노드*
 """
 import json
 import math
+import os
 import threading
 import time
 from pathlib import Path
@@ -38,10 +39,25 @@ from weedwatch_control.params import (                            # noqa: E402
 from weedwatch_sim.field import (                                 # noqa: E402
     oracle_weeds_for_bed, crops_for_bed, bed_centers)
 
-N_BEDS = 2
-X0, X1 = 0.2, 1.6                  # 두둑 주행 구간 (짧게 — 카메라+best.pt GPU 경합 느림, 036)
-RIDGE_X = (-0.30, 3.30)            # 두둑(ridge) 의 x 범위 — 이 밖이 헤드랜드
-SPAWN_X = 0.0                      # 월드가 로봇을 놓는 x (make_field_world: 두둑0 걸터탄 채 x=0)
+# 밭 기하는 **명세에서 온다**(DECISIONS 042). FIELD 가 없으면 기존 매끈한 밭(기준선) 그대로.
+#   FIELD=dev   현실적인 밭 — 굽은 두둑·흙덩이·경사
+FIELD = os.environ.get("FIELD", "")
+if FIELD:
+    import sys as _sys
+    _sys.path.insert(0, str(WW / "tools"))
+    from field_spec import get as _get_field                # noqa: E402
+    _F = _get_field(FIELD)
+    N_BEDS = _F.n_beds
+    X0, X1 = _F.x0 + 0.50, _F.x1 - 0.10                     # 두둑 안쪽 주행 구간
+    RIDGE_X = (_F.x0, _F.x1)
+    SPAWN_X = _F.x0 + 0.30
+    BED_CENTERS = _F.bed_centers
+else:
+    N_BEDS = 2
+    X0, X1 = 0.2, 1.6              # 두둑 주행 구간 (짧게 — 카메라+best.pt GPU 경합 느림, 036)
+    RIDGE_X = (-0.30, 3.30)        # 두둑(ridge) 의 x 범위 — 이 밖이 헤드랜드
+    SPAWN_X = 0.0                  # 월드가 로봇을 놓는 x (두둑0 걸터탄 채 x=0)
+    BED_CENTERS = bed_centers(N_BEDS)
 X_EXIT_HI = RIDGE_X[1] + SWING_RADIUS + EXIT_MARGIN     # +x 쪽 회전 지점
 X_EXIT_LO = RIDGE_X[0] - SWING_RADIUS - EXIT_MARGIN     # -x 쪽 회전 지점
 TOL_XY = 0.08                      # "그 잡초를 맞게 타격" 반경
@@ -85,8 +101,8 @@ class Coordinator(WwControl):
         return True
 
     def run_skeleton(self):
-        centers = bed_centers(N_BEDS)
-        result = {"field": {"n_beds": N_BEDS, "bed_centers": [round(c, 3) for c in centers],
+        centers = BED_CENTERS
+        result = {"field": {"name": FIELD or "smooth", "n_beds": N_BEDS, "bed_centers": [round(c, 3) for c in centers],
                             "drive_x": [X0, X1], "transit": "headland_uturn"}, "beds": [], "started": True}
         t_start = time.time()
         # odom 붙을 때까지

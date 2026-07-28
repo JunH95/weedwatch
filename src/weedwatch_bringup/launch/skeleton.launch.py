@@ -9,6 +9,7 @@
 env.sh 환경(EGL·정리된 PYTHONPATH·ROS 오버레이) + 워크스페이스 install 을 상속받아 자식들이 돈다.
 인식 노드만 condaenv 파이썬으로(torch), 나머지는 시스템 3.10. 코디네이터가 끝나면 전체 종료.
 """
+import os
 from pathlib import Path
 
 from launch import LaunchDescription
@@ -28,8 +29,14 @@ WW = find_repo_root()
 CONDA_PY = str(WW / "perception" / "condaenv" / "bin" / "python")
 PERCEPT = str(WW / "perception" / "ww_perception_node.py")
 VO_NODE = str(WW / "perception" / "ww_vo_node.py")
-WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
-WORLD_NAME = "robot_field_multi"
+# 밭 선택: field:=dev 면 현실적인 밭(042). 기본은 기존 매끈한 밭(기준선).
+FIELD = os.environ.get("WW_FIELD", "")
+if FIELD:
+    WORLD = str(WW / "worlds" / f"field_{FIELD}.sdf")
+    WORLD_NAME = f"field_{FIELD}"
+else:
+    WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
+    WORLD_NAME = "robot_field_multi"
 N_TOOLS = 3
 CAM_TOPICS = ["/robot/camera", "/robot/camera1"]
 
@@ -63,7 +70,8 @@ def generate_launch_description():
     vo_proc = TimerAction(period=7.0, actions=[ExecuteProcess(
         condition=IfCondition(vo), cmd=[CONDA_PY, VO_NODE], output="screen")])
 
-    coord_node = Node(package="weedwatch_coordinator", executable="coordinator_node", output="screen")
+    coord_node = Node(package="weedwatch_coordinator", executable="coordinator_node",
+                      output="screen", additional_env={"FIELD": FIELD})
     coordinator = TimerAction(period=11.0, actions=[coord_node])
 
     # 관제 화면(rviz2) — 사람이 "로봇 머릿속"을 본다: 믿는 자세 vs 실제 자세, 검출한 잡초, 카메라.

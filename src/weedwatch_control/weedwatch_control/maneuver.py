@@ -97,9 +97,13 @@ class GyroOdom:
     # (상관 피크가 엉뚱한 데 꽂힌 것). 안 거르면 추정이 폭주해 로봇이 도착했다고 착각한다 —
     # 실측으로 U턴 뒤 표류가 43.7cm → 221.9cm 로 나빠졌다(2026-07-27).
     VO_MAX_STEP = 0.05
-    # 바퀴와 카메라가 이만큼(m/샘플) 넘게 어긋나면 **바퀴가 헛돈 것**으로 본다. 0.2m/s·50Hz 에서
-    # 정상 증분이 4mm 이므로 3mm 차이는 이미 큰 불일치다(측정 잡음은 그보다 작다).
-    SLIP_DISAGREE = 0.003
+    # 슬립 판정 임계 — **같은 창(window) 안의 이동을 비교한 뒤** 적용한다.
+    # 카메라는 5Hz(창 200ms ≈ 4cm), 바퀴는 50Hz(20ms ≈ 4mm)다. 이 둘을 그대로 비교하면 항상
+    # 어긋나 보이고, 그 주기에 카메라 증분(창 전체)까지 더하면 **이중 계산**이 된다 —
+    # 실제로 그렇게 만들었다가 VO 47/50 샘플이 슬립으로 잡히고 추정이 부풀었다(2026-07-27).
+    # 그래서 카메라 프레임이 올 때까지 바퀴 이동을 모아뒀다가 한 번에 비교한다.
+    SLIP_REL = 0.20        # 창 안 이동의 20% 이상 어긋나면 슬립
+    SLIP_ABS = 0.010       # 그리고 최소 1cm 는 어긋나야 (작은 창의 잡음 배제)
 
     def __init__(self, x0=0.0, y0=0.0, yaw0=0.0):
         self.x, self.y, self.yaw = x0, y0, yaw0
@@ -108,7 +112,8 @@ class GyroOdom:
         self.vo_used = 0           # VO 증분을 실제로 쓴 횟수 (0 이면 융합이 안 붙은 것)
         self.vo_rejected = 0       # 물리적으로 불가능해 버린 VO 증분 (상관 실패 신호)
         self.wheel_used = 0
-        self.slip_events = 0       # 직진 중 바퀴-카메라 불일치가 커서 카메라를 쓴 횟수
+        self.slip_events = 0       # 직진 중 바퀴-카메라 불일치가 커서 카메라로 보정한 횟수
+        self._wheel_win = [0.0, 0.0]   # 카메라 프레임 사이에 바퀴로 간 world 변위(창)
         self._last_xy = None
         self._last_raw_yaw = None
 
@@ -144,27 +149,33 @@ class GyroOdom:
             self.vo_rejected += 1        # 상관 실패 — 버리고 휠로 간다
             vo = None
 
-        use_vo = False
-        if vo is not None:
-            if turning:
-                use_vo = True            # 회전: 바퀴는 미끄러짐을 원리적으로 못 본다(0.0cm)
-            else:
-                # 직진: 불일치가 크면 바퀴가 헛돈 것 — 그 순간만 카메라를 믿는다.
-                if abs(math.hypot(*vo) - ds) > self.SLIP_DISAGREE:
-                    use_vo = True
-                    self.slip_events += 1
+        # 1) 바퀴 증분은 **항상** 적산한다. 그리고 카메라 창을 위해 따로 모아둔다.
+        if odom_vx < 0:
+            ds = -ds
+        wdx = ds * math.cos(self.yaw)
+        wdy = ds * math.sin(self.yaw)
+        self.x += wdx
+        self.y += wdy
+        self._wheel_win[0] += wdx
+        self._wheel_win[1] += wdy
+        self.wheel_used += 1
 
-        if use_vo:
+        # 2) 카메라 프레임이 오면 **같은 창**의 바퀴 변위와 비교해 보정한다.
+        if vo is not None:
             fwd, left = vo
-            self.x += fwd * math.cos(self.yaw) - left * math.sin(self.yaw)
-            self.y += fwd * math.sin(self.yaw) + left * math.cos(self.yaw)
-            self.vo_used += 1
-        else:
-            if odom_vx < 0:
-                ds = -ds
-            self.x += ds * math.cos(self.yaw)
-            self.y += ds * math.sin(self.yaw)
-            self.wheel_used += 1
+            vdx = fwd * math.cos(self.yaw) - left * math.sin(self.yaw)
+            vdy = fwd * math.sin(self.yaw) + left * math.cos(self.yaw)
+            wdx_w, wdy_w = self._wheel_win
+            gap = math.hypot(vdx - wdx_w, vdy - wdy_w)
+            win = max(math.hypot(vdx, vdy), math.hypot(wdx_w, wdy_w))
+            if turning or (gap > self.SLIP_ABS and gap > self.SLIP_REL * win):
+                # 회전이거나 큰 불일치 → 그 창의 이동을 카메라 값으로 **교체**한다(더하지 않는다).
+                self.x += vdx - wdx_w
+                self.y += vdy - wdy_w
+                self.vo_used += 1
+                if not turning:
+                    self.slip_events += 1
+            self._wheel_win = [0.0, 0.0]
         return self.x, self.y, self.yaw
 
 

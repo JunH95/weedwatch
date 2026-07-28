@@ -134,11 +134,11 @@ def test_gyro_odom_distance_is_signed_by_direction():
 # 산수로 확인한다 — 시뮬을 돌리지 않고.
 
 def test_fusion_uses_vo_while_turning():
-    """회전 중에는 VO 증분을 쓴다 — 바퀴는 미끄러짐을 못 보므로."""
+    """회전 중에는 카메라가 본 이동으로 **교체**한다 — 바퀴는 미끄러짐을 원리적으로 못 본다."""
     g = GyroOdom()
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0, vo=(0.02, -0.01), odom_wz=0.5)
-    assert g.vo_used == 1 and g.wheel_used == 0
+    assert g.vo_used == 1
     assert g.x == pytest.approx(0.02, abs=1e-9)
     assert g.y == pytest.approx(-0.01, abs=1e-9)
 
@@ -153,7 +153,7 @@ def test_fusion_uses_wheels_when_they_agree():
 
 
 def test_fusion_detects_slip_when_they_disagree():
-    """바퀴가 헛돌면(카메라와 크게 어긋나면) 그 순간 카메라를 믿는다 — 044 의 핵심 수리.
+    """바퀴가 헛돌면(카메라와 크게 어긋나면) 그 창의 이동을 카메라 값으로 교체한다 — 044 의 수리.
 
     Step B 실측: 흙덩이를 넘는 순간 바퀴가 1m 에 20~31cm 를 부풀렸고, 그 과대가 그대로
     타격 오차(전후 −28~−36cm)가 됐다.
@@ -161,8 +161,25 @@ def test_fusion_detects_slip_when_they_disagree():
     g = GyroOdom()
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
     g.update(0.020, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.004, 0.0), odom_wz=0.0)  # 바퀴 2cm, 카메라 0.4cm
-    assert g.slip_events == 1 and g.vo_used == 1 and g.wheel_used == 0
+    assert g.slip_events == 1 and g.vo_used == 1
     assert g.x == pytest.approx(0.004, abs=1e-9), "헛도는 바퀴를 그대로 적산했다"
+
+
+def test_fusion_does_not_double_count_across_the_camera_window():
+    """**이중 계산 금지** — 카메라는 200ms 치, 바퀴는 20ms 치다.
+
+    카메라 프레임이 올 때까지 바퀴 이동을 모아뒀다가 그 창끼리 비교해야 한다. 그냥 더하면
+    같은 이동을 두 번 세서 추정이 부푼다(실제로 그렇게 만들었다가 VO 47/50 샘플이 슬립으로
+    잡혔다, 2026-07-27).
+    """
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    for k in range(1, 6):                       # 바퀴로 5회 × 4mm = 2cm
+        g.update(0.004 * k, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=None, odom_wz=0.0)
+    # 카메라가 같은 창(2cm)을 봤다고 말한다 → 보정 없음, 위치는 2cm 그대로여야 한다
+    g.update(0.020, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.020, 0.0), odom_wz=0.0)
+    assert g.slip_events == 0, "일치하는데 슬립으로 판정했다"
+    assert g.x == pytest.approx(0.020, abs=1e-9), f"이중 계산 — x={g.x:.4f} (기대 0.020)"
 
 
 def test_fusion_falls_back_to_wheels_without_vo():

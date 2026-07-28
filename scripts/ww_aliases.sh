@@ -38,7 +38,7 @@ wwturn() { ww && make turn; }          # 두둑 끝 U턴 게이트
 wwrun()  { ww && make ros-skeleton; }  # 관통 전체 (헤드리스)
 
 # 정리 — 시뮬은 한 번에 하나만 돌아야 한다. 좀비가 남으면 추정이 통째로 망가진다.
-wwkill() { ww && make clean-sim && pkill -f 'ros2 launch' 2>/dev/null; echo "시뮬 정리됨"; }
+wwkill() { ww && make clean-sim; echo "시뮬·노드 정리됨"; }
 
 wwhelp() {
   cat <<'EOF'

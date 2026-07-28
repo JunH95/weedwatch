@@ -404,7 +404,15 @@ smoke: clean-sim
 #
 # 대괄호가 중요하다: pkill -f 'ign gazebo' 는 자기 자신의 명령줄에도
 # 'ign gazebo' 가 들어 있어서 스스로를 죽인다. '[i]gn' 은 진짜 프로세스만 잡는다.
+# 좀비 정리 — ign 서버뿐 아니라 **런치가 띄운 자식 노드까지** 잡는다. `pkill ros2 launch` 만으로는
+# 코디네이터·인식·VO·브리지가 살아남아, 다음 실행이 "다른 실행이 이미 로봇을 몰고 있다"로 거부된다
+# (2026-07-27 실제로 밟음).
 clean-sim:
+	@pkill -f "[c]oordinator_node" 2>/dev/null || true
+	@pkill -f "[w]w_perception_node" 2>/dev/null || true
+	@pkill -f "[w]w_vo_node" 2>/dev/null || true
+	@pkill -f "[p]arameter_bridge" 2>/dev/null || true
+	@pkill -f "[r]os2 launch" 2>/dev/null || true
 	@pkill -f '[i]gn gazebo' 2>/dev/null || true
 	@pkill -f '[i]gn-gazebo-server' 2>/dev/null || true
 	@sleep 0.3
@@ -468,5 +476,7 @@ ros-build:
 
 # ROS 이관 Phase 4: 관통 전체를 런치파일 한 줄로 (Gazebo+브리지+인식+제어+코디네이터).
 #   먼저 make ros-build. env.sh 환경 + 워크스페이스 install 을 상속시켜 켠다.
+# FIELD=dev 를 주면 **현실적인 밭**에서 관통 전체를 돌린다(042 3단계) — 주행·타격·인식을 한꺼번에.
 ros-skeleton: clean-sim
-	@$(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py"
+	@if [ -n "$(FIELD)" ]; then $(MAKE) -s worlds/field_$(FIELD).sdf; fi
+	@WW_FIELD=$(FIELD) $(ENV) bash -c "source install/setup.bash && WW_ROOT=$(CURDIR) ros2 launch weedwatch_bringup skeleton.launch.py $(LAUNCH_ARGS)"
