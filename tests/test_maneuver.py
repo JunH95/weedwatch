@@ -180,3 +180,27 @@ def test_fusion_rejects_impossible_vo_steps():
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0, vo=(0.50, 0.0), odom_wz=0.5)
     assert g.vo_rejected == 1 and g.vo_used == 0
     assert g.x == pytest.approx(0.0, abs=1e-9), "불가능한 VO 를 적산했다"
+
+
+# ── 방위 유지 (DECISIONS 042 2단계) ────────────────────────────────────────
+
+def test_heading_correction_has_deadband():
+    """잔오차에는 명령을 안 낸다 — 조향축 없는 로봇에서 각속도는 옆 밀림을 부른다."""
+    from weedwatch_control.maneuver import heading_correction, HEADING_DEADBAND
+    assert heading_correction(0.0, math.radians(1.0)) == 0.0
+    assert heading_correction(0.0, -math.radians(1.0)) == 0.0
+    assert heading_correction(0.0, math.radians(10.0)) > 0.0
+
+
+def test_heading_correction_is_continuous_at_deadband():
+    """불감대 경계에서 명령이 툭 튀면 주행이 덜컥거린다."""
+    from weedwatch_control.maneuver import heading_correction, HEADING_DEADBAND
+    just_out = heading_correction(0.0, HEADING_DEADBAND + math.radians(0.01))
+    assert abs(just_out) < math.radians(1.0), "불감대를 막 벗어날 때 명령이 튄다"
+
+
+def test_heading_correction_saturates():
+    """큰 오차에도 상한을 넘지 않는다 — 뱀처럼 흔들리지 않게."""
+    from weedwatch_control.maneuver import heading_correction, HEADING_MAX_WZ
+    assert heading_correction(0.0, math.pi / 2) == pytest.approx(HEADING_MAX_WZ)
+    assert heading_correction(0.0, -math.pi / 2) == pytest.approx(-HEADING_MAX_WZ)

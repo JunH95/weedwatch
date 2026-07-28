@@ -31,7 +31,8 @@ from weedwatch_control.ww_paths import find_repo_root
 WW = find_repo_root()
 
 from weedwatch_control.control_node import WwControl              # noqa: E402
-from weedwatch_control.maneuver import Maneuver, SWING_RADIUS, EXIT_MARGIN  # noqa: E402
+from weedwatch_control.maneuver import (  # noqa: E402
+    Maneuver, SWING_RADIUS, EXIT_MARGIN, heading_correction)
 from weedwatch_control.params import (                            # noqa: E402
     TOOL_XS, BAND_CENTERS, BASE_Y, V, STRIKE, RAISE, Z_SETTLE, N, weed_tool)
 from weedwatch_sim.field import (                                 # noqa: E402
@@ -133,6 +134,9 @@ class Coordinator(WwControl):
                     # 다음 단계인 이유. 패스 안의 상대 정확도(타격이 쓰는 값)는 이것과 무관하다.
                     anchor = 0.0 if bed == 0 else sx - est[0]
                 ox = est[0] + anchor
+                # 패스 중 **방위를 붙든다**. 개루프로 달리면 흙덩이에 채인 순간 돌아간 채로 계속
+                # 간다 — 개발 밭 실측에서 2m 패스에 yaw −12.4°, y 이탈 17.4cm 였다(042 2단계).
+                self.drive(V, heading_correction(est[2], 0.0 if d > 0 else math.pi))
                 self.publish_base(ox, cy, 0.0 if d > 0 else math.pi)
                 for wx, wy in list(self.latest_weeds):
                     key = (round(wx / 0.06), round(wy / 0.06))

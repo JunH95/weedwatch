@@ -429,10 +429,13 @@ ros-percept: worlds/robot_field_multi.sdf clean-sim
 worlds/field_%.sdf: tools/make_field.py tools/field_spec.py tools/make_ridge_varied.py tools/garden_geometry.py
 	@$(ENV) python3 tools/make_field.py $* > $@
 
-FIELD ?= dev
+# FIELD 는 **기본값을 안 준다**. 전역 기본값(FIELD ?= dev)을 뒀더니 `make turn` 이 조용히
+# 개발 밭에서 돌아 기준선 게이트가 다른 밭을 재고 있었다(2026-07-27). 기본값이 게이트를 바꾸면
+# 안 된다 — 필요한 곳에서만 각자 정한다.
 # 밭이 물리로 성립하는지(로봇이 서는지) 렌더 없이 단언. 주행·U턴은 다음 단계.
-field-check: worlds/field_$(FIELD).sdf clean-sim
-	@$(ENV) python3 tools/assert_field.py $(FIELD)
+field-check: clean-sim
+	@$(MAKE) -s worlds/field_$(or $(FIELD),dev).sdf
+	@$(ENV) python3 tools/assert_field.py $(or $(FIELD),dev)
 
 # 밭 명세를 표로 (크기·현실성·창고 유무)
 fields:
@@ -441,8 +444,10 @@ fields:
 # 자율주행: 두둑 끝 헤드랜드 U턴 (순간이동 치트 제거). Tier 2 물리(렌더 없음).
 # 제어 코드는 프로덕션과 동일한 weedwatch_control.maneuver 를 import 하므로 colcon 빌드 선행.
 # 게이트: 진입 y<5cm · 진입 yaw<8° · 끼임 없음 · IMU 실사용(휠 폴백이면 회전당 26° 오차).
+# FIELD=dev 로 현실적인 밭에서 같은 게이트를 돌린다(042 2단계). 임계값은 안 바꾼다.
 turn: build/ww_cmd worlds/robot_field_multi.sdf clean-sim
-	@$(ENV) python3 tools/assert_uturn.py
+	@if [ -n "$(FIELD)" ]; then $(MAKE) -s worlds/field_$(FIELD).sdf; fi
+	@FIELD=$(FIELD) $(ENV) python3 tools/assert_uturn.py
 
 ros-build:
 	@$(ENV) colcon build

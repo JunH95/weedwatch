@@ -592,7 +592,7 @@
       <p class="lead col reveal">화면을 안 보는 대신 4단으로 검증한다. 산수로 답할 수 있는 건 시뮬을 안 돌린다(느리고 불안정하고 GPU가 필요하니까). 시뮬은 산수로 못 푸는 것만 맡는다.</p>
       <div class="axis reveal">
         <div class="node done"><div class="lab">Tier 0 · 위생 <span class="st">env.sh</span></div><div class="muted">올바른 파이썬·EGL·GPU를 단언. 잘못된 환경을 아예 차단한다.</div></div>
-        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 163개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사. 이 문서가 안내하는 명령이 실제로 존재하는지도 여기서 단언한다.</div></div>
+        <div class="node done"><div class="lab">Tier 1 · 순수 단위 <span class="st">make test · 166개</span></div><div class="muted">“로봇이 두둑을 탈 수 있나”는 산수다. 시뮬·GPU 없이 밀리초 만에 URDF·관성·기하를 검사. 이 문서가 안내하는 명령이 실제로 존재하는지도 여기서 단언한다.</div></div>
         <div class="node done"><div class="lab">Tier 2 · 물리 시뮬 <span class="st">drive · joints · straddle · turn · tilt-stamp · shake · row</span></div><div class="muted">렌더 없이 물리만(GPU 불필요). 명령이 실제 운동이 되는지를 지상진실로 단언.</div></div>
         <div class="node done"><div class="lab">Tier 3 · 렌더 시뮬 <span class="st">camera · percept · row-live · ros-skeleton · viz-check · foxglove-check</span></div><div class="muted">GPU 렌더. 픽셀이 검지 않은가, 그리고 NVIDIA가 그렸는가(게이트 둘).</div></div>
       </div>
@@ -634,12 +634,40 @@
         <div class="node done"><div class="lab">두둑 끝 회전 <span class="st">완료</span></div><div class="muted">순간이동 치트를 지우고 <b>실제 U턴</b>으로 돈다 — 두둑을 벗어나 헤드랜드에서 돌아 옆 두둑에 다시 걸터탄다. 그래서 지그재그(보스트로페돈)가 진짜 주행으로 성립한다. 방위는 <b>IMU</b>가 준다(아래 표).</div></div>
         <div class="node plan"><div class="lab">위치추정 <span class="st">측정 완료 · 이득은 아직</span></div><div class="muted">회전 중 몸통이 실제로 미끄러지는데 바퀴도 IMU도 못 봐서 <b>U턴 한 번에 절대 위치가 52cm</b> 밀린다. 하방 카메라로 그 미끄러짐을 <b>실제로 관측했다</b> — 아래 표. 남은 건 융합 구현.</div></div>
         <div class="node plan"><div class="lab">자율 처리율 올리기 <span class="st">측정 필요</span></div><div class="muted">처리율이 낮다(카메라가 채점 밖 클러터 잡초까지 검출·잎-밑동 오차). 측정 계약부터. 인식 노드 위에서 고친다.</div></div>
-        <div class="node now"><div class="lab">현실적인 밭 <span class="st">지금</span><span class="badge">현재</span></div><div class="muted">지금 밭은 <b>자로 그은 듯 반듯하다</b> — 고랑은 무한 평면, 두둑은 단면을 그대로 밀어낸 완전 균일. 요철·경사는 따로 만든 시험 밭에만 있다. 그래서 U턴·위치추정 숫자가 현실에서 성립하는지 모른다. 밭 생성기를 일반화해 <b>불균일·요철·경사·창고</b>를 넣고, 밭을 셋으로 나눈다(아래).</div></div>
+        <div class="node done"><div class="lab">현실적인 밭 <span class="st">완료</span></div><div class="muted">지금 밭은 <b>자로 그은 듯 반듯하다</b> — 고랑은 무한 평면, 두둑은 단면을 그대로 밀어낸 완전 균일. 요철·경사는 따로 만든 시험 밭에만 있다. 그래서 U턴·위치추정 숫자가 현실에서 성립하는지 모른다. 밭 생성기를 일반화해 <b>불균일·요철·경사·창고</b>를 넣고, 밭을 셋으로 나눈다(아래).</div></div>
+        <div class="node now"><div class="lab">전방 카메라 <span class="st">측정이 요구함</span><span class="badge">다음</span></div><div class="muted">현실적인 밭에서 재보니 <b>발밑만 보는 로봇은 못 간다</b>: 패스 중 옆으로 14.4cm 밀리고(방위를 붙들어도 위치는 안 돌아온다), 절대 위치가 90cm 틀어져 두둑 앞 61cm 에서 멈춘다. 둘 다 밭을 <b>보고</b> 풀어야 한다 — 두둑 중심선 조향 + 두둑 끝 감지. 두둑은 25cm 융기라 깊이 기하로 찾는다(인식 모델 불필요).</div></div>
         <div class="node plan"><div class="lab">울퉁불퉁한 밭에서의 타격 <span class="st">설계됨 · 실행 남음</span></div><div class="muted">기울기 보정은 이미 증명됐다(8° 경사에서 무보정 4.26cm → 보정 0.10cm). 남은 건 <b>달리면서</b>다 — 요철+경사를 함께 놓고 무보정 vs IMU 보정을 가른다. 흙덩이만으로는 무보정도 1.2cm라 차이가 안 나서, 두 지형을 합쳐야 한다.</div></div>
         <div class="node plan"><div class="lab">바퀴 접촉 모델 <span class="st">부채</span></div><div class="muted">바퀴 마찰은 단일 출처 0.4(젖은 흙 최악)로 넣었다. 남은 건 흙덩이 상자를 연속 지형으로 바꾸고 슬립 모델을 문헌 값으로 채우는 것.</div></div>
         <div class="node plan"><div class="lab">배터리 · 도킹 <span class="st">설계됨</span></div><div class="muted">배터리 플러그인으로 “잡초 하나당 에너지”를 잰다. 도킹은 범위 안 — 홈 베이스에 보관·에너지 저장·복귀(위치추정 선행이라 미룸, DECISIONS 039).</div></div>
         <div class="node plan"><div class="lab">실물 텃밭 관리 앱 <span class="st">설계됨 · 최종</span></div><div class="muted">지금 대시보드는 자기완결 HTML(자리표시). 실물 로봇이 나오면 실시간 확인 + 작동 제어가 되는 웹/앱으로. 가장 마지막 단계.</div></div>
       </div>
+      <h3 class="reveal">현실적인 밭이 무엇을 깨뜨렸나</h3>
+      <div class="tbl-wrap reveal">
+        <table>
+          <caption>같은 게이트(<code>make turn</code>)를 밭만 바꿔 돌렸다. <b>임계값은 안 건드렸다</b> — 밭에 맞춰 낮추면 "현실 밭에서도 된다"가 공허해진다 (DECISIONS 043)</caption>
+          <thead><tr><th>측정</th><th>매끈한 밭</th><th>현실적인 밭</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>패스 중 방위 (고치기 전)</td><td>~0°</td><td><span class="val">−25.1°</span></td><td>흙덩이에 채이면 돌아간 채로 계속 간다</td></tr>
+            <tr><td>패스 중 방위 (고친 뒤)</td><td>~0°</td><td><span class="val">−0.5°</span></td><td><b>IMU 로 해결</b></td></tr>
+            <tr><td>패스 중 옆 이탈</td><td>0.1cm</td><td><span class="val">14.4cm</span></td><td>방위 보정은 <b>방향</b>만 되돌린다</td></tr>
+            <tr><td>절대 위치 오차</td><td>52cm (무해)</td><td><span class="val">90cm</span></td><td>두둑 앞 61cm 에서 "도착"으로 착각</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout reveal">
+        <span class="lb">보정이 스스로 오차를 만든다 — 이 로봇 형태의 대가</span>
+        방위를 붙들려고 잔오차까지 고쳤더니 <b>매끈한 밭 성적이 오히려 나빠졌다</b>(진입 오차 0.3~2.8cm
+        → 5.0cm). 조향축이 없어서 각속도 명령 자체가 바퀴를 긁고 몸통을 옆으로 밀기 때문이다.
+        불감대 2°를 넣어 <b>큰 교란만</b> 되돌리게 하니 2.1cm 로 복구됐다.
+      </div>
+      <div class="callout open reveal">
+        <span class="lb">그래서 전방 카메라를 붙인다 — 측정이 요구했다</span>
+        옆 이탈과 절대 위치는 <b>온보드 센서로는 원리적으로 못 푼다</b>(바퀴는 미끄러짐을 못 보고
+        IMU 는 방위만 안다). 둘 다 밭에 대한 <b>상대 위치</b>를 봐야 풀린다 — 두둑 중심선을 보고
+        조향하고, 두둑 끝을 보고 돌 시점을 안다(좌표를 몰라도 된다). 두둑은 25cm 융기라 깊이 기하로
+        찾으므로 <b>인식 모델은 필요 없다</b>.
+      </div>
+
       <h3 class="reveal">밭 셋 — 작게 고치고 크게 검증한다</h3>
       <div class="tbl-wrap reveal">
         <table>
@@ -853,13 +881,14 @@
             <tr><td class="val">035–036</td><td>형태는 걸터타기 유지(캔틸레버 기각), 세부 완벽 대신 끝에서 끝까지 먼저(관통)</td></tr>
             <tr><td class="val">037–038</td><td>시뮬은 Gazebo 확정(Isaac 이득 없음), 실행 구조를 ROS 2 로 이관</td></tr>
             <tr><td class="val">039</td><td>목표 시나리오 확정(창고→밭→제초→기록→복귀) · 도킹은 범위 안</td></tr>
+            <tr><td class="val">043</td><td>현실적인 밭이 깨뜨린 것 — 방위는 IMU 로 고쳐지고, 옆 위치·절대 위치는 카메라가 필요하다</td></tr>
             <tr><td class="val">042</td><td>밭 사다리 — 개발 밭에서 고치고 정본 밭에서 판정. 정본은 보호 대상</td></tr>
             <tr><td class="val">041</td><td>위치추정 융합(바퀴=직진·카메라=회전 미끄러짐·IMU=방위) — 구조는 맞으나 실주행 이득은 아직 없음(음성 결과)</td></tr>
             <tr><td class="val">040</td><td>두둑 끝 회전의 방위는 IMU 가 준다 — 스키드 스티어라 휠 오도메트리로는 원천 불가</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(42건)와 <code>REFERENCES.md</code>에.</p>
+      <p class="col muted reveal">전체 결정과 근거는 <code>DECISIONS.md</code>(43건)와 <code>REFERENCES.md</code>에.</p>
     </div>
   </section>
 

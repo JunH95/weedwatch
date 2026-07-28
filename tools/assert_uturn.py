@@ -23,7 +23,12 @@
   4. IMU 를 실제로 썼다      — 휠 yaw 폴백으로 조용히 나빠지지 않았나 (폴백이면 26°/회전)
   5. (보고) 진입 후 옆 밀림 · 추정↔GT 표류 — 회전 중 몸통 미끄러짐은 온보드로 관측 불가
 
-실행:  make turn      (colcon 빌드 선행 — 프로덕션 모듈을 import 하므로)
+실행:  make turn                    매끈한 밭(기준선)
+       make turn FIELD=dev          현실적인 밭 — 굽은 두둑·흙덩이·경사 (DECISIONS 042)
+       (colcon 빌드 선행 — 프로덕션 모듈을 import 하므로)
+
+**밭을 바꿔도 게이트는 그대로다.** 임계값을 밭에 맞춰 낮추면 "현실적인 밭에서도 된다"가 공허해진다.
+현실 밭에서 실패하면 그게 결과다 — 무엇을 고쳐야 하는지 알려주는 실패다.
 """
 import math
 import os
@@ -43,18 +48,34 @@ from assert_drive import gt_samples  # noqa: E402
 from weedwatch_control.maneuver import (  # noqa: E402  (colcon install 경유 — 프로덕션과 동일 코드)
     GyroOdom, Maneuver, SWING_RADIUS, EXIT_MARGIN, wrap)
 
-WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
-WORLD_NAME, MODEL = "robot_field_multi", "weedwatch"
+FIELD = os.environ.get("FIELD", "")           # 빈 값 = 기존 매끈한 밭(기준선)
+MODEL = "weedwatch"
+WW_CMD = str(WW / "build" / "ww_cmd")
+V = 0.20
+
+if FIELD:
+    from field_spec import get as get_field                     # noqa: E402
+    _F = get_field(FIELD)
+    WORLD = str(WW / "worlds" / f"field_{FIELD}.sdf")
+    WORLD_NAME = f"field_{FIELD}"
+    SPAWN = (_F.x0 + 0.30, _F.bed_centers[0], 0.0)
+    BED0_Y, BED1_Y = _F.bed_centers[0], _F.bed_centers[1]
+    RIDGE_X_END = _F.x1
+    ENTRY_X = _F.x1 - 0.30                                      # 재진입 후 두둑 위 지점
+    FIELD_DESC = (f"{FIELD} — 두둑 폭±{_F.width_var*100:.0f} 높이±{_F.height_var*100:.0f} "
+                  f"사행±{_F.meander*100:.0f}cm · 흙덩이 {_F.clod_density}/m · 경사 {_F.cross_slope_deg}°")
+else:
+    WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
+    WORLD_NAME = "robot_field_multi"
+    SPAWN = (0.0, 0.60, 0.0)
+    BED0_Y, BED1_Y = 0.60, 1.80
+    RIDGE_X_END = 3.30
+    ENTRY_X = 2.20
+    FIELD_DESC = "매끈한 밭 (기준선)"
+
 GT_TOPIC = f"/world/{WORLD_NAME}/dynamic_pose/info"
 GT_FILE = "/tmp/ww_turn_gate_gt.log"
-WW_CMD = str(WW / "build" / "ww_cmd")
-
-SPAWN = (0.0, 0.60, 0.0)
-BED0_Y, BED1_Y = 0.60, 1.80
-RIDGE_X_END = 3.30
 X_EXIT = RIDGE_X_END + SWING_RADIUS + EXIT_MARGIN
-ENTRY_X = 2.20               # 재진입 후 패스 시작점 (두둑 위)
-V = 0.20
 
 GATE_Y_CM = 5.0
 GATE_YAW_DEG = 8.0
@@ -188,7 +209,8 @@ def run():
 
 def main():
     print("=== 헤드랜드 U턴 (Tier 2 물리) ===")
-    print(f"    두둑0(y={BED0_Y}) → 헤드랜드 x={X_EXIT:.2f} → 좌회전 U턴 → 두둑1(y={BED1_Y}) 재진입 x={ENTRY_X}")
+    print(f"    밭: {FIELD_DESC}")
+    print(f"    두둑0(y={BED0_Y:.2f}) → 헤드랜드 x={X_EXIT:.2f} → 좌회전 U턴 → 두둑1(y={BED1_Y:.2f}) 재진입 x={ENTRY_X:.2f}")
     print("    제어=온보드(휠 거리 + IMU 방위) · 채점=지상진실(별도 프로세스)\n")
     est, gyro, marks = run()
 

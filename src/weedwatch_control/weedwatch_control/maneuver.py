@@ -34,9 +34,35 @@ TURN_LEAD = math.radians(4.0)   # 회전 관성 선행 정지 (명령 끊어도 
 FINE_YAW = math.radians(0.5)    # 마무리 방위 허용오차
 BRAKE_K = 0.40         # 제동거리 ≈ BRAKE_K·v² [m] (실측 피팅, STATUS Stage 4-3)
 
+# 직진 중 방위 유지 (DECISIONS 042 2단계). 매끈한 밭에서는 필요 없었다 — 명령만 주면 곧게 갔다.
+# 현실적인 밭에서는 다르다: 바퀴가 흙덩이를 타는 순간 좌우 견인이 어긋나 **yaw 가 튄다**.
+# 실측(개발 밭, 2m 패스): pitch +2.7° 와 동시에 yaw −11.9°, 패스 끝까지 누적 −12.4° · y 이탈 17.4cm.
+# 개루프로 달리면 그 뒤 U턴·재진입이 전부 틀어진 방위 위에서 일어난다.
+# IMU 가 방위를 0.0° 로 주므로(040) 비례 보정만으로 잡을 수 있다 — 카메라가 필요한 건 **옆 위치**지
+# 방위가 아니다.
+# **불감대가 필요하다**: 이 로봇은 조향축이 없어서 각속도 명령 자체가 바퀴를 긁고(scrub) 몸통을
+# 옆으로 민다(회전 90°당 옆 0.26m, 040). 그래서 잔오차까지 계속 고치면 방위는 붙들리는데 옆으로
+# 스멀스멀 밀린다 — 실측으로 매끈한 밭 U턴 진입 오차가 0.3~2.8cm 에서 5.0cm(임계값)로 나빠졌다.
+# 큰 교란(흙덩이에 채임)만 되돌리고 잔오차는 놔둔다.
+HEADING_DEADBAND = math.radians(2.0)
+HEADING_KP = 1.0        # [rad/s per rad]
+HEADING_MAX_WZ = 0.25   # 보정 각속도 상한 — 이보다 크면 주행이 뱀처럼 흔들린다
+
 
 def wrap(a: float) -> float:
     return math.atan2(math.sin(a), math.cos(a))
+
+
+def heading_correction(yaw: float, target: float) -> float:
+    """방위 오차를 각속도 명령으로 — 직진 중 IMU 로 방위를 붙든다.
+
+    불감대 안이면 **0 을 낸다**. 조향축 없는 로봇에서 각속도 명령은 공짜가 아니다(긁힘 → 옆 밀림).
+    """
+    err = wrap(target - yaw)
+    if abs(err) < HEADING_DEADBAND:
+        return 0.0
+    err -= math.copysign(HEADING_DEADBAND, err)      # 불감대 경계에서 연속이 되게
+    return max(-HEADING_MAX_WZ, min(HEADING_MAX_WZ, HEADING_KP * err))
 
 
 class GyroOdom:
@@ -149,13 +175,16 @@ class Maneuver:
             self._sleep(0.02)
         raise RuntimeError("자세 추정이 안 옵니다 (odom/IMU 미수신)")
 
-    def _drive_until(self, done, timeout):
+    def _drive_until(self, done, timeout, hold_heading=True):
+        """직진 구간. **방위를 붙들고** 간다 — 흙덩이에 채이면 개루프는 그대로 돌아간 채 달린다."""
+        _, _, yaw0 = self.wait_pose()
         self._drive(self.v, 0.0)
         t0 = self._now()
         while self._now() - t0 < timeout:
             x, y, yaw = self.wait_pose()
             if done(x, y, yaw):
                 break
+            self._drive(self.v, heading_correction(yaw, yaw0) if hold_heading else 0.0)
             self._sleep(0.01)
         else:
             self._drive(0.0, 0.0)
