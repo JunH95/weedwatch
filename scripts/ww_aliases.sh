@@ -21,12 +21,13 @@ ww() {
 # wwb       코드 받아서 빌드 (git pull 후에만 필요 — 매번 아님)
 wwb() { ww && git pull --ff-only && colcon build && echo "빌드 완료"; }
 
-# 관람 (사람 눈) ─────────────────────────────────────────────────────────────
-wwsim()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py gui:=true; }        # Gazebo
-wwfox()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true; }   # 그래프·상태
-wwrviz() { ww && ros2 launch weedwatch_bringup skeleton.launch.py rviz:=true; }       # 3D 믿음vs실제
-wwplot() { ww && ros2 launch weedwatch_bringup skeleton.launch.py plot:=true; }       # 그래프만 (계정 불필요)
-wwall()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py gui:=true rviz:=true foxglove:=true; }
+# 관람 (사람 눈) — 인자로 밭을 고른다: wwsim (매끈) · wwsim dev (현실 밭) · wwsim main (정본)
+_wwfield() { [ -n "$1" ] && { make -s "worlds/field_$1.sdf" && echo "field:=$1"; }; }
+wwsim()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py gui:=true      $(_wwfield "$1"); }
+wwfox()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true $(_wwfield "$1"); }
+wwrviz() { ww && ros2 launch weedwatch_bringup skeleton.launch.py rviz:=true     $(_wwfield "$1"); }
+wwplot() { ww && ros2 launch weedwatch_bringup skeleton.launch.py plot:=true     $(_wwfield "$1"); }
+wwall()  { ww && ros2 launch weedwatch_bringup skeleton.launch.py gui:=true rviz:=true foxglove:=true $(_wwfield "$1"); }
 
 # 상태 들여다보기 ────────────────────────────────────────────────────────────
 wwerr()  { ww && ros2 topic echo /ww/state/loc_error_cm; }     # 위치추정 오차 실시간
@@ -46,7 +47,7 @@ weedwatch 명령
   ww        저장소 + ROS 환경 준비 (터미널마다 한 번)
   wwb       git pull + colcon build (코드 받았을 때만)
 
-  보기
+  보기 (뒤에 밭 이름을 붙일 수 있다: wwsim dev / wwsim main)
     wwsim     Gazebo — 밖에서 본 로봇
     wwplot    그래프 — 위치오차·방위·속도·슬립 (rqt_plot/PlotJuggler, 계정 불필요)
     wwfox     Foxglove 브리지 — 창은 app.foxglove.dev (계정 필요) 또는 Lichtblick

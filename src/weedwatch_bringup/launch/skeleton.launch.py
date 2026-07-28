@@ -3,13 +3,17 @@
 
   Gazebo(ign) → ros_gz_bridge → 인식 노드(condaenv) → 코디네이터(제어+판단)
 
-실행(make ros-skeleton 가 감싼다):
-  source scripts/ros_env.sh && ros2 launch weedwatch_bringup skeleton.launch.py
+실행:
+  source scripts/ros_env.sh
+  ros2 launch weedwatch_bringup skeleton.launch.py gui:=true              # 매끈한 밭, 눈으로
+  ros2 launch weedwatch_bringup skeleton.launch.py field:=dev gui:=true   # 현실 밭
+  ros2 launch weedwatch_bringup skeleton.launch.py field:=dev vo:=true    # 카메라 융합까지
 
 env.sh 환경(EGL·정리된 PYTHONPATH·ROS 오버레이) + 워크스페이스 install 을 상속받아 자식들이 돈다.
 인식 노드만 condaenv 파이썬으로(torch), 나머지는 시스템 3.10. 코디네이터가 끝나면 전체 종료.
 """
 import os
+import sys
 from pathlib import Path
 
 from launch import LaunchDescription
@@ -29,8 +33,21 @@ WW = find_repo_root()
 CONDA_PY = str(WW / "perception" / "condaenv" / "bin" / "python")
 PERCEPT = str(WW / "perception" / "ww_perception_node.py")
 VO_NODE = str(WW / "perception" / "ww_vo_node.py")
+def _field_from_cli() -> str:
+    """`ros2 launch ... field:=dev` 를 읽는다.
+
+    월드 경로는 런치를 **만드는 시점**에 정해져야 해서(ExecuteProcess 의 cmd) 런치 인자 치환
+    (LaunchConfiguration)으로는 늦다. 그래서 argv 를 직접 본다. 환경변수(WW_FIELD)도 받는다 —
+    make 가 그쪽을 쓴다.
+    """
+    for a in sys.argv:
+        if a.startswith("field:="):
+            return a.split(":=", 1)[1].strip()
+    return os.environ.get("WW_FIELD", "")
+
+
 # 밭 선택: field:=dev 면 현실적인 밭(042). 기본은 기존 매끈한 밭(기준선).
-FIELD = os.environ.get("WW_FIELD", "")
+FIELD = _field_from_cli()
 if FIELD:
     WORLD = str(WW / "worlds" / f"field_{FIELD}.sdf")
     WORLD_NAME = f"field_{FIELD}"
@@ -51,6 +68,9 @@ def generate_launch_description():
     gui = LaunchConfiguration("gui")
     declare_gui = DeclareLaunchArgument("gui", default_value="false",
                                         description="Gazebo GUI 표시. 기본 headless(에이전트).")
+    # 문서용 선언 — 실제 값은 위 _field_from_cli() 가 argv 에서 먼저 읽는다(월드 경로가 먼저 필요).
+    declare_field = DeclareLaunchArgument("field", default_value="",
+                                          description="밭: 빈값=매끈(기준선) · dev=현실 · main=정본")
     gazebo_headless = ExecuteProcess(
         condition=UnlessCondition(gui),
         cmd=["ign", "gazebo", "-s", "-r", "--headless-rendering", WORLD], output="screen")
@@ -138,7 +158,8 @@ def generate_launch_description():
         target_action=coord_node,
         on_exit=[EmitEvent(event=Shutdown(reason="관통 완료"))]))
 
-    return LaunchDescription([declare_gui, declare_rviz, declare_fox, declare_plot, declare_vo,
+    return LaunchDescription([declare_gui, declare_field, declare_rviz, declare_fox,
+                             declare_plot, declare_vo,
                              gazebo_headless, gazebo_gui, bridge_proc, perception,
                              viz_node, rviz_proc, fox_viz, fox_bridge, fox_hint,
                              plot_viz, plot_proc, vo_proc,

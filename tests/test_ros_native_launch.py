@@ -68,3 +68,23 @@ def test_repo_root_found_from_outside():
     r = _run("from weedwatch_control.ww_paths import find_repo_root; "
              "print(find_repo_root())")
     assert str(WW) in r.stdout, f"루트를 잘못 찾음: {r.stdout.strip()!r}"
+
+
+def test_field_launch_argument_selects_the_world():
+    """`ros2 launch ... field:=dev` 가 실제로 그 밭 월드를 고르는가.
+
+    밭 선택이 환경변수뿐이면 사람이 관람할 때(`ros2 launch`) 못 쓴다 — 실험은 개발 밭에서
+    돌아가는데 눈으로 보는 건 매끈한 밭이 되는, 알아채기 어려운 어긋남이 생긴다.
+    """
+    code = (
+        "import sys, importlib.util, os\n"
+        "from ament_index_python.packages import get_package_share_directory\n"
+        "sys.argv = ['ros2','launch','x','skeleton.launch.py','field:=dev']\n"
+        "p = os.path.join(get_package_share_directory('weedwatch_bringup'),'launch','skeleton.launch.py')\n"
+        "sp = importlib.util.spec_from_file_location('s', p)\n"
+        "m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)\n"
+        "assert m.FIELD == 'dev', m.FIELD\n"
+        "assert os.path.basename(m.WORLD) == 'field_dev.sdf', m.WORLD\n"
+        "print('ok')\n")
+    r = _run(code)
+    assert "ok" in r.stdout, f"{r.stdout[-300:]}\n{r.stderr[-500:]}"
