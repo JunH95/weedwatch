@@ -84,10 +84,14 @@ or FarmBot in general, to be able to remove large, established weeds"* 라고 �
 source scripts/ros_env.sh          # 파이썬 3.10 · ROS 오버레이 · EGL(NVIDIA) · 리소스 경로
 colcon build                       # 코드를 받았을 때만
 
-ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true   # 관제(그래프·상태)
-ros2 launch weedwatch_bringup skeleton.launch.py gui:=true        # Gazebo 로 눈으로
-ros2 topic echo /ww/state/loc_error_cm                            # 위치추정 오차 실시간
+ros2 launch weedwatch_bringup skeleton.launch.py gui:=true             # Gazebo 로 눈으로
+ros2 launch weedwatch_bringup skeleton.launch.py field:=dev gui:=true  # 현실적인 밭에서
+ros2 launch weedwatch_bringup skeleton.launch.py foxglove:=true        # 관제(그래프·상태)
+ros2 topic echo /ww/state/loc_error_cm                                 # 위치추정 오차 실시간
 ```
+
+밭은 셋이다(DECISIONS 042): 빈값=**매끈**(회귀 기준선) · `field:=dev`=**현실**(굽은 두둑·흙덩이·경사) ·
+`field:=main`=**정본**(6줄×7m+창고, 단계 끝에만).
 
 매번 치기 귀찮으면 별칭을 `~/.bashrc` 에 등록한다(정의만 하므로 다른 작업에 영향 없음):
 
