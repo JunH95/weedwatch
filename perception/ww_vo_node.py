@@ -9,9 +9,10 @@
   구독  /robot/camera (Image) · /robot/depth (Image, 32FC1) · /robot/imu (Imu) · /odometry
   발행  /ww/vo (Vector3Stamped)  x=전방[m], y=좌[m] 증분 (누적 아님, 로봇 기준)
 
-**회전 중에만 계산한다.** 융합이 회전 구간에서만 VO 를 쓰므로(041), 직진 내내 FFT·회전보간을
-돌리는 건 순수 낭비다 — 실제로 그 부하 때문에 U턴이 제한 시간 안에 안 끝났다. 직진 구간에는
-프레임만 기억해두고(싸다), |wz| 가 임계를 넘을 때 상관을 시작한다. 관심영역도 가운데 정사각형
+**직진에서도 계산한다 (044 이후 바뀜).** 041 은 "직진은 바퀴가 압도적(0.8%)"이라 회전에서만 VO 를
+썼는데, 그 0.8% 는 **매끈한 밭** 값이었다. 현실 밭에서는 바퀴가 9.2%(국소적으로는 25~65%)라
+우위가 사라진다 — 그리고 **바퀴와 VO 의 불일치가 곧 슬립 신호**다. 그걸 쓰려면 직진 구간에도
+VO 가 있어야 한다. 관심영역도 가운데 정사각형
 (ROI_PX)만 쓴다 — 카메라가 아래를 보므로 가운데가 곧 흙이고, FFT 비용이 몇 배 준다.
 
 **증분만 낸다.** 언제 이걸 믿을지는 융합하는 쪽(weedwatch_control.GyroOdom)이 정한다 —
@@ -78,11 +79,6 @@ class VoNode(Node):
             rgb = np.frombuffer(bytes(m.data), np.uint8).reshape(m.height, m.width, ch)
         except ValueError:
             return                                   # 반쯤 온 프레임 → 다음 것
-        if abs(self.wz) <= TURN_WZ:
-            # 직진 중: 융합이 어차피 휠을 쓴다. 프레임만 기억하고 무거운 계산은 건너뛴다.
-            self.tracker.remember(rgb, self.depth, self.imu_yaw)
-            self.skipped += 1
-            return
         d = self.tracker.update(rgb, self.depth, self.imu_yaw)
         if d is None:
             return

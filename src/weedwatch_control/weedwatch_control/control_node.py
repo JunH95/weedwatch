@@ -61,6 +61,7 @@ class WwControl(Node):
         self.odom_n = self.imu_n = 0
         self.imu_yaw = None                        # IMU 방위 + 실물 잔차
         self._vo_acc = [0.0, 0.0]                  # 다음 odom 까지 쌓아둘 VO 증분 (전방, 좌)
+        self._vo_fresh = False
         self.vo_n = 0
         self._rng = random.Random(7)
         self._imu_bias = math.radians(IMU_BIAS_DEG) * self._rng.choice((1, -1))
@@ -79,6 +80,7 @@ class WwControl(Node):
     def _on_vo(self, m):
         self._vo_acc[0] += m.vector.x
         self._vo_acc[1] += m.vector.y
+        self._vo_fresh = True          # 이번 odom 주기에 **새 카메라 증분이 왔다**
         self.vo_n += 1
 
     def _on_odom(self, m):
@@ -86,8 +88,11 @@ class WwControl(Node):
         self.x, self.y = p.x, p.y
         self.yaw = self._yaw_of(m.pose.pose.orientation)
         self.odom_n += 1
-        vo = tuple(self._vo_acc) if self.vo_n else None
-        self._vo_acc = [0.0, 0.0]
+        # 카메라는 5Hz, odom 은 50Hz 다. 새 증분이 안 온 주기에 (0,0) 을 넘기면 융합이
+        # "카메라가 정지를 봤다"로 읽어 **매번 슬립으로 오판**한다(실측: VO 사용 534회).
+        # 신선한 증분이 있을 때만 넘긴다.
+        vo = tuple(self._vo_acc) if self._vo_fresh else None
+        self._vo_acc, self._vo_fresh = [0.0, 0.0], False
         self.gyro.update(p.x, p.y, self.yaw, m.twist.twist.linear.x, self.imu_yaw,
                          vo=vo, odom_wz=m.twist.twist.angular.z)
 

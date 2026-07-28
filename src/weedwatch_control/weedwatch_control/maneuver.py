@@ -74,8 +74,10 @@ class GyroOdom:
       직진 거리     바퀴        0.5cm/65cm = 0.8%  (VO 는 7~13% 부족)
       회전 미끄러짐  VO         바퀴는 **0.0cm — 원리적으로 못 봄**, VO 는 86% 관측
 
-    그래서 회전 중(|wz| > TURN_WZ)에는 VO 증분을, 그 외에는 휠 증분을 쓴다. VO 가 안 오면
-    조용히 옛 동작(휠만)으로 돌아가되 vo_used 로 드러낸다.
+    **044 이후 규칙이 바뀌었다.** 그 0.8% 는 매끈한 밭 값이고, 현실 밭에서 바퀴는 9.2%(흙덩이를
+    넘는 순간엔 국소적으로 25~65%)다. 우위가 사라졌으므로 "직진은 무조건 바퀴"가 아니라
+    **불일치를 슬립 신호로 쓴다**: 바퀴가 갔다는 거리와 카메라가 본 거리가 크게 어긋나면
+    그 순간 바퀴가 헛돈 것이므로 카메라를 믿는다. 회전 중에는 여전히 무조건 카메라다(바퀴는 0).
 
     노드가 /odometry 와 /robot/imu 를 받을 때마다 update() 를 부른다. IMU 가 아직 없으면
     (월드에 imu-system 이 없는 경우) 휠 yaw 로 폴백하되 degraded 를 True 로 남긴다 —
@@ -95,6 +97,9 @@ class GyroOdom:
     # (상관 피크가 엉뚱한 데 꽂힌 것). 안 거르면 추정이 폭주해 로봇이 도착했다고 착각한다 —
     # 실측으로 U턴 뒤 표류가 43.7cm → 221.9cm 로 나빠졌다(2026-07-27).
     VO_MAX_STEP = 0.05
+    # 바퀴와 카메라가 이만큼(m/샘플) 넘게 어긋나면 **바퀴가 헛돈 것**으로 본다. 0.2m/s·50Hz 에서
+    # 정상 증분이 4mm 이므로 3mm 차이는 이미 큰 불일치다(측정 잡음은 그보다 작다).
+    SLIP_DISAGREE = 0.003
 
     def __init__(self, x0=0.0, y0=0.0, yaw0=0.0):
         self.x, self.y, self.yaw = x0, y0, yaw0
@@ -103,6 +108,7 @@ class GyroOdom:
         self.vo_used = 0           # VO 증분을 실제로 쓴 횟수 (0 이면 융합이 안 붙은 것)
         self.vo_rejected = 0       # 물리적으로 불가능해 버린 VO 증분 (상관 실패 신호)
         self.wheel_used = 0
+        self.slip_events = 0       # 직진 중 바퀴-카메라 불일치가 커서 카메라를 쓴 횟수
         self._last_xy = None
         self._last_raw_yaw = None
 
@@ -134,17 +140,26 @@ class GyroOdom:
             return self.x, self.y, self.yaw
 
         turning = abs(odom_wz) > self.TURN_WZ
-        if turning and vo is not None and math.hypot(*vo) > self.VO_MAX_STEP:
-            self.vo_rejected += 1        # 상관 실패 — 버리고 휠로 간다(회전 중 휠은 0 에 가깝다)
+        if vo is not None and math.hypot(*vo) > self.VO_MAX_STEP:
+            self.vo_rejected += 1        # 상관 실패 — 버리고 휠로 간다
             vo = None
-        if turning and vo is not None:
-            # 회전 중: 바퀴는 미끄러짐을 못 본다(0.0cm 보고). 카메라가 본 것을 쓴다.
+
+        use_vo = False
+        if vo is not None:
+            if turning:
+                use_vo = True            # 회전: 바퀴는 미끄러짐을 원리적으로 못 본다(0.0cm)
+            else:
+                # 직진: 불일치가 크면 바퀴가 헛돈 것 — 그 순간만 카메라를 믿는다.
+                if abs(math.hypot(*vo) - ds) > self.SLIP_DISAGREE:
+                    use_vo = True
+                    self.slip_events += 1
+
+        if use_vo:
             fwd, left = vo
             self.x += fwd * math.cos(self.yaw) - left * math.sin(self.yaw)
             self.y += fwd * math.sin(self.yaw) + left * math.cos(self.yaw)
             self.vo_used += 1
         else:
-            # 직진: 바퀴가 0.8% 로 압도적이다. VO(7~13%)를 쓰면 오히려 나빠진다.
             if odom_vx < 0:
                 ds = -ds
             self.x += ds * math.cos(self.yaw)

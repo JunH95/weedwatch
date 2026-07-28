@@ -143,13 +143,26 @@ def test_fusion_uses_vo_while_turning():
     assert g.y == pytest.approx(-0.01, abs=1e-9)
 
 
-def test_fusion_uses_wheels_while_driving_straight():
-    """직진에서는 바퀴가 압도적이다 — VO 가 와도 안 쓴다."""
+def test_fusion_uses_wheels_when_they_agree():
+    """직진에서 바퀴와 카메라가 일치하면 바퀴를 쓴다(잡음이 더 적다)."""
     g = GyroOdom()
     g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
-    g.update(0.10, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.30, 0.0), odom_wz=0.0)
-    assert g.wheel_used == 1 and g.vo_used == 0
-    assert g.x == pytest.approx(0.10, abs=1e-9), "VO 를 직진에 썼다 — 7~13% 오차를 들여온다"
+    g.update(0.010, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.0105, 0.0), odom_wz=0.0)
+    assert g.wheel_used == 1 and g.vo_used == 0 and g.slip_events == 0
+    assert g.x == pytest.approx(0.010, abs=1e-9)
+
+
+def test_fusion_detects_slip_when_they_disagree():
+    """바퀴가 헛돌면(카메라와 크게 어긋나면) 그 순간 카메라를 믿는다 — 044 의 핵심 수리.
+
+    Step B 실측: 흙덩이를 넘는 순간 바퀴가 1m 에 20~31cm 를 부풀렸고, 그 과대가 그대로
+    타격 오차(전후 −28~−36cm)가 됐다.
+    """
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.020, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=(0.004, 0.0), odom_wz=0.0)  # 바퀴 2cm, 카메라 0.4cm
+    assert g.slip_events == 1 and g.vo_used == 1 and g.wheel_used == 0
+    assert g.x == pytest.approx(0.004, abs=1e-9), "헛도는 바퀴를 그대로 적산했다"
 
 
 def test_fusion_falls_back_to_wheels_without_vo():
@@ -204,3 +217,16 @@ def test_heading_correction_saturates():
     from weedwatch_control.maneuver import heading_correction, HEADING_MAX_WZ
     assert heading_correction(0.0, math.pi / 2) == pytest.approx(HEADING_MAX_WZ)
     assert heading_correction(0.0, -math.pi / 2) == pytest.approx(-HEADING_MAX_WZ)
+
+
+def test_fusion_ignores_missing_vo_rather_than_reading_zero():
+    """카메라 증분이 **안 온** 주기를 '정지를 봤다'로 읽으면 안 된다.
+
+    odom 50Hz · 카메라 5Hz 라 대부분의 주기에는 새 증분이 없다. 그때 (0,0) 을 넘기면 융합이
+    매번 슬립으로 오판한다(실측: 매끈한 밭에서 VO 사용 534회). 없으면 None 이어야 한다.
+    """
+    g = GyroOdom()
+    g.update(0.0, 0.0, 0.0, 0.0, imu_yaw=0.0)
+    g.update(0.004, 0.0, 0.0, 0.2, imu_yaw=0.0, vo=None, odom_wz=0.0)   # 증분 없음
+    assert g.slip_events == 0 and g.wheel_used == 1
+    assert g.x == pytest.approx(0.004, abs=1e-9)

@@ -54,6 +54,9 @@ from garden_geometry import Garden, Portal  # noqa: E402
 
 from weedwatch_control.maneuver import GyroOdom, heading_correction  # noqa: E402
 
+sys.path.insert(0, str(WW / "perception"))
+from vo import VoTracker  # noqa: E402  (진단·노드와 같은 코드)
+
 G, P = Garden(), Portal()
 N = P.n_tools
 TOOL_XS = P.tool_xs()
@@ -299,7 +302,8 @@ def main():
     print("=== Step B — 달리면서 울퉁불퉁한 밭에 타격 (Tier 2, 렌더 없음) ===")
     print(f"    밭 {name}: 두둑 높이±{spec.height_var*100:.0f}cm · 흙덩이 {spec.clod_density}/m · "
           f"경사 {spec.cross_slope_deg}° · 속도 {V} m/s")
-    print("    표적은 **로봇 기준 상대**(카메라가 보는 방식) · 제어=온보드 · 채점=지상진실 FK\n")
+    print(f"    표적은 **로봇 기준 상대**(카메라가 보는 방식) · 제어=온보드"
+          f"{' + 시각 오도메트리(슬립 감지)' if USE_VO else ''} · 채점=지상진실 FK\n")
 
     results = {}
     for corrected in (False, True):

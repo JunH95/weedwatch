@@ -7,7 +7,7 @@ ENV := ./scripts/env.sh
 # 그보다 넉넉히 줘야 한다. (make는 값 뒤 공백까지 변수에 넣으므로 주석은 윗줄에)
 SMOKE_ITERS ?= 12000
 
-.PHONY: help doctor test smoke garden drive joints straddle turn step-b watch-rviz watch-foxglove record viz-check foxglove-check tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row watch-ros ros-sim ros-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-build ros-skeleton ros-percept clean-sim clean
+.PHONY: help doctor test smoke garden drive joints straddle turn step-b vo-compare watch-rviz watch-foxglove record viz-check foxglove-check tilt tilt-stamp shake camera dataset bake perception-venv train eval-model stamp-targets stamp row watch-row watch-ros ros-sim ros-attach strike-marks watch-strikes watch-jam strike-terrain watch-terrain percept-render percept percept-calib field-render watch-field row-live overlay species dashboard ww-cmd ww-depth view blender-gpu cropcraft aihub ros-drive ros-build ros-skeleton ros-percept clean-sim clean
 
 # 사람이 GUI 로 직접 3D 확인. 데스크톱 앞에서만 (SSH 불가).
 # 에이전트의 헤드리스 검증과 별개 — 이건 사람 눈용이다.
@@ -440,6 +440,13 @@ field-check: clean-sim
 # 밭 명세를 표로 (크기·현실성·창고 유무)
 fields:
 	@$(ENV) python3 tools/field_spec.py
+
+# 바퀴 vs 카메라(시각 오도메트리) 재비교 — 밭을 바꿔가며. 041 은 매끈한 밭에서 쟀다(044 지적).
+#   make vo-compare            매끈한 밭 (041 기준선)
+#   make vo-compare FIELD=dev  현실 밭
+vo-compare: clean-sim
+	@if [ -n "$(FIELD)" ]; then $(MAKE) -s worlds/field_$(FIELD).sdf; fi
+	@FIELD=$(FIELD) $(ENV) perception/condaenv/bin/python tools/diag_vo.py --soil-mask --derotate
 
 # Step B (DECISIONS 042 되살림): **달리면서** 울퉁불퉁한 밭에 타격 — 무보정 vs IMU 보정 A/B.
 # 표적 좌표는 준다(주행 실패와 격리). 게이트: 보정 <2cm AND 무보정이 유의하게 더 나쁨.

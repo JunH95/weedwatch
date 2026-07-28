@@ -40,8 +40,21 @@ WW = Path(__file__).resolve().parents[1]
 ENV = str(WW / "scripts" / "env.sh")
 sys.path.insert(0, str(WW / "tools"))
 
-WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
-WORLD_NAME, MODEL = "robot_field_multi", "weedwatch"
+FIELD = os.environ.get("FIELD", "")      # 빈 값 = 매끈한 기존 밭(041 을 잰 밭)
+if FIELD:
+    from field_spec import get as _get     # noqa: E402
+    _F = _get(FIELD)
+    WORLD = str(WW / "worlds" / f"field_{FIELD}.sdf")
+    WORLD_NAME = f"field_{FIELD}"
+    DRIVE_S = max(6.0, min(12.0, (_F.bed_length - 0.6) / 0.20))   # 두둑 안에서 끝나게
+    FIELD_DESC = (f"{FIELD} — 흙덩이 {_F.clod_density}/m · 경사 {_F.cross_slope_deg}° · "
+                  f"두둑 높이±{_F.height_var*100:.0f}cm")
+else:
+    WORLD = str(WW / "worlds" / "robot_field_multi.sdf")
+    WORLD_NAME = "robot_field_multi"
+    DRIVE_S = 12.0
+    FIELD_DESC = "매끈한 밭 (041 을 잰 밭)"
+MODEL = "weedwatch"
 GT_TOPIC = f"/world/{WORLD_NAME}/dynamic_pose/info"
 GT_FILE = "/tmp/ww_vo_gt.log"
 
@@ -120,6 +133,7 @@ def main():
     print("=== 시각 오도메트리 — 하방 카메라가 이동을 잴 수 있나 ===")
     print(f"    {MM_PER_PX*1000:.3f} mm/px(고정, {CAL_H}m 기준) · 5Hz · {V} m/s "
           f"→ 프레임 간 ~{V/5*100:.0f}cm")
+    print(f"    밭: {FIELD_DESC}")
     print(f"    깊이 스케일 {'ON' if args.depth_scale else 'off'} · "
           f"흙 마스크 {'ON' if args.soil_mask else 'off'} · "
           f"IMU 되돌리기 {'ON' if args.derotate else 'off'}\n")
@@ -224,7 +238,7 @@ def main():
 
         tw = Twist(); tw.linear.x = V
         pub.publish(tw)
-        spin(12.0)                                   # 직진
+        spin(DRIVE_S)                                # 직진 (밭 길이에 맞춤)
         tw.linear.x = 0.0
         pub.publish(tw)
         spin(2.0)
