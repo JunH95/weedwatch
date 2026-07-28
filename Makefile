@@ -423,6 +423,21 @@ ros-percept: worlds/robot_field_multi.sdf clean-sim
 
 
 # ROS 이관 Phase 4: colcon 워크스페이스 빌드 (src/weedwatch_* 패키지). 표준 로봇 구조.
+# 밭 사다리 (DECISIONS 042) — 명세(tools/field_spec.py)대로 밭을 짓는다.
+#   smooth = 지금 쓰는 매끈한 밭(회귀 기준선) · dev = 작지만 현실성 전부 · main = 정본(보호 대상)
+# 현실성: 두둑 폭±5 높이±3 사행±4cm · 고랑 흙덩이 1.5/m · 가로경사 3°.
+worlds/field_%.sdf: tools/make_field.py tools/field_spec.py tools/make_ridge_varied.py tools/garden_geometry.py
+	@$(ENV) python3 tools/make_field.py $* > $@
+
+FIELD ?= dev
+# 밭이 물리로 성립하는지(로봇이 서는지) 렌더 없이 단언. 주행·U턴은 다음 단계.
+field-check: worlds/field_$(FIELD).sdf clean-sim
+	@$(ENV) python3 tools/assert_field.py $(FIELD)
+
+# 밭 명세를 표로 (크기·현실성·창고 유무)
+fields:
+	@$(ENV) python3 tools/field_spec.py
+
 # 자율주행: 두둑 끝 헤드랜드 U턴 (순간이동 치트 제거). Tier 2 물리(렌더 없음).
 # 제어 코드는 프로덕션과 동일한 weedwatch_control.maneuver 를 import 하므로 colcon 빌드 선행.
 # 게이트: 진입 y<5cm · 진입 yaw<8° · 끼임 없음 · IMU 실사용(휠 폴백이면 회전당 26° 오차).
