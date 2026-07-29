@@ -35,12 +35,12 @@ def test_phase_shift_recovers_known_shift(drow, dcol):
     assert got_col == pytest.approx(-dcol, abs=0.2), f"col {got_col} vs {-dcol}"
 
 
-def test_soil_mask_keeps_calibration_plane_only():
-    """캘리브 평면 근처만 남고 식물(가까움)·고랑(멂)은 빠져야 한다 — 깊이는 선택에 쓴다(041)."""
+def test_soil_mask_keeps_the_reference_plane_only():
+    """기준 평면 근처만 남고 식물(가까움)·고랑(멂)은 빠져야 한다 — 깊이는 선택에 쓴다(041)."""
     d = np.full((10, 10), CAL_H, np.float32)
     d[0:3, :] = CAL_H - 0.20          # 식물 (카메라에 더 가까움)
     d[7:, :] = CAL_H + 0.25           # 고랑 (더 멂)
-    m = soil_mask(d)
+    m = soil_mask(d, ref=CAL_H)       # 기준을 직접 주는 경로(밴드 로직 확인)
     assert m[4, 4] == 1.0
     assert m[1, 1] == 0.0 and m[8, 8] == 0.0
     assert m.mean() == pytest.approx(0.4, abs=0.01)
@@ -69,3 +69,47 @@ def test_remember_keeps_frame_without_correlating():
     fwd, _ = t.update(b)
     assert t.frames == 1
     assert fwd == pytest.approx(6 * MM_PER_PX, rel=0.05), "remember 가 기준 프레임을 안 남겼다"
+
+
+# ── 지면 평면을 **측정해서** 쓴다 (DECISIONS 046 후속) ────────────────────
+
+def depth_scene(soil=0.30, plant=0.15, furrow=0.55, n=64):
+    """흙이 가장 넓고, 식물(가까움)·고랑(멂)이 섞인 깊이 화면."""
+    d = np.full((n, n), soil, np.float32)
+    d[:12, :] = plant          # 식물 (19%)
+    d[-10:, :] = furrow        # 고랑 (16%)
+    return d
+
+
+def test_surface_depth_finds_the_widest_plane_not_the_average():
+    """중앙값은 섞인 값에 끌려가고, 최빈값은 **가장 넓은 면**(흙)을 고른다."""
+    from vo import surface_depth
+    d = depth_scene()
+    assert surface_depth(d) == pytest.approx(0.30, abs=0.01)
+
+
+def test_surface_depth_tracks_a_moved_plane():
+    """두둑이 높아져 카메라가 가까워지면 지면 거리도 따라와야 한다 — 고정값이면 못 따라온다."""
+    from vo import surface_depth
+    assert surface_depth(depth_scene(soil=0.27)) == pytest.approx(0.27, abs=0.01)
+    assert surface_depth(depth_scene(soil=0.36)) == pytest.approx(0.36, abs=0.01)
+
+
+def test_soil_mask_uses_measured_plane_by_default():
+    """마스크 기준이 **관측된 지면**이어야 한다. 고정 평면이면 두둑이 변할 때 엉뚱한 픽셀을 고른다."""
+    from vo import soil_mask
+    d = depth_scene(soil=0.27)          # 캘리브(0.33)에서 6cm 벗어난 지면
+    m = soil_mask(d)                    # ref 없이 = 측정해서
+    assert m.mean() > 0.5, "측정된 지면을 못 잡아 흙이 거의 안 남았다"
+    assert m[30, 30] == 1.0 and m[5, 5] == 0.0 and m[-3, -3] == 0.0
+
+
+def test_scale_follows_the_measured_surface():
+    """픽셀당 거리는 선택된 평면까지의 거리에 비례한다."""
+    from vo import VoTracker, MM_PER_PX, CAL_H
+    t = VoTracker()
+    d = depth_scene(soil=0.264)                     # 캘리브의 0.8 배
+    a = texture(64)
+    assert t.update(a, d) is None
+    fwd, _ = t.update(np.roll(a, 10, axis=0), d)
+    assert fwd == pytest.approx(10 * MM_PER_PX * (0.264 / CAL_H), rel=0.05)
