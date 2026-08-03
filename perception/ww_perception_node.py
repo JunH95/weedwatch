@@ -29,7 +29,7 @@ from geometry_msgs.msg import PoseArray, Pose, PoseStamped
 
 WW = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(WW / "perception"))
-from detect_server import load_model, detect_fused, CAM_DYS  # noqa: E402
+from detect_server import load_model, detect_fused  # noqa: E402
 
 ENV = str(WW / "scripts" / "env.sh")
 CAM_TOPICS = ["/robot/camera", "/robot/camera1"]
@@ -55,6 +55,13 @@ class Perception(Node):
         super().__init__("ww_perception")
         self.model, self.device = load_model()
         self.frames = [None] * len(CAM_TOPICS)
+        # 프레임을 **찍은 순간의 자세**와 몇 번째 프레임인지를 같이 잡아둔다. 추론이 끝난 시각의
+        # 자세를 쓰면, GPU 가 밀려 프레임이 낡았을 때 같은 이미지를 매 tick 재추론하면서 잡초가
+        # 로봇을 따라 뒤로 행진한다 — 실측에서 잡초 하나가 world 좌표 20개로 불어났다.
+        self.frame_base = [None] * len(CAM_TOPICS)
+        self.frame_seq = [0] * len(CAM_TOPICS)
+        self.last_seq = None
+        self.stale_ticks = 0
         self.base = None
         self.safe = safe_dist
         self.n_pub = 0
@@ -72,6 +79,8 @@ class Perception(Node):
     def _img(self, m, i):
         try:
             self.frames[i] = image_to_rgb(m)
+            self.frame_base[i] = self.base           # 찍은 순간의 자세를 프레임에 붙인다
+            self.frame_seq[i] += 1
         except Exception as e:                       # 반쯤 온 프레임 등 → 다음 프레임
             self.get_logger().warn(f"img{i} skip: {e}")
 
@@ -93,8 +102,19 @@ class Perception(Node):
     def _tick(self):
         if self.base is None or any(f is None for f in self.frames):
             return
+        # **새 프레임이 없으면 아무것도 발행하지 않는다.** 예전엔 낡은 프레임을 재추론해서
+        # 같은 잡초를 매번 다른 world 좌표로 내보냈다(로봇을 따라 뒤로 행진). 검출이 없는 것보다
+        # 있는 척하는 게 나쁘다 — 코디네이터가 그걸 새 잡초로 믿고 계획을 쌓았다.
+        seq = tuple(self.frame_seq)
+        if seq == self.last_seq:
+            self.stale_ticks += 1
+            return
+        self.last_seq = seq
         frames = [(i, self.frames[i]) for i in range(len(self.frames))]
-        dets = detect_fused(self.model, frames, self.base, self.device, safe_dist=self.safe)
+        bases = {i: self.frame_base[i] for i in range(len(self.frames))
+                 if self.frame_base[i] is not None}
+        dets = detect_fused(self.model, frames, self.base, self.device,
+                            bases=bases, safe_dist=self.safe)
         pa = PoseArray()
         pa.header.frame_id = "world"
         pa.header.stamp = self.get_clock().now().to_msg()
@@ -104,6 +124,11 @@ class Perception(Node):
             pa.poses.append(ps)
         self.pub.publish(pa)
         self.n_pub += 1
+        # 새 프레임을 못 받아 건너뛴 tick 비율 = GPU 경합의 크기. 조용히 느려지는 걸 막는다.
+        if self.n_pub % 25 == 0:
+            self.get_logger().info(
+                f"검출 발행 {self.n_pub}회 · 새 프레임 없어 건너뜀 {self.stale_ticks}회 "
+                f"(실효 {self.n_pub / max(1, self.n_pub + self.stale_ticks) * 100:.0f}%)")
 
 
 # ── 자가검증 (P2 게이트) ─────────────────────────────────────────────────────

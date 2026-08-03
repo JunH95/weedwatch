@@ -36,11 +36,14 @@ from weedwatch_control.maneuver import (  # noqa: E402
     Maneuver, SWING_RADIUS, EXIT_MARGIN, heading_correction)
 from weedwatch_control.params import (                            # noqa: E402
     TOOL_XS, BAND_CENTERS, BASE_Y, V, STRIKE, RAISE, Z_SETTLE, N, weed_tool)
+from weedwatch_control.targets import STUCK_M, match as match_plan  # noqa: E402
 from weedwatch_sim.field import (                                 # noqa: E402
     oracle_weeds_for_bed, crops_for_bed, bed_centers)
 
 # 밭 기하는 **명세에서 온다**(DECISIONS 042). FIELD 가 없으면 기존 매끈한 밭(기준선) 그대로.
 #   FIELD=dev   현실적인 밭 — 굽은 두둑·흙덩이·경사
+# 같은 잡초의 재관측으로 볼 거리 [m]. 5Hz·0.2m/s 면 프레임 간 4cm 이동이라 넉넉하고,
+# 두 잡초를 한 개로 합쳐버릴 만큼 크지는 않다(예전 격자 키가 6cm 였다).
 FIELD = os.environ.get("FIELD", "")
 if FIELD:
     import sys as _sys
@@ -69,12 +72,14 @@ class Coordinator(WwControl):
     def __init__(self):
         super().__init__(N)
         self.latest_weeds = []
+        self.weeds_seq = 0          # 새 프레임이 왔을 때만 계획을 다시 손댄다 (아래 재관측)
         self.create_subscription(PoseArray, "/weeds", self._on_weeds, 10)
         self.base_pub = self.create_publisher(PoseStamped, "/ww/base_pose", 10)
         self.result = None
 
     def _on_weeds(self, m):
         self.latest_weeds = [(p.position.x, p.position.y) for p in m.poses]
+        self.weeds_seq += 1
 
     def publish_base(self, x, y, yaw=0.0):
         ps = PoseStamped(); ps.header.frame_id = "world"
@@ -134,8 +139,10 @@ class Coordinator(WwControl):
                           log=lambda m: self.get_logger().info(m))
             self.publish_base(sx, cy, 0.0 if d > 0 else math.pi); time.sleep(1.0)
             bed_log = {"bed": bed, "y": round(cy, 3), "dir": d, "reached": False,
-                       "detected": [], "struck": [], "oracle_weeds": len(oracle_weeds_for_bed(cy))}
-            seen, active, pool = set(), [None] * N, [[] for _ in range(N)]
+                       "detected": [], "struck": [], "stuck": [],
+                       "oracle_weeds": len(oracle_weeds_for_bed(cy))}
+            active, pool, fixes = [None] * N, [[] for _ in range(N)], 0
+            last_seq, seq0, t_pass = -1, self.weeds_seq, time.time()
             anchor, ox = None, sx
             self.drive(V, 0.0)
             deadline = time.time() + abs(X1 - X0) / V / 0.15 + 30
@@ -154,30 +161,53 @@ class Coordinator(WwControl):
                 # 간다 — 개발 밭 실측에서 2m 패스에 yaw −12.4°, y 이탈 17.4cm 였다(042 2단계).
                 self.drive(V, heading_correction(est[2], 0.0 if d > 0 else math.pi))
                 self.publish_base(ox, cy, 0.0 if d > 0 else math.pi)
-                for wx, wy in list(self.latest_weeds):
-                    key = (round(wx / 0.06), round(wy / 0.06))
-                    if key in seen or abs(wy - cy) > 0.45:
+                # 제어 루프는 100Hz 인데 검출은 5Hz 다. 새 프레임에만 계획을 손대지 않으면
+                # 같은 검출을 20번씩 다시 매칭하고 캐리지 명령을 그만큼 도배한다(재관측 488회의 정체).
+                seq, weeds = self.weeds_seq, list(self.latest_weeds)
+                for wx, wy in (weeds if seq != last_seq else ()):
+                    if abs(wy - cy) > 0.45:
                         continue
                     i = weed_tool(d * (wy - cy) + BASE_Y)          # 밴드는 로봇 기준(방향 반영)
                     strike_x = wx - d * TOOL_XS[i]                 # 툴이 잡초에 닿는 base x
-                    if d * (ox - strike_x) >= -V * Z_SETTLE:       # 이미 지나침 → 못 친다
+                    # **첫 관측에 고정하지 않는다.** 검출은 /ww/base_pose 기준 world 좌표라,
+                    # 다시 보는 순간 그때까지 쌓인 위치오차가 리셋된다. 그래서 죽은 추측 구간이
+                    # "처음 보인 곳→툴"(64~100cm)에서 "마지막으로 보인 곳→툴"(15~51cm)로 줄어든다.
+                    # 실측(diag_lead, 개발 밭): 평균 타격오차 22.07 → 10.17cm.
+                    # 갱신은 **다가가는 방향으로만** 받는다. 옆 잡초를 같은 것으로 오인하면 표적이
+                    # 계속 앞으로 도망가 영영 안 쳐지고, 그 툴이 막혀 뒤 잡초까지 전부 놓친다
+                    # (개발 밭 실측: 두둑1 검출 7 · 타격 0).
+                    prev = match_plan(pool[i], wx, wy, strike_x, ox, d)
+                    if prev is not None:
+                        prev["wx"], prev["wy"], prev["strike_x"] = wx, wy, strike_x
+                        prev["fixes"] += 1
+                        fixes += 1
+                        if prev["phase"] == 1:     # 캐리지는 이미 나갔다 — 새 y 로 다시 보낸다
+                            self.set_carriage(i, d * (wy - cy) - BAND_CENTERS[i])
                         continue
-                    seen.add(key)
-                    pool[i].append({"wx": wx, "wy": wy, "i": i, "strike_x": strike_x, "phase": 0})
+                    if d * (ox - strike_x) >= -V * Z_SETTLE:       # 새 잡초인데 이미 지나침
+                        continue
+                    pool[i].append({"wx": wx, "wy": wy, "i": i, "strike_x": strike_x,
+                                    "phase": 0, "fixes": 1, "x_act": None})
                     bed_log["detected"].append([round(wx, 3), round(wy, 3)])
+                last_seq = seq
                 for i in range(N):
                     if active[i] is None:
                         cand = [p for p in pool[i] if p["phase"] == 0
                                 and d * (p["strike_x"] - ox) > 0.01]
                         if cand:
                             p = min(cand, key=lambda z: d * z["strike_x"])
-                            active[i] = p; p["phase"] = 1
+                            active[i] = p; p["phase"] = 1; p["x_act"] = ox
                             self.set_carriage(i, d * (p["wy"] - cy) - BAND_CENTERS[i])
                     else:
                         p = active[i]
                         if p["phase"] == 1 and d * (ox - p["strike_x"]) >= -V * Z_SETTLE:
                             self.set_tool(i, STRIKE); p["phase"] = 2
                             bed_log["struck"].append([round(p["wx"], 3), round(p["wy"], 3)])
+                        elif p["phase"] == 1 and d * (ox - p["x_act"]) > STUCK_M:
+                            # 표적을 잡고 STUCK_M 를 갔는데도 못 쳤다 = 그 계획이 이상하다.
+                            # 놔두면 이 툴이 남은 두둑 내내 막힌다 — 버리고 다음 잡초로 간다.
+                            p["phase"] = 4; active[i] = None
+                            bed_log["stuck"].append([round(p["wx"], 3), round(p["wy"], 3)])
                         elif p["phase"] == 2 and d * (ox - p["strike_x"]) >= 0.06:
                             self.set_tool(i, RAISE); p["phase"] = 3; active[i] = None
                 if d * (ox - ex) >= 0:
@@ -196,9 +226,22 @@ class Coordinator(WwControl):
             # 돌아갔고(IMU 는 정직하게 보고했다) U턴이 그 틀어진 방위 기준으로 돌아 재진입이 어긋났다.
             for i in range(N):
                 self.set_tool(i, RAISE)
+            # 재관측이 0 이면 잡초를 한 프레임만 보고 지나쳤다는 뜻 = 첫 관측 고정과 동치다.
+            bed_log["refixes"] = fixes
+            # 재관측이 몇 번 되는지는 **검출 발행률**이 정한다. 카메라 5Hz 로 잡초 하나가
+            # 1.6초 보이므로 잡초당 ~8번이 상한인데, 인식이 GPU 를 못 따라오면 그만큼 준다.
+            dt = max(1e-6, time.time() - t_pass)
+            bed_log["weeds_hz"] = round((self.weeds_seq - seq0) / dt, 2)
+            # 계획별 최종 상태 — 놓친 잡초가 "안 보였다/안 골렸다/못 쳤다" 중 어느 쪽인지 가른다.
+            # 0=대기(선택 안 됨) 1=조준 중(패스가 먼저 끝남) 2=타격 후 3=완료 4=포기
+            bed_log["plans"] = [{"w": [round(p["wx"], 3), round(p["wy"], 3)], "tool": p["i"],
+                                 "phase": p["phase"], "fixes": p["fixes"]}
+                                for i in range(N) for p in pool[i]]
             self.get_logger().info(
                 f"두둑 {bed} 끝: 융합 VO {self.gyro.vo_used}회 · 휠 {self.gyro.wheel_used}회 · "
-                f"VO 버림 {self.gyro.vo_rejected}회")
+                f"VO 버림 {self.gyro.vo_rejected}회 · 표적 재관측 {fixes}회 "
+                f"(검출 {len(bed_log['detected'])}개 · /weeds {bed_log['weeds_hz']}Hz · "
+                f"포기 {len(bed_log['stuck'])})")
             time.sleep(1.0)
             result["beds"].append(bed_log)
         self.stop()

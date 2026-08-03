@@ -54,9 +54,6 @@ from garden_geometry import Garden, Portal  # noqa: E402
 
 from weedwatch_control.maneuver import GyroOdom, heading_correction  # noqa: E402
 
-sys.path.insert(0, str(WW / "perception"))
-from vo import VoTracker  # noqa: E402  (진단·노드와 같은 코드)
-
 G, P = Garden(), Portal()
 N = P.n_tools
 TOOL_XS = P.tool_xs()
@@ -168,7 +165,9 @@ def reveal_xs(spec, n):
     return [spec.x0 + spec.bed_length * f for f in (0.20, 0.38, 0.56, 0.74)][:n]
 
 
-def run(spec, corrected: bool, gt_file: str):
+def run(spec, corrected: bool, gt_file: str, ahead: float | None = None):
+    """ahead 를 주면 표적의 선행거리를 그 값으로 덮어쓴다 — 리드↔오차 곡선(diag_lead)이 쓴다.
+    관측→타격 사이가 짧을수록 죽은 추측이 줄어드니, 오차가 그 길이에 비례하는지가 물음이다."""
     subprocess.run(["pkill", "-f", "[i]gn gazebo"], capture_output=True)
     time.sleep(0.5)
     world = str(WW / "worlds" / f"field_{spec.name}.sdf")
@@ -177,12 +176,13 @@ def run(spec, corrected: bool, gt_file: str):
     imu_bias = math.radians(IMU_BIAS_DEG) * rng.choice((1, -1))
     gyro = GyroOdom(x0=spec.x0 + 0.30, y0=spec.bed_centers[0], yaw0=0.0)
     plans = []
-    for (ahead, left), rx in zip(REL_TARGETS, reveal_xs(spec, len(REL_TARGETS))):
+    for (a0, left), rx in zip(REL_TARGETS, reveal_xs(spec, len(REL_TARGETS))):
+        a = a0 if ahead is None else ahead
         i = P.band_of(G, left)                          # 담당 툴 = 그 좌우 밴드
-        plans.append({"ahead": ahead, "left": left, "i": i, "reveal_x": rx,
+        plans.append({"ahead": a, "left": left, "i": i, "reveal_x": rx,
                       "phase": 0, "t_reveal": None, "t_strike": None,
                       # base 가 reveal 이후 이만큼 더 가면 도구 끝이 표적에 닿는다
-                      "advance": ahead - TOOL_XS[i]})
+                      "advance": a - TOOL_XS[i]})
 
     log = open(f"/tmp/ww_stepb_{spec.name}_sim.log", "w")
     sim = subprocess.Popen([ENV, "ign", "gazebo", "-s", "-r", "--iterations", "120000", world],
@@ -302,8 +302,9 @@ def main():
     print("=== Step B — 달리면서 울퉁불퉁한 밭에 타격 (Tier 2, 렌더 없음) ===")
     print(f"    밭 {name}: 두둑 높이±{spec.height_var*100:.0f}cm · 흙덩이 {spec.clod_density}/m · "
           f"경사 {spec.cross_slope_deg}° · 속도 {V} m/s")
-    print(f"    표적은 **로봇 기준 상대**(카메라가 보는 방식) · 제어=온보드"
-          f"{' + 시각 오도메트리(슬립 감지)' if USE_VO else ''} · 채점=지상진실 FK\n")
+    # 여긴 Tier 2(렌더 없음)라 시각 오도메트리가 없다 — 제어는 휠+IMU 뿐이다.
+    # VO 를 섞은 대조는 diag_vo·diag_fusion(Tier 3)이 맡는다.
+    print("    표적은 **로봇 기준 상대**(카메라가 보는 방식) · 제어=휠+IMU · 채점=지상진실 FK\n")
 
     results = {}
     for corrected in (False, True):

@@ -462,6 +462,12 @@ step-b: build/ww_cmd clean-sim
 	@$(MAKE) -s worlds/field_$(or $(FIELD),dev).sdf
 	@FIELD=$(or $(FIELD),dev) $(ENV) python3 tools/assert_step_b.py
 
+# 리드↔타격오차 곡선 — 관측→타격 구간 길이가 오차를 정하는가. Step B 하네스에서 리드만 바꾼다.
+# 이게 "예"여야 코디네이터의 '첫 관측 고정'을 '마지막 관측 재계획'으로 바꾸는 게 값어치가 있다.
+lead: build/ww_cmd clean-sim
+	@$(MAKE) -s worlds/field_$(or $(FIELD),dev).sdf
+	@FIELD=$(or $(FIELD),dev) $(ENV) python3 tools/diag_lead.py
+
 # 자율주행: 두둑 끝 헤드랜드 U턴 (순간이동 치트 제거). Tier 2 물리(렌더 없음).
 # 제어 코드는 프로덕션과 동일한 weedwatch_control.maneuver 를 import 하므로 colcon 빌드 선행.
 # 게이트: 진입 y<5cm · 진입 yaw<8° · 끼임 없음 · IMU 실사용(휠 폴백이면 회전당 26° 오차).

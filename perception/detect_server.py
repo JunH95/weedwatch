@@ -232,19 +232,24 @@ def merge_detections(dets, radius: float = DEDUP_R):
     return [(x, y, int(a)) for x, y, a in out]
 
 
-def detect_fused(model, frames, base_pose, device: str = "cuda", depths=None, **kw):
+def detect_fused(model, frames, base_pose, device: str = "cuda", depths=None, bases=None, **kw):
     """카메라 여러 대의 프레임을 한 번에 → 융합된 [(wx, wy, area)].
 
     frames: [(cam_index, png_path)]. 각 프레임을 그 카메라의 Y 오프셋(CAM_DYS)으로 world 화한 뒤
     겹침 중복을 합친다. 한 대로는 두둑 폭의 65% 밖에 못 봤다(DECISIONS 026) — 이 함수가 나머지를 준다.
+
+    **bases**: {cam_index: (x,y,z,yaw)} — 그 프레임을 **찍은 순간**의 자세. 주면 base_pose 대신 쓴다.
+    추론이 끝난 시각의 자세를 쓰면 world 좌표가 그만큼 밀리고, 프레임이 낡으면 잡초가 로봇을 따라
+    뒤로 행진한다(실측: 잡초 하나가 20개로 불어나 처리율 분모를 오염시켰다).
     """
     alld = []
     for ci, frame in frames:
         cam_dy = CAM_DYS[ci] if ci < len(CAM_DYS) else 0.0
         dep = (depths or {}).get(ci)
+        bp = (bases or {}).get(ci) or base_pose
         # frame 은 PNG 경로(Path/str) 또는 이미 로드된 RGB 배열(ROS 카메라 토픽). _predict 가 둘 다 받는다.
         img = frame if isinstance(frame, np.ndarray) else str(frame)
-        alld += detect_frame(model, img, base_pose, device, cam_dy=cam_dy, depth=dep, **kw)
+        alld += detect_frame(model, img, bp, device, cam_dy=cam_dy, depth=dep, **kw)
     return merge_detections(alld)
 
 
